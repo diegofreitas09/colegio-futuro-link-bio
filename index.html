@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#071426" />
+  <meta name="description" content="Colégio Futuro — links oficiais, matrículas, agenda online, área do professor, projetos e contato." />
+  <title>Colégio Futuro | Links Oficiais</title>
+  <style>
+    :root{--bg:#06111f;--bg2:#0b2d4b;--yellow:#ffd84d;--blue:#31b7ff;--white:#fff;--glass:rgba(255,255,255,.105);--stroke:rgba(255,255,255,.18);--shadow:0 18px 50px rgba(0,0,0,.35)}
+    *{box-sizing:border-box} html{scroll-behavior:smooth}
+    body{margin:0;min-height:100vh;color:var(--white);font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:radial-gradient(circle at 20% 5%,rgba(49,183,255,.22),transparent 30%),radial-gradient(circle at 90% 20%,rgba(255,216,77,.12),transparent 24%),linear-gradient(180deg,#06111f 0%,#071b2d 52%,#04111d 100%);overflow-x:hidden}
+    .stars,.stars:before,.stars:after{position:fixed;inset:0;pointer-events:none;content:"";background-image:radial-gradient(#fff 1px,transparent 1px),radial-gradient(rgba(49,183,255,.8) 1px,transparent 1px);background-size:45px 45px,80px 80px;background-position:0 0,15px 25px;opacity:.26;animation:drift 28s linear infinite}
+    .stars:before{animation-duration:40s;transform:scale(1.2);opacity:.16}.stars:after{animation-duration:58s;transform:scale(1.5);opacity:.09}
+    @keyframes drift{from{transform:translateY(0)}to{transform:translateY(-120px)}}
+    .matrix{position:fixed;inset:0;pointer-events:none;opacity:.075;background-image:linear-gradient(rgba(49,183,255,.35) 1px,transparent 1px),linear-gradient(90deg,rgba(49,183,255,.3) 1px,transparent 1px);background-size:34px 34px;mask-image:linear-gradient(to bottom,transparent,black 25%,black 80%,transparent)}
+    main{position:relative;z-index:2;width:min(720px,100%);margin:auto;padding:28px 18px 40px}.hero{text-align:center;padding:18px 8px 24px}.rocket-wrap{height:105px;position:relative;display:grid;place-items:center}
+    .rocket-main{font-size:64px;filter:drop-shadow(0 10px 20px rgba(49,183,255,.3));transform:rotate(-12deg);animation:rocketFloat 2.8s ease-in-out infinite}.rocket-main:after{content:"";position:absolute;width:18px;height:42px;left:22px;top:61px;background:linear-gradient(#fff3a1,#ffad22 45%,#ff4e1f 80%,transparent);border-radius:70% 70% 100% 100%;filter:blur(.5px);transform:rotate(10deg);animation:flame .18s ease-in-out infinite alternate}
+    @keyframes rocketFloat{0%,100%{transform:translateY(2px) rotate(-12deg)}50%{transform:translateY(-10px) rotate(-8deg)}}@keyframes flame{from{height:28px;opacity:.75}to{height:46px;opacity:1}}
+    .brand{font-size:clamp(30px,8vw,54px);margin:0;letter-spacing:-1.8px;font-weight:900}.brand strong{color:var(--yellow)}.tagline{margin:8px auto 0;max-width:520px;color:#dbeeff;font-size:15.5px;line-height:1.5}.pill{display:inline-flex;gap:8px;align-items:center;margin-top:14px;background:rgba(255,216,77,.12);border:1px solid rgba(255,216,77,.35);color:#ffea99;padding:9px 14px;border-radius:999px;font-weight:700;font-size:13px}
+    .links{display:grid;gap:12px;margin-top:10px}.link{position:relative;display:flex;align-items:center;gap:14px;min-height:68px;padding:13px 16px;text-decoration:none;color:white;border:1px solid var(--stroke);background:linear-gradient(135deg,rgba(255,255,255,.12),rgba(255,255,255,.065));backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-radius:20px;box-shadow:0 10px 25px rgba(0,0,0,.18);transition:.22s ease;overflow:hidden}.link:before{content:"";position:absolute;inset:-1px;background:linear-gradient(110deg,transparent 35%,rgba(255,255,255,.12),transparent 65%);transform:translateX(-110%);transition:.55s ease;pointer-events:none}.link:hover,.link:active{transform:translateY(-2px) scale(1.008);border-color:rgba(255,216,77,.55)}.link:hover:before{transform:translateX(110%)}
+    .icon{width:45px;height:45px;flex:0 0 45px;display:grid;place-items:center;border-radius:15px;background:rgba(49,183,255,.13);border:1px solid rgba(49,183,255,.26);font-size:24px}.copy{min-width:0;flex:1}.title{display:block;font-weight:850;font-size:16px;line-height:1.2}.sub{display:block;color:#bcd5e8;font-size:12.5px;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .mini-rocket{position:relative;width:34px;flex:0 0 34px;font-size:25px;animation:nudge 1.9s ease-in-out infinite;filter:drop-shadow(0 4px 9px rgba(255,216,77,.22))}.mini-rocket:after{content:"";position:absolute;width:8px;height:18px;right:20px;top:21px;background:linear-gradient(#ffe98e,#ff9c1a 48%,#ff4222 82%,transparent);border-radius:70% 70% 100% 100%;transform:rotate(45deg);animation:flameMini .16s ease-in-out infinite alternate}
+    @keyframes nudge{0%,100%{transform:translateX(0) rotate(-45deg)}50%{transform:translateX(5px) rotate(-45deg)}}@keyframes flameMini{from{height:10px;opacity:.6}to{height:19px;opacity:1}}
+    .primary{background:linear-gradient(135deg,rgba(255,216,77,.22),rgba(255,216,77,.085));border-color:rgba(255,216,77,.48)}.primary .icon{background:rgba(255,216,77,.18);border-color:rgba(255,216,77,.35)}.section-label{margin:23px 3px 10px;font-size:12px;text-transform:uppercase;letter-spacing:1.8px;color:#8ecff2;font-weight:800}footer{text-align:center;margin-top:28px;padding:23px 8px 12px;color:#94aec2;font-size:12.5px}footer .dev{color:white;font-weight:750}footer .pdf{color:var(--yellow);font-weight:900}.footline{width:80px;height:3px;border-radius:99px;background:linear-gradient(90deg,var(--blue),var(--yellow));margin:0 auto 14px}
+    @media(max-width:420px){main{padding-left:14px;padding-right:14px}.link{border-radius:18px}.sub{max-width:230px}.rocket-main{font-size:58px}}@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important}}
+  </style>
+</head>
+<body>
+  <div class="stars"></div><div class="matrix"></div>
+  <main>
+    <section class="hero"><div class="rocket-wrap"><div class="rocket-main">🚀</div></div><h1 class="brand">COLÉGIO <strong>FUTURO</strong></h1><p class="tagline">Educação que prepara para o presente e impulsiona cada estudante para o futuro.</p><div class="pill">✨ Todos os acessos oficiais em um só lugar</div></section>
+    <div class="section-label">Comece por aqui</div>
+    <section class="links">
+      <a class="link primary" href="https://colegiofuturoce.com.br" target="_blank" rel="noopener"><span class="icon">🌐</span><span class="copy"><span class="title">Site Oficial</span><span class="sub">Conheça o Colégio Futuro</span></span><span class="mini-rocket">🚀</span></a>
+      <a class="link primary" href="https://colegiofuturoce.com.br/matriculas" target="_blank" rel="noopener"><span class="icon">🎓</span><span class="copy"><span class="title">Matrículas</span><span class="sub">Garanta a vaga para o próximo ano letivo</span></span><span class="mini-rocket">🚀</span></a>
+      <a class="link" href="https://colegiofuturoce.com.br/contato" target="_blank" rel="noopener"><span class="icon">💬</span><span class="copy"><span class="title">Fale com a Escola</span><span class="sub">Atendimento e informações</span></span><span class="mini-rocket">🚀</span></a>
+    </section>
+    <div class="section-label">Família Futuro</div>
+    <section class="links">
+      <a class="link" href="https://escola.computex.com.br/escola329/index2.php" target="_blank" rel="noopener"><span class="icon">📘</span><span class="copy"><span class="title">Agenda On-line</span><span class="sub">Acompanhe a rotina escolar</span></span><span class="mini-rocket">🚀</span></a>
+      <a class="link" href="https://colegiofuturoce.com.br/area-do-professor" target="_blank" rel="noopener"><span class="icon">👩‍🏫</span><span class="copy"><span class="title">Área do Professor</span><span class="sub">Acesso reservado à equipe docente</span></span><span class="mini-rocket">🚀</span></a>
+      <a class="link" href="https://colegiofuturoce.com.br/mural" target="_blank" rel="noopener"><span class="icon">📢</span><span class="copy"><span class="title">Mural</span><span class="sub">Avisos, novidades e comunicados</span></span><span class="mini-rocket">🚀</span></a>
+    </section>
+    <div class="section-label">Conheça mais</div>
+    <section class="links">
+      <a class="link" href="https://colegiofuturoce.com.br/projetos" target="_blank" rel="noopener"><span class="icon">🧪</span><span class="copy"><span class="title">Projetos</span><span class="sub">Experiências que ampliam a aprendizagem</span></span><span class="mini-rocket">🚀</span></a>
+      <a class="link" href="https://colegiofuturoce.com.br/nossos-parceiros" target="_blank" rel="noopener"><span class="icon">🤝</span><span class="copy"><span class="title">Nossos Parceiros</span><span class="sub">Quem caminha com o Colégio Futuro</span></span><span class="mini-rocket">🚀</span></a>
+      <a class="link" href="https://colegiofuturoce.com.br/fardamento" target="_blank" rel="noopener"><span class="icon">👕</span><span class="copy"><span class="title">Fardamento</span><span class="sub">Veja os modelos oficiais</span></span><span class="mini-rocket">🚀</span></a>
+      <a class="link" href="https://colegiofuturoce.com.br/depoimentos" target="_blank" rel="noopener"><span class="icon">⭐</span><span class="copy"><span class="title">Depoimentos</span><span class="sub">Histórias de quem vive o Futuro</span></span><span class="mini-rocket">🚀</span></a>
+      <a class="link" href="https://colegiofuturoce.com.br/contato" target="_blank" rel="noopener"><span class="icon">📍</span><span class="copy"><span class="title">Contato</span><span class="sub">Canais oficiais do Colégio Futuro</span></span><span class="mini-rocket">🚀</span></a>
+    </section>
+    <footer><div class="footline"></div><div>Desenvolvido por <span class="dev"><span class="pdf">PDF</span> Solução Educacional</span></div></footer>
+  </main>
+</body>
+</html>
