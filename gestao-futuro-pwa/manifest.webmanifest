@@ -1,0 +1,11 @@
+{
+  "name":"Gestão Futuro",
+  "short_name":"Gestão Futuro",
+  "description":"Gestão escolar integrada do Colégio Futuro",
+  "start_url":"/",
+  "scope":"/",
+  "display":"standalone",
+  "background_color":"#f5f7fb",
+  "theme_color":"#123b76",
+  "icons":[{"src":"/assets/icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+}
