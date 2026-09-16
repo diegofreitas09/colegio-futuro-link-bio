@@ -1,0 +1,13 @@
+{
+  "name": "gestao-futuro-pwa",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "netlify dev",
+    "build": "echo static-pwa"
+  },
+  "devDependencies": {
+    "@netlify/functions": "latest"
+  }
+}
