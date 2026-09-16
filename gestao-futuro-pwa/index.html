@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#123b76">
+  <meta name="description" content="Gestão escolar integrada do Colégio Futuro">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/assets/icon.svg">
+  <link rel="apple-touch-icon" href="/assets/icon.svg">
+  <link rel="stylesheet" href="/styles.css">
+  <title>Gestão Futuro</title>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand"><div class="brand-logo">GF</div><div><strong>Gestão Futuro</strong><small>Colégio Futuro</small></div></div>
+    <nav class="nav" id="nav">
+      <button data-view="dashboard" class="active">Dashboard</button>
+      <button data-view="alunos">Alunos</button>
+      <button data-view="responsaveis">Responsáveis</button>
+      <button data-view="matriculas">Matrículas</button>
+      <button data-view="documentos">Documentos</button>
+      <button data-view="produtos" class="secure">Produtos</button>
+      <button data-view="recebimentos" class="secure">Recebimentos</button>
+      <button data-view="caixa" class="secure">Caixa</button>
+      <button data-view="fechamento" class="secure">Fechamento</button>
+    </nav>
+    <div class="side-foot">PDF Solução Educacional • PWA segura</div>
+  </aside>
+  <main class="main">
+    <header class="topbar">
+      <div><h1 id="pageTitle">Dashboard</h1><div class="muted" style="font-size:12px"><span id="apiDot" class="status-dot"></span><span id="apiStatus">verificando conexão…</span></div></div>
+      <div class="top-actions">
+        <button id="installBtn" class="btn btn-gold hidden">Instalar app</button>
+        <button id="sessionBtn" class="btn btn-soft">Acessar</button>
+      </div>
+    </header>
+    <section class="content">
+      <div id="notice"></div>
+      <div id="view"></div>
+    </section>
+  </main>
+</div>
+
+<div id="modalRoot"></div>
+<script type="module" src="/app.js"></script>
+</body>
+</html>
