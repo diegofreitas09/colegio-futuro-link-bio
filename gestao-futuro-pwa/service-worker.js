@@ -1,5 +1,8 @@
-const CACHE = "gestao-futuro-shell-v1";
-const SHELL = ["/", "/index.html", "/manifest.webmanifest", "/assets/icon.svg"];
+const CACHE = "gestao-futuro-shell-v2";
+const SHELL = [
+  "/", "/index.html", "/styles.css", "/manifest.webmanifest", "/assets/icon.svg",
+  "/app/core.js", "/app/secretaria.js", "/app/gestao.js", "/app/start.js"
+];
 
 self.addEventListener("install", event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting()));
