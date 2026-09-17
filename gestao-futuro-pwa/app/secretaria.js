@@ -46,10 +46,61 @@ async function renderMatriculas(){
 }
 function openMatForm(b){
   const alunos=b.alunos||[], resp=b.responsaveis||[], prods=(b.produtos||[]).filter(p=>p.ATIVO==="Sim");
-  modal(`<div class="modal-head"><h3>Nova matrícula</h3><button class="icon-btn" data-close>✕</button></div><div class="modal-body"><form id="matForm" class="form-grid"><div class="field span-2"><label>Aluno *</label><select name="ID_ALUNO" id="matAluno" required><option value="">Selecione</option>${alunos.map(a=>`<option value="${esc(a.ID_ALUNO)}" data-serie="${esc(a["SÉRIE"]||"")}" data-turno="${esc(a.TURNO||"")}">${esc(a.NOME_COMPLETO)} — ${esc(a["SÉRIE"]||"")}</option>`).join("")}</select></div><div class="field"><label>Ano letivo</label><input type="number" name="ANO_LETIVO" value="2026"></div><div class="field"><label>Série *</label><select name="SÉRIE" id="matSerie" required><option value="">Selecione</option>${seriesOptions()}</select></div><div class="field"><label>Turno</label><select name="TURNO" id="matTurno"><option>Manhã</option><option>Tarde</option><option>Integral</option></select></div><div class="field"><label>Tipo</label><select name="TIPO_MATRICULA"><option>Novato</option><option>Veterano</option></select></div><div class="field span-2"><label>Plano / produto principal</label><select name="ID_PRODUTO_PLANO"><option value="">Definir manualmente</option>${prods.filter(p=>p.CATEGORIA==="Mensalidade").map(p=>`<option value="${esc(p.ID_PRODUTO)}">${esc(p.PRODUTO)} — ${money(p.VALOR_BASE)}</option>`).join("")}</select></div><div class="field"><label>Parcelas</label><input type="number" name="PLANO_PARCELAS" value="12" min="1"></div><div class="field"><label>Valor contratado</label><input type="number" step="0.01" name="VALOR_ANUIDADE_CONTRATADO" value="0"></div><div class="field"><label>Dia vencimento</label><input type="number" name="DIA_VENCIMENTO" value="5" min="1" max="31"></div><div class="field"><label>Primeiro vencimento</label><input type="date" name="PRIMEIRO_VENCIMENTO"></div><div class="field span-2"><label>Responsável financeiro</label><select name="ID_RESP_FINANCEIRO" id="matResp"><option value="">Selecione o aluno primeiro</option></select></div><div class="field span-3"><label>Observação</label><textarea name="OBSERVAÇÃO"></textarea></div></form></div><div class="modal-foot"><button class="btn btn-soft" data-close>Cancelar</button><button class="btn btn-primary" id="saveMat">Criar matrícula</button></div>`);
+  const inferYear=p=>Number(p.ANO_LETIVO)||Number((String(p.ID_PRODUTO||"")+" "+String(p.PRODUTO||"")).match(/20\d{2}/)?.[0])||0;
+  const years=[...new Set(prods.map(inferYear).filter(Boolean))].sort((a,b)=>b-a);
+  const currentYear=years[0]||new Date().getFullYear();
+  const firstDue=`${currentYear}-01-05`;
+
+  modal(`<div class="modal-head"><h3>Nova matrícula</h3><button class="icon-btn" data-close>✕</button></div><div class="modal-body"><form id="matForm" class="form-grid">
+    <div class="field span-2"><label>Aluno *</label><select name="ID_ALUNO" id="matAluno" required><option value="">Selecione</option>${alunos.map(a=>`<option value="${esc(a.ID_ALUNO)}" data-serie="${esc(a["SÉRIE"]||"")}" data-turno="${esc(a.TURNO||"")}">${esc(a.NOME_COMPLETO)} — ${esc(a["SÉRIE"]||"")}</option>`).join("")}</select></div>
+    <div class="field"><label>Ano letivo *</label><select name="ANO_LETIVO" id="matYear" required>${years.map(y=>`<option value="${y}">${y}</option>`).join("")}</select></div>
+    <div class="field"><label>Série *</label><select name="SÉRIE" id="matSerie" required><option value="">Selecione</option>${seriesOptions()}</select></div>
+    <div class="field"><label>Turno</label><select name="TURNO" id="matTurno"><option>Manhã</option><option>Tarde</option><option>Integral</option></select></div>
+    <div class="field"><label>Tipo</label><select name="TIPO_MATRICULA"><option>Novato</option><option>Veterano</option></select></div>
+    <div class="field span-2"><label>Plano / produto principal</label><select name="ID_PRODUTO_PLANO" id="matPlano"><option value="">Definir manualmente</option></select></div>
+    <div class="field"><label>Parcelas</label><input type="number" name="PLANO_PARCELAS" value="12" min="1"></div>
+    <div class="field"><label>Valor contratado</label><input type="number" step="0.01" name="VALOR_ANUIDADE_CONTRATADO" value="0"></div>
+    <div class="field"><label>Dia vencimento</label><input type="number" name="DIA_VENCIMENTO" id="matDueDay" value="5" min="1" max="31"></div>
+    <div class="field"><label>Primeiro vencimento</label><input type="date" name="PRIMEIRO_VENCIMENTO" id="matFirstDue" value="${firstDue}"></div>
+    <div class="field span-2"><label>Responsável financeiro</label><select name="ID_RESP_FINANCEIRO" id="matResp"><option value="">Selecione o aluno primeiro</option></select></div>
+    <div class="field span-3"><label>Observação</label><textarea name="OBSERVAÇÃO"></textarea></div>
+  </form></div><div class="modal-foot"><button class="btn btn-soft" data-close>Cancelar</button><button class="btn btn-primary" id="saveMat">Criar matrícula</button></div>`);
+
   $$('[data-close]').forEach(x=>x.onclick=closeModal);
-  $("#matAluno").onchange=()=>{const o=$("#matAluno").selectedOptions[0]; if(o?.dataset.serie)$("#matSerie").value=o.dataset.serie;if(o?.dataset.turno)$("#matTurno").value=o.dataset.turno;const id=$("#matAluno").value;const rr=resp.filter(r=>r.ID_ALUNO===id);$("#matResp").innerHTML=`<option value="">Selecione</option>${rr.map(r=>`<option value="${esc(r.ID_RESPONSAVEL)}">${esc(r.NOME_COMPLETO)}${r.RESPONSAVEL_FINANCEIRO==="Sim"?" • financeiro":""}</option>`).join("")}`;};
-  $("#saveMat").onclick=async()=>{const f=$("#matForm");if(!f.reportValidity())return;const data=Object.fromEntries(new FormData(f).entries());const btn=$("#saveMat");btn.disabled=true;btn.textContent="Criando…";try{const res=await api("criarMatriculaCompleta",{token:tokenFor("staff"),data});state.bootstrap=null;closeModal();setNotice(`Matrícula ${esc(res.id)} criada. ${res.parcelas||0} parcela(s) gerada(s).`,"ok");await renderMatriculas();}catch(e){alert(e.message);btn.disabled=false;btn.textContent="Criar matrícula";}};
+
+  const refreshPlans=()=>{
+    const year=Number($("#matYear").value);
+    const filtered=prods.filter(p=>p.CATEGORIA==="Mensalidade"&&inferYear(p)===year);
+    $("#matPlano").innerHTML=`<option value="">Definir manualmente</option>${filtered.map(p=>`<option value="${esc(p.ID_PRODUTO)}">${esc(p.PRODUTO)} — ${money(p.VALOR_BASE)}</option>`).join("")}`;
+  };
+  const syncFirstDue=()=>{
+    const year=Number($("#matYear").value)||currentYear;
+    const day=Math.max(1,Math.min(28,Number($("#matDueDay").value)||5));
+    $("#matFirstDue").value=`${year}-01-${String(day).padStart(2,"0")}`;
+  };
+  refreshPlans();
+
+  $("#matYear").onchange=()=>{refreshPlans();syncFirstDue();};
+  $("#matDueDay").onchange=syncFirstDue;
+  $("#matAluno").onchange=()=>{
+    const o=$("#matAluno").selectedOptions[0];
+    if(o?.dataset.serie)$("#matSerie").value=o.dataset.serie;
+    if(o?.dataset.turno)$("#matTurno").value=o.dataset.turno;
+    const id=$("#matAluno").value;
+    const rr=resp.filter(r=>r.ID_ALUNO===id);
+    $("#matResp").innerHTML=`<option value="">Selecione</option>${rr.map(r=>`<option value="${esc(r.ID_RESPONSAVEL)}">${esc(r.NOME_COMPLETO)}${r.RESPONSAVEL_FINANCEIRO==="Sim"?" • financeiro":""}</option>`).join("")}`;
+  };
+  $("#saveMat").onclick=async()=>{
+    const f=$("#matForm");if(!f.reportValidity())return;
+    const data=Object.fromEntries(new FormData(f).entries());
+    const btn=$("#saveMat");btn.disabled=true;btn.textContent="Criando…";
+    try{
+      const res=await api("criarMatriculaCompleta",{token:tokenFor("staff"),data});
+      state.bootstrap=null;closeModal();
+      setNotice(`Matrícula ${esc(res.id)} criada para ${esc(data.ANO_LETIVO)}. ${res.parcelas||0} parcela(s) gerada(s).`,"ok");
+      await renderMatriculas();
+    }catch(e){alert(e.message);btn.disabled=false;btn.textContent="Criar matrícula";}
+  };
 }
 
 async function renderDocumentos(){
