@@ -23,8 +23,33 @@ const titles = {
   caixa:"Fluxo de caixa", fechamento:"Fechamento financeiro"
 };
 
-const roleForView = view => ["produtos","autorizacoes","recebimentos","caixa","fechamento"].includes(view) ? "admin" : ["atendimento","panfletos","alunos","responsaveis","matriculas","documentos"].includes(view) ? "staff" : "public";
-const tokenFor = role => role === "admin" ? state.adminToken : (state.staffToken || state.adminToken);
+const INTERFACE_VIEWS = Object.freeze({
+  staff:["dashboard","atendimento","panfletos","alunos","responsaveis","matriculas","documentos"],
+  admin:["dashboard","panfletos","produtos","autorizacoes","recebimentos","caixa","fechamento"],
+  public:["dashboard"]
+});
+const roleForView = view => ["produtos","autorizacoes","recebimentos","caixa","fechamento"].includes(view) ? "admin" : ["atendimento","alunos","responsaveis","matriculas","documentos"].includes(view) ? "staff" : view==="panfletos" ? "shared" : "public";
+const activeInterfaceRole = () => state.role==="admin" && state.adminToken ? "admin" : state.role==="staff" && state.staffToken ? "staff" : "public";
+const allowedViewsFor = role => INTERFACE_VIEWS[role] || INTERFACE_VIEWS.public;
+const tokenFor = role => role === "admin" ? state.adminToken : (state.role==="staff" ? state.staffToken : state.adminToken);
+function isViewAllowed(view){return allowedViewsFor(activeInterfaceRole()).includes(view)}
+function applyRoleInterface(){
+  const role=activeInterfaceRole(),allowed=new Set(allowedViewsFor(role));
+  $("#nav button").forEach(btn=>{
+    const show=allowed.has(btn.dataset.view);
+    btn.hidden=!show;
+    btn.setAttribute("aria-hidden",show?"false":"true");
+  });
+  document.body.classList.remove("interface-staff","interface-admin","interface-public");
+  document.body.classList.add("interface-"+role);
+  const brandArea=$("#brandArea");
+  if(brandArea)brandArea.textContent=role==="staff"?"Secretaria • Atendimento • Matrículas":role==="admin"?"Gestão • Financeiro • Autorizações":"Secretaria • Gestão • Financeiro";
+  const badge=$("#interfaceBadge");
+  if(badge){
+    badge.textContent=role==="staff"?"Interface Secretaria":role==="admin"?"Interface Gestão":"Escolha seu acesso";
+    badge.className="interface-badge "+role;
+  }
+}
 
 function esc(v="") { return String(v ?? "").replace(/[&<>'"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c])); }
 function money(v) { const n=Number(String(v ?? 0).replace(",",".")) || 0; return n.toLocaleString("pt-BR",{style:"currency",currency:"BRL"}); }
@@ -257,9 +282,11 @@ function authModal(targetRole="staff") {
     try{
       const res=await api("loginSecretaria",{password});
       if(!res?.ok) throw new Error(res?.message||"Senha inválida.");
+      if(state.adminToken){try{await api("logout",{token:state.adminToken})}catch{}}
+      state.adminToken="";sessionStorage.removeItem("gf_admin_token");
       state.staffToken=res.token; state.role="staff";
       sessionStorage.setItem("gf_staff_token",res.token); sessionStorage.setItem("gf_role","staff");
-      refreshSessionButton(); closeModal(); state.bootstrap=null; await navigate(state.view);
+      state.bootstrap=null;applyRoleInterface();refreshSessionButton(); closeModal(); await navigate("dashboard");
     }catch(e){ alert(e.message); btn.disabled=false; btn.textContent="Entrar na Secretaria"; }
   };
   $("#adminLogin").onclick=async()=>{
@@ -269,9 +296,11 @@ function authModal(targetRole="staff") {
     try{
       const res=await api("loginGestao",{password});
       if(!res?.ok) throw new Error(res?.message||"Senha inválida.");
+      if(state.staffToken){try{await api("logout",{token:state.staffToken})}catch{}}
+      state.staffToken="";sessionStorage.removeItem("gf_staff_token");
       state.adminToken=res.token; state.role="admin";
       sessionStorage.setItem("gf_admin_token",res.token); sessionStorage.setItem("gf_role","admin");
-      refreshSessionButton(); closeModal(); state.bootstrap=null; if(typeof pollApprovals==="function") pollApprovals(); await navigate(state.view);
+      state.bootstrap=null;applyRoleInterface();refreshSessionButton(); closeModal(); if(typeof pollApprovals==="function") pollApprovals(); await navigate("dashboard");
     }catch(e){ alert(e.message); btn.disabled=false; btn.textContent="Entrar na Gestão"; }
   };
   const lo=$("#logoutBtn"); if(lo) lo.onclick=logoutAll;
@@ -283,15 +312,24 @@ async function logoutAll(){
   try{ if(state.staffToken && state.staffToken!==state.adminToken) await api("logout",{token:state.staffToken}); }catch{}
   state.staffToken=""; state.adminToken=""; state.role=""; state.bootstrap=null;
   sessionStorage.removeItem("gf_staff_token");sessionStorage.removeItem("gf_admin_token");sessionStorage.removeItem("gf_role");
-  refreshSessionButton();closeModal();navigate("dashboard");
+  applyRoleInterface();refreshSessionButton();closeModal();navigate("dashboard");
 }
 
 async function requireRole(view){
-  const role=roleForView(view);
-  if(role==="public") return true;
-  if(role==="staff" && tokenFor("staff")) return true;
-  if(role==="admin" && state.adminToken) return true;
-  authModal(role);
+  const active=activeInterfaceRole(),required=roleForView(view);
+  if(!isViewAllowed(view)){
+    showToast(active==="staff"?"Este comando pertence à interface da Gestão.":"Este comando pertence à interface da Secretaria.","error");
+    return false;
+  }
+  if(required==="public") return true;
+  if(required==="shared"){
+    if(active==="staff"&&state.staffToken)return true;
+    if(active==="admin"&&state.adminToken)return true;
+    authModal("staff");return false;
+  }
+  if(required==="staff" && active==="staff" && state.staffToken) return true;
+  if(required==="admin" && active==="admin" && state.adminToken) return true;
+  authModal(required);
   return false;
 }
 
@@ -311,8 +349,10 @@ async function loadBootstrap(){
 }
 
 async function navigate(view){
+  applyRoleInterface();
+  if(!isViewAllowed(view)) view="dashboard";
   state.view=view;
-  $$("#nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===view));
+  $("#nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===view));
   $("#pageTitle").textContent=titles[view]||"Gestão Futuro";
   setNotice("");
   if(!(await requireRole(view))) return;
@@ -402,13 +442,28 @@ async function renderDashboard(){
       $("#view").insertAdjacentHTML("beforeend",`<div class="notice error">Não foi possível montar o comparativo 2026 × 2027: ${esc(e.message)}</div>`);
     }
   }
-  $("#view").insertAdjacentHTML("beforeend",`<div class="section-head"><h2>Atalhos</h2></div><div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(210px,1fr))">
-    <button class="card btn-soft" data-go="atendimento" style="text-align:left"><strong>Atendimento de matrículas</strong><br><span class="muted">Funil, proposta e pedido de desconto</span></button>
-    <button class="card btn-soft" data-go="alunos" style="text-align:left"><strong>Cadastro de alunos</strong><br><span class="muted">Consulta e ficha escolar</span></button>
-    <button class="card btn-soft" data-go="matriculas" style="text-align:left"><strong>Nova matrícula</strong><br><span class="muted">Contrato, plano e checklist</span></button>
-    <button class="card btn-soft" data-go="produtos" style="text-align:left"><strong>Produtos e valores</strong><br><span class="muted">Acesso da Gestão</span></button>
-    <button class="card btn-soft" data-go="caixa" style="text-align:left"><strong>Fluxo de caixa</strong><br><span class="muted">Entradas e saídas</span></button>
-  </div>`);
+  const role=activeInterfaceRole();
+  const shortcutHtml=role==="admin"
+    ? `<div class="section-head"><h2>Gestão e financeiro</h2><span class="muted">Área restrita à direção/gestão.</span></div><div class="grid role-shortcuts">
+        <button class="card btn-soft" data-go="autorizacoes"><strong>Autorizações</strong><br><span class="muted">Pedidos de desconto aguardando decisão</span></button>
+        <button class="card btn-soft" data-go="produtos"><strong>Valores e reajustes</strong><br><span class="muted">Editar catálogo, serviços e reajustes</span></button>
+        <button class="card btn-soft" data-go="recebimentos"><strong>Recebimentos</strong><br><span class="muted">Receitas e pagamentos registrados</span></button>
+        <button class="card btn-soft" data-go="caixa"><strong>Fluxo de caixa</strong><br><span class="muted">Entradas, saídas e movimentações</span></button>
+        <button class="card btn-soft" data-go="fechamento"><strong>Fechamento</strong><br><span class="muted">Visão financeira consolidada</span></button>
+        <button class="card btn-soft" data-go="panfletos"><strong>Panfletos por série</strong><br><span class="muted">Editar conteúdo oficial para famílias</span></button>
+      </div>`
+    : role==="staff"
+    ? `<div class="section-head"><h2>Secretaria e atendimento</h2><span class="muted">Sem acesso a valores administrativos, caixa ou fechamento.</span></div><div class="grid role-shortcuts">
+        <button class="card btn-soft" data-go="atendimento"><strong>Atendimento de matrículas</strong><br><span class="muted">Proposta, negociação e encaminhamento</span></button>
+        <button class="card btn-soft" data-go="alunos"><strong>Alunos</strong><br><span class="muted">Cadastro e consulta escolar</span></button>
+        <button class="card btn-soft" data-go="responsaveis"><strong>Responsáveis</strong><br><span class="muted">Cadastro e vínculos familiares</span></button>
+        <button class="card btn-soft" data-go="matriculas"><strong>Matrículas</strong><br><span class="muted">Contrato, plano e checklist</span></button>
+        <button class="card btn-soft" data-go="documentos"><strong>Documentos</strong><br><span class="muted">Pendências e conferência</span></button>
+        <button class="card btn-soft" data-go="panfletos"><strong>Panfletos por série</strong><br><span class="muted">Somente consulta e geração para a família</span></button>
+      </div>`
+    : `<div class="card access-choice"><div><h2>Escolha a sua área</h2><p class="muted">A Secretaria e a Gestão agora trabalham em interfaces separadas.</p></div><button class="btn btn-primary" id="openAccess">Acessar plataforma</button></div>`;
+  $("#view").insertAdjacentHTML("beforeend",shortcutHtml);
+  if(role==="public"){const b=$("#openAccess");if(b)b.onclick=()=>authModal("staff")}
   $$('[data-go]').forEach(b=>b.onclick=()=>navigate(b.dataset.go));
 }
 
