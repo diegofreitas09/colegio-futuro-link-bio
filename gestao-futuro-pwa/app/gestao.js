@@ -49,7 +49,7 @@ function openSchoolYearForm(years){
   $("#createYear").onclick=async()=>{
     const f=$("#yearForm");if(!f.reportValidity())return;const data=Object.fromEntries(new FormData(f).entries());
     const btn=$("#createYear");btn.disabled=true;btn.textContent="Aplicando…";
-    try{const res=await api("aplicarReajusteCatalogo",{token:state.adminToken,data});state.productYear=Number(data.anoDestino);closeModal();setNotice(`Reajuste aplicado em ${res.quantidade||0} produto(s). O catálogo ${data.anoDestino} está ${data.publicar==="Sim"?"publicado":"em rascunho"} para o Atendimento.`,"ok");await renderProdutos()}catch(e){alert(e.message);btn.disabled=false;btn.textContent="Aplicar reajuste"}
+    try{const res=await api("aplicarReajusteCatalogo",{token:state.adminToken,data});state.productYear=Number(data.anoDestino);state.catalogProducts=null;state.bootstrap=null;state.flyerCache={};closeModal();setNotice(`Reajuste aplicado em ${res.quantidade||0} produto(s). O catálogo ${data.anoDestino} está ${data.publicar==="Sim"?"publicado":"em rascunho"} para o Atendimento.`,"ok");await renderProdutos()}catch(e){alert(e.message);btn.disabled=false;btn.textContent="Aplicar reajuste"}
   };
 }
 
