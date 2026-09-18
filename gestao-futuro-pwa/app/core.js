@@ -169,28 +169,77 @@ async function navigate(view){
   }
 }
 
+function dashNorm(v){return String(v||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim()}
+function dashYear(p){return Number(p&&p.ANO_LETIVO)||Number((String(p&&p.ID_PRODUTO||"")+" "+String(p&&p.PRODUTO||"")).match(/20\d{2}/)?.[0])||0}
+function dashKey(p){
+  var id=String(p&&p.ID_PRODUTO||"").replace(/20\d{2}/g,"ANO").replace(/-\d+$/,"");
+  var name=dashNorm(p&&p.PRODUTO||"").replace(/20\d{2}/g,"ano");
+  return [id,name,dashNorm(p&&p.CATEGORIA),dashNorm(p&&p["SEGMENTO_SÉRIE"]),Number(p&&p.QTD_PARCELAS||0)].join("|");
+}
+function dashPct(a,b){a=Number(a||0);b=Number(b||0);return a?((b-a)/a)*100:0}
+function dashBarRows(rows,maxValue,formatter){
+  return rows.map(function(r){
+    var a=Math.max(0,Number(r.a||0)),b=Math.max(0,Number(r.b||0)),ma=maxValue||Math.max(a,b,1);
+    return "<div class='compare-row'><div class='compare-label'><b>"+esc(r.label)+"</b><span>"+esc(r.sub||"")+"</span></div><div class='compare-bars'><div class='bar-line'><em>2026</em><i style='width:"+Math.max(2,(a/ma)*100)+"%'></i><strong>"+esc(formatter(a))+"</strong></div><div class='bar-line y2'><em>2027</em><i style='width:"+Math.max(2,(b/ma)*100)+"%'></i><strong>"+esc(formatter(b))+"</strong></div></div></div>";
+  }).join("");
+}
 async function renderDashboard(){
-  $("#view").innerHTML=`<div class="cards grid">${["Alunos ativos","Matrículas ativas","Documentos pendentes","Status"].map(x=>`<div class="card metric"><div class="label">${x}</div><div class="value">…</div><div class="hint">atualizando</div></div>`).join("")}</div>`;
+  $("#view").innerHTML=\`<div class="cards grid">\${["Alunos ativos","Matrículas ativas","Documentos pendentes","Status"].map(x=>\`<div class="card metric"><div class="label">\${x}</div><div class="value">…</div><div class="hint">atualizando</div></div>\`).join("")}</div>\`;
   let publicData={};
-  try{ publicData=await api("dashboardPublico"); }catch(e){ setNotice(`Conexão da PWA pendente: ${esc(e.message)}`,"error"); }
+  try{ publicData=await api("dashboardPublico"); }catch(e){ setNotice(\`Conexão da PWA pendente: \${esc(e.message)}\`,"error"); }
   const vals=[publicData?.["Alunos ativos"]??0, publicData?.["Matrículas ativas"]??0, publicData?.["Documentos pendentes"]??0, "Online"];
   $$(".metric .value").forEach((el,i)=>el.textContent=vals[i]);
   $$(".metric .hint").forEach((el,i)=>el.textContent=i===3?"Apps Script + Google Sheets":"visão operacional");
 
   if(state.adminToken){
     try{
-      const d=await api("dashboardGestao",{token:state.adminToken});
-      const cards=Object.entries(d).slice(0,8).map(([k,v])=>`<div class="card metric"><div class="label">${esc(k)}</div><div class="value" style="font-size:22px">${esc(v)}</div><div class="hint">Gestão</div></div>`).join("");
-      $("#view").insertAdjacentHTML("beforeend",`<div class="section-head"><h2>Indicadores financeiros</h2></div><div class="cards grid">${cards}</div>`);
-    }catch{}
+      const [d,products]=await Promise.all([
+        api("dashboardGestao",{token:state.adminToken}).catch(()=>({})),
+        api("listarProdutosGestao",{token:state.adminToken}).catch(()=>([]))
+      ]);
+      const cards=Object.entries(d).slice(0,8).map(([k,v])=>\`<div class="card metric"><div class="label">\${esc(k)}</div><div class="value" style="font-size:22px">\${esc(v)}</div><div class="hint">Gestão</div></div>\`).join("");
+      if(cards)$("#view").insertAdjacentHTML("beforeend",\`<div class="section-head"><h2>Indicadores financeiros</h2></div><div class="cards grid">\${cards}</div>\`);
+
+      const p26=products.filter(p=>dashYear(p)===2026&&p.ATIVO!=="Não"),p27=products.filter(p=>dashYear(p)===2027&&p.ATIVO!=="Não");
+      const m26=new Map(p26.map(p=>[dashKey(p),p])),m27=new Map(p27.map(p=>[dashKey(p),p]));
+      const keys=[...new Set([...m26.keys(),...m27.keys()])];
+      const compare=keys.map(k=>{
+        const a=m26.get(k),b=m27.get(k),v26=Number(a?.VALOR_BASE||0),v27=Number(b?.VALOR_BASE||0);
+        return {key:k,a,b,label:b?.PRODUTO||a?.PRODUTO||"",cat:b?.CATEGORIA||a?.CATEGORIA||"Outros",serie:b?.["SEGMENTO_SÉRIE"]||a?.["SEGMENTO_SÉRIE"]||"",v26,v27,pct:v26&&v27?dashPct(v26,v27):null};
+      }).sort((x,y)=>(x.cat.localeCompare(y.cat)||x.label.localeCompare(y.label)));
+      const both=compare.filter(x=>x.v26&&x.v27),avg=both.length?both.reduce((s,x)=>s+x.pct,0)/both.length:0,new27=compare.filter(x=>!x.v26&&x.v27).length;
+      const cats=[...new Set(compare.map(x=>x.cat))].sort();
+      const countRows=cats.map(cat=>({label:cat,a:p26.filter(p=>(p.CATEGORIA||"Outros")===cat).length,b:p27.filter(p=>(p.CATEGORIA||"Outros")===cat).length}));
+      const valueRows=cats.map(cat=>({label:cat,a:p26.filter(p=>(p.CATEGORIA||"Outros")===cat).reduce((s,p)=>s+Number(p.VALOR_BASE||0),0),b:p27.filter(p=>(p.CATEGORIA||"Outros")===cat).reduce((s,p)=>s+Number(p.VALOR_BASE||0),0)}));
+      const pctRows=cats.map(cat=>{const arr=both.filter(x=>x.cat===cat);return {label:cat,a:0,b:arr.length?arr.reduce((s,x)=>s+x.pct,0)/arr.length:0,sub:arr.length+" item(ns) comparáveis"}});
+      const maxCount=Math.max(1,...countRows.flatMap(r=>[r.a,r.b])),maxValue=Math.max(1,...valueRows.flatMap(r=>[r.a,r.b])),maxPct=Math.max(1,...pctRows.map(r=>Math.abs(r.b)));
+      $("#view").insertAdjacentHTML("beforeend",
+        \`<div class="section-head"><div><h2>Comparativo do catálogo • 2026 × 2027</h2><span class="muted">Produtos e serviços oficiais, incluindo mensalidades, materiais, fardamento e adicionais.</span></div><button class="btn btn-soft" data-go="produtos">Abrir catálogo</button></div>
+        <div class="cards grid comparison-kpis">
+          <div class="card metric"><div class="label">Itens 2026</div><div class="value">\${p26.length}</div><div class="hint">ativos no catálogo</div></div>
+          <div class="card metric"><div class="label">Itens 2027</div><div class="value">\${p27.length}</div><div class="hint">ativos no catálogo</div></div>
+          <div class="card metric"><div class="label">Reajuste médio</div><div class="value">\${avg.toLocaleString("pt-BR",{maximumFractionDigits:2})}%</div><div class="hint">\${both.length} itens equivalentes</div></div>
+          <div class="card metric"><div class="label">Novos em 2027</div><div class="value">\${new27}</div><div class="hint">sem equivalente em 2026</div></div>
+        </div>
+        <div class="dashboard-chart-grid">
+          <section class="card chart-card"><div class="chart-title"><h3>Quantidade por categoria</h3><span>2026 × 2027</span></div>\${dashBarRows(countRows,maxCount,v=>String(Math.round(v)))}</section>
+          <section class="card chart-card"><div class="chart-title"><h3>Soma dos valores cadastrados</h3><span>visão de catálogo, não receita</span></div>\${dashBarRows(valueRows,maxValue,v=>money(v))}</section>
+          <section class="card chart-card"><div class="chart-title"><h3>Reajuste médio por categoria</h3><span>itens equivalentes</span></div>\${pctRows.map(r=>\`<div class="pct-row"><div><b>\${esc(r.label)}</b><small>\${esc(r.sub)}</small></div><div class="pct-track"><i style="width:\${Math.min(100,Math.abs(r.b)/maxPct*100)}%"></i></div><strong>\${Number(r.b).toLocaleString("pt-BR",{maximumFractionDigits:2})}%</strong></div>\`).join("")}</section>
+        </div>
+        <div class="section-head"><h2>Todos os produtos e serviços comparados</h2><span class="muted">\${compare.length} linhas</span></div>
+        <div class="table-wrap"><table class="comparison-table"><thead><tr><th>Categoria</th><th>Produto/serviço</th><th>Série</th><th>2026</th><th>2027</th><th>Variação</th></tr></thead><tbody>\${compare.map(x=>\`<tr><td>\${esc(x.cat)}</td><td><strong>\${esc(x.label)}</strong></td><td>\${esc(x.serie)}</td><td class="money">\${x.v26?money(x.v26):"—"}</td><td class="money">\${x.v27?money(x.v27):"—"}</td><td>\${x.pct==null?pill(x.v27?"Novo":"Sem 2027",x.v27?"ok":"warn"):\`<span class="variation \${x.pct>0?"up":x.pct<0?"down":""}">\${x.pct>0?"+":""}\${x.pct.toLocaleString("pt-BR",{maximumFractionDigits:2})}%</span>\`}</td></tr>\`).join("")||\`<tr><td colspan="6" class="empty">Sem dados comparativos.</td></tr>\`}</tbody></table></div>\`
+      );
+    }catch(e){
+      $("#view").insertAdjacentHTML("beforeend",\`<div class="notice error">Não foi possível montar o comparativo 2026 × 2027: \${esc(e.message)}</div>\`);
+    }
   }
-  $("#view").insertAdjacentHTML("beforeend",`<div class="section-head"><h2>Atalhos</h2></div><div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(210px,1fr))">
+  $("#view").insertAdjacentHTML("beforeend",\`<div class="section-head"><h2>Atalhos</h2></div><div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(210px,1fr))">
     <button class="card btn-soft" data-go="atendimento" style="text-align:left"><strong>Atendimento de matrículas</strong><br><span class="muted">Funil, proposta e pedido de desconto</span></button>
     <button class="card btn-soft" data-go="alunos" style="text-align:left"><strong>Cadastro de alunos</strong><br><span class="muted">Consulta e ficha escolar</span></button>
     <button class="card btn-soft" data-go="matriculas" style="text-align:left"><strong>Nova matrícula</strong><br><span class="muted">Contrato, plano e checklist</span></button>
     <button class="card btn-soft" data-go="produtos" style="text-align:left"><strong>Produtos e valores</strong><br><span class="muted">Acesso da Gestão</span></button>
     <button class="card btn-soft" data-go="caixa" style="text-align:left"><strong>Fluxo de caixa</strong><br><span class="muted">Entradas e saídas</span></button>
-  </div>`);
+  </div>\`);
   $$('[data-go]').forEach(b=>b.onclick=()=>navigate(b.dataset.go));
 }
 
