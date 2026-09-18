@@ -106,52 +106,116 @@ async function gfEnsureJsPdf(){
 }
 function gfPdfText(v){return String(v==null?"":v)}
 function gfPdfFile(v){return String(v||"atendimento").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-zA-Z0-9_-]+/g,"_").replace(/^_+|_+$/g,"")}
+async function gfPdfBrandPng(){
+  try{
+    var src=window.FUTURO_BRAND&&window.FUTURO_BRAND.logo;if(!src)return null;
+    return await new Promise(function(resolve){
+      var img=new Image();
+      img.onload=function(){
+        try{
+          var maxW=900,scale=Math.min(1,maxW/img.naturalWidth),w=Math.max(1,Math.round(img.naturalWidth*scale)),h=Math.max(1,Math.round(img.naturalHeight*scale));
+          var cv=document.createElement("canvas");cv.width=w;cv.height=h;var cx=cv.getContext("2d");
+          cx.clearRect(0,0,w,h);cx.drawImage(img,0,0,w,h);
+          resolve({data:cv.toDataURL("image/png"),ratio:w/h});
+        }catch(e){resolve(null)}
+      };
+      img.onerror=function(){resolve(null)};
+      img.src=src;
+    });
+  }catch(e){return null}
+}
 async function gfDownloadAttendancePdf(rec,itens){
-  var JsPDF=await gfEnsureJsPdf(),doc=new JsPDF({unit:"mm",format:"a4",orientation:"portrait"}),w=210,margin=14,y=16;
-  function page(){if(y>274){doc.addPage();y=16;header(false)}}
-  function header(first){
-    doc.setFillColor(18,59,118);doc.rect(0,0,w,26,"F");
-    doc.setTextColor(255,255,255);doc.setFont("helvetica","bold");doc.setFontSize(16);doc.text("COLÉGIO FUTURO",margin,11);
-    doc.setFont("helvetica","normal");doc.setFontSize(9);doc.text("Resumo de atendimento de matrícula",margin,18);
-    try{if(window.FUTURO_BRAND&&window.FUTURO_BRAND.logo)doc.addImage(window.FUTURO_BRAND.logo,"WEBP",166,4,29,18)}catch(e){}
-    y=34;
+  var JsPDF=await gfEnsureJsPdf(),brand=await gfPdfBrandPng(),doc=new JsPDF({unit:"mm",format:"a4",orientation:"portrait"});
+  var W=210,H=297,M=13,y=0,contentBottom=274;
+
+  function drawHeader(){
+    doc.setFillColor(18,59,118);doc.rect(0,0,W,28,"F");
+    doc.setTextColor(255,255,255);doc.setFont("helvetica","bold");doc.setFontSize(15);doc.text("COLÉGIO FUTURO",M,11);
+    doc.setFont("helvetica","normal");doc.setFontSize(8.5);doc.text("Resumo de atendimento de matrícula",M,18);
+    if(brand&&brand.data){
+      try{
+        var boxW=38,boxH=18,ratio=brand.ratio||2.2,imgW=boxW,imgH=imgW/ratio;
+        if(imgH>boxH){imgH=boxH;imgW=imgH*ratio}
+        var x=W-M-imgW,yImg=(28-imgH)/2;
+        doc.setFillColor(255,255,255);doc.roundedRect(x-2,yImg-1,imgW+4,imgH+2,1.8,1.8,"F");
+        doc.addImage(brand.data,"PNG",x,yImg,imgW,imgH);
+      }catch(e){}
+    }
+    y=35;
     if(rec.MODO_REGISTRO==="TESTE"||currentRunMode()==="TESTE"){
-      doc.setTextColor(162,104,0);doc.setFillColor(255,246,218);doc.roundedRect(margin,y,w-margin*2,9,2,2,"F");doc.setFont("helvetica","bold");doc.setFontSize(10);doc.text("TESTE / SIMULAÇÃO — SEM VALIDADE OPERACIONAL",margin+4,y+6);y+=14;
+      doc.setFillColor(255,247,219);doc.setTextColor(155,102,0);doc.roundedRect(M,y,W-M*2,8,1.8,1.8,"F");
+      doc.setFont("helvetica","bold");doc.setFontSize(8.4);doc.text("TESTE / SIMULAÇÃO — SEM VALIDADE OPERACIONAL",M+4,y+5.4);y+=12;
     }
   }
-  function title(t){page();doc.setTextColor(18,59,118);doc.setFont("helvetica","bold");doc.setFontSize(11);doc.text(t,margin,y);y+=6;doc.setDrawColor(220,227,236);doc.line(margin,y,w-margin,y);y+=5}
-  function row(label,value,label2,value2){
-    page();doc.setFontSize(8);doc.setTextColor(105,115,130);doc.setFont("helvetica","normal");doc.text(label,margin,y);
-    if(label2)doc.text(label2,108,y);
-    y+=4;doc.setFontSize(10);doc.setTextColor(27,43,68);doc.setFont("helvetica","bold");
-    var a=doc.splitTextToSize(gfPdfText(value)||"—",84);doc.text(a,margin,y);
-    if(label2){var b=doc.splitTextToSize(gfPdfText(value2)||"—",84);doc.text(b,108,y);y+=Math.max(a.length,b.length)*4+3}else y+=a.length*4+3;
+  function ensure(h){
+    if(y+h>contentBottom){doc.addPage();drawHeader()}
   }
-  function itemLine(it){
-    page();doc.setFillColor(247,249,252);doc.roundedRect(margin,y-3,w-margin*2,12,2,2,"F");
-    doc.setFont("helvetica","bold");doc.setTextColor(26,45,78);doc.setFontSize(9);doc.text(doc.splitTextToSize(gfPdfText(it.PRODUTO||it.ID_PRODUTO),118),margin+3,y+1);
-    doc.setFont("helvetica","normal");doc.setTextColor(105,115,130);doc.setFontSize(7);var d=doc.splitTextToSize(gfPdfText(it.OBSERVACAO||it["DESCRIÇÃO"]||it.CATEGORIA||""),116);if(d[0])doc.text(d.slice(0,1),margin+3,y+6);
-    doc.setFont("helvetica","bold");doc.setTextColor(20,43,77);doc.setFontSize(9);doc.text(money(it.VALOR_APRESENTADO||it.VALOR_TABELA||0),w-margin-3,y+2,{align:"right"});y+=15;
+  function section(t){
+    ensure(10);doc.setTextColor(18,59,118);doc.setFont("helvetica","bold");doc.setFontSize(10.2);doc.text(t,M,y);
+    y+=3.5;doc.setDrawColor(219,226,236);doc.line(M,y,W-M,y);y+=4.2;
   }
-  header(true);
-  doc.setTextColor(20,43,77);doc.setFont("helvetica","bold");doc.setFontSize(15);doc.text("Atendimento "+gfPdfText(rec.ID_ATENDIMENTO||""),margin,y);y+=8;
-  row("Aluno",rec.NOME_ALUNO,"Responsável",rec.RESPONSAVEL);
-  row("Ano letivo",rec.ANO_LETIVO,"Série",rec.SERIE_PRETENDIDA);
-  row("Tipo",rec.TIPO_ALUNO,"Turno / modalidade",(rec.TURNO||"")+" • "+(rec.MODALIDADE||""));
-  row("Telefone",rec.TELEFONE,"E-mail",rec.EMAIL);
-  row("Etapa",rec.ETAPA,"Status",rec.STATUS);
-  title("Plano financeiro");
-  row("Anuidade oficial",money(rec.VALOR_ANUIDADE),"Forma",rec.PLANO_PARCELAS?("1ª parcela + "+rec.PLANO_PARCELAS+"x"):"—");
-  row("1ª parcela",money(rec.VALOR_PRIMEIRA_FINAL||rec.VALOR_PRIMEIRA_BASE),"Parcelas seguintes",rec.PLANO_PARCELAS?(rec.PLANO_PARCELAS+"x de "+money(rec.VALOR_PARCELA_FINAL||rec.VALOR_PARCELA_BASE)):"—");
-  row("Desconto 1ª parcela",(Number(rec["DESCONTO_PRIMEIRA_%"]||0)).toLocaleString("pt-BR",{maximumFractionDigits:2})+"%","Desconto parcelas",(Number(rec["DESCONTO_PARCELAS_%"]||0)).toLocaleString("pt-BR",{maximumFractionDigits:2})+"%");
-  row("Total do plano",money(rec.TOTAL_PLANO),"Economia",money(rec.ECONOMIA_PLANO));
-  title("Produtos e serviços selecionados");
-  (itens||[]).forEach(itemLine);
-  if(!(itens||[]).length){doc.setFont("helvetica","normal");doc.setTextColor(105,115,130);doc.setFontSize(9);doc.text("Nenhum produto ou serviço adicional selecionado.",margin,y);y+=8}
-  title("Resumo");
-  doc.setFillColor(236,244,255);doc.roundedRect(margin,y-2,w-margin*2,16,2,2,"F");doc.setTextColor(18,59,118);doc.setFont("helvetica","bold");doc.setFontSize(9);doc.text("TOTAL APRESENTADO",margin+4,y+4);doc.setFontSize(15);doc.text(money(rec.TOTAL_PROPOSTA||0),w-margin-4,y+5,{align:"right"});y+=21;
-  if(rec.OBSERVACAO){title("Observações");doc.setFont("helvetica","normal");doc.setTextColor(60,70,85);doc.setFontSize(9);var obs=doc.splitTextToSize(gfPdfText(rec.OBSERVACAO),w-margin*2);doc.text(obs,margin,y);y+=obs.length*4+4}
-  page();doc.setDrawColor(220,227,236);doc.line(margin,282,w-margin,282);doc.setFont("helvetica","normal");doc.setFontSize(7);doc.setTextColor(120,128,140);doc.text("Colégio Futuro • Gestão Futuro • PDF Solução Educacional",margin,288);doc.text(new Date().toLocaleString("pt-BR"),w-margin,288,{align:"right"});
+  function pair(label,value,label2,value2){
+    ensure(11);
+    var x2=107;
+    doc.setFont("helvetica","normal");doc.setFontSize(6.7);doc.setTextColor(106,116,130);
+    doc.text(label,M,y);if(label2)doc.text(label2,x2,y);
+    y+=3.4;doc.setFont("helvetica","bold");doc.setFontSize(8.3);doc.setTextColor(27,43,68);
+    var a=doc.splitTextToSize(gfPdfText(value)||"—",82),b=label2?doc.splitTextToSize(gfPdfText(value2)||"—",88):[];
+    doc.text(a,M,y);if(label2)doc.text(b,x2,y);
+    y+=Math.max(a.length,b.length||1)*3.3+2.1;
+  }
+  function item(it){
+    ensure(11);
+    var h=10.3;
+    doc.setFillColor(247,249,252);doc.roundedRect(M,y-2.3,W-M*2,h,1.4,1.4,"F");
+    doc.setFont("helvetica","bold");doc.setTextColor(28,46,77);doc.setFontSize(7.8);
+    var title=doc.splitTextToSize(gfPdfText(it.PRODUTO||it.ID_PRODUTO),120);doc.text(title.slice(0,1),M+3,y+1.2);
+    doc.setFont("helvetica","normal");doc.setTextColor(111,120,132);doc.setFontSize(6.3);
+    var desc=doc.splitTextToSize(gfPdfText(it.OBSERVACAO||it["DESCRIÇÃO"]||it.CATEGORIA||""),118);if(desc[0])doc.text(desc.slice(0,1),M+3,y+5);
+    doc.setFont("helvetica","bold");doc.setTextColor(20,43,77);doc.setFontSize(8);doc.text(money(it.VALOR_APRESENTADO||it.VALOR_TABELA||0),W-M-3,y+1.6,{align:"right"});
+    y+=12;
+  }
+  function addFooters(){
+    var pages=doc.getNumberOfPages();
+    for(var p=1;p<=pages;p++){
+      doc.setPage(p);doc.setDrawColor(225,230,237);doc.line(M,282,W-M,282);
+      doc.setFont("helvetica","normal");doc.setFontSize(6.5);doc.setTextColor(120,128,140);
+      doc.text("Colégio Futuro • Gestão Futuro • PDF Solução Educacional",M,288);
+      doc.text("Página "+p+" de "+pages,W/2,288,{align:"center"});
+      doc.text(new Date().toLocaleString("pt-BR"),W-M,288,{align:"right"});
+    }
+  }
+
+  drawHeader();
+  doc.setTextColor(20,43,77);doc.setFont("helvetica","bold");doc.setFontSize(13.5);doc.text("Atendimento "+gfPdfText(rec.ID_ATENDIMENTO||""),M,y);y+=6.2;
+
+  pair("Aluno",rec.NOME_ALUNO,"Responsável",rec.RESPONSAVEL);
+  pair("Ano letivo",rec.ANO_LETIVO,"Série",rec.SERIE_PRETENDIDA);
+  pair("Tipo",rec.TIPO_ALUNO,"Turno / modalidade",(rec.TURNO||"")+" • "+(rec.MODALIDADE||""));
+  pair("Telefone",rec.TELEFONE,"E-mail",rec.EMAIL);
+  pair("Etapa",rec.ETAPA,"Status",rec.STATUS);
+
+  section("Plano financeiro");
+  pair("Anuidade oficial",money(rec.VALOR_ANUIDADE),"Forma",rec.PLANO_PARCELAS?("1ª parcela + "+rec.PLANO_PARCELAS+"x"):"—");
+  pair("1ª parcela",money(rec.VALOR_PRIMEIRA_FINAL||rec.VALOR_PRIMEIRA_BASE),"Parcelas seguintes",rec.PLANO_PARCELAS?(rec.PLANO_PARCELAS+"x de "+money(rec.VALOR_PARCELA_FINAL||rec.VALOR_PARCELA_BASE)):"—");
+  pair("Desconto 1ª parcela",(Number(rec["DESCONTO_PRIMEIRA_%"]||0)).toLocaleString("pt-BR",{maximumFractionDigits:2})+"%","Desconto parcelas",(Number(rec["DESCONTO_PARCELAS_%"]||0)).toLocaleString("pt-BR",{maximumFractionDigits:2})+"%");
+  pair("Total do plano",money(rec.TOTAL_PLANO),"Economia",money(rec.ECONOMIA_PLANO));
+
+  section("Produtos e serviços selecionados");
+  (itens||[]).forEach(item);
+  if(!(itens||[]).length){ensure(8);doc.setFont("helvetica","normal");doc.setTextColor(105,115,130);doc.setFontSize(8);doc.text("Nenhum produto ou serviço adicional selecionado.",M,y);y+=7}
+
+  section("Resumo");
+  ensure(16);doc.setFillColor(236,244,255);doc.roundedRect(M,y-2,W-M*2,14,2,2,"F");
+  doc.setTextColor(18,59,118);doc.setFont("helvetica","bold");doc.setFontSize(7.4);doc.text("TOTAL APRESENTADO",M+4,y+3.8);
+  doc.setFontSize(14);doc.text(money(rec.TOTAL_PROPOSTA||0),W-M-4,y+5,{align:"right"});y+=17;
+
+  if(rec.OBSERVACAO){
+    section("Observações");doc.setFont("helvetica","normal");doc.setTextColor(60,70,85);doc.setFontSize(7.8);
+    var obs=doc.splitTextToSize(gfPdfText(rec.OBSERVACAO),W-M*2);ensure(obs.length*3.2+3);doc.text(obs,M,y);y+=obs.length*3.2+3;
+  }
+
+  addFooters();
   var filename="Atendimento_"+gfPdfFile(rec.NOME_ALUNO)+"_"+gfPdfFile(rec.ID_ATENDIMENTO||"sem_id")+".pdf";
   doc.save(filename);
 }
