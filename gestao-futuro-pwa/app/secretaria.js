@@ -7,7 +7,9 @@ async function renderAlunos(){
     $("#studentsTable").innerHTML=`<div class="table-wrap"><table><thead><tr><th>ID</th><th>Aluno</th><th>Série</th><th>Turno</th><th>Tipo</th><th>CPF</th><th>Status</th><th></th></tr></thead><tbody>${list.map(a=>`<tr><td>${esc(a.ID_ALUNO)}</td><td><strong>${esc(a.NOME_COMPLETO)}</strong><br><span class="muted">${esc(a.ESCOLA_ORIGEM||"")}</span></td><td>${esc(a["SÉRIE"]||"")}</td><td>${esc(a.TURNO||"")}</td><td>${pill(a.TIPO_ALUNO||"")}</td><td>${esc(a.CPF||"")}</td><td>${pill(a.STATUS||"",a.STATUS==="Ativo"?"ok":"")}</td><td><button class="icon-btn" data-edit-student="${esc(a.ID_ALUNO)}">Editar</button></td></tr>`).join("")||`<tr><td colspan="8" class="empty">Nenhum aluno encontrado.</td></tr>`}</tbody></table></div>`;
     $$('[data-edit-student]').forEach(x=>x.onclick=()=>openStudentForm(alunos.find(a=>a.ID_ALUNO===x.dataset.editStudent)));
   };
-  $("#studentSearch").oninput=draw; $("#newStudent").onclick=()=>openStudentForm(); draw();
+  let searchFrame=0;
+  $("#studentSearch").oninput=()=>{cancelAnimationFrame(searchFrame);searchFrame=requestAnimationFrame(draw)};
+  $("#newStudent").onclick=()=>openStudentForm(); draw();
 }
 
 function seriesOptions(selected=""){ const s=["Infantil 2","Infantil 3","Infantil 4","Infantil 5","1º Ano","2º Ano","3º Ano","4º Ano","5º Ano","6º Ano","7º Ano","8º Ano","9º Ano","1º EM","2º EM","3º EM"]; return s.map(x=>`<option ${x===selected?"selected":""}>${x}</option>`).join(""); }
