@@ -80,3 +80,6 @@ button,input,select,textarea{font:inherit}.hidden{display:none!important}.muted{
   .flyer-cols p,.flyer-note,.flyer-info p{font-size:8.2px!important}
   .flyer-actions{display:none!important}
 }
+
+.flyer-a4.dense{padding:18px}.flyer-a4.dense .flyer-content-grid{gap:7px 9px}.flyer-a4.dense .flyer-item{padding:5px 7px}.flyer-a4.dense .flyer-item b,.flyer-a4.dense .flyer-item strong{font-size:10px}.flyer-a4.dense .flyer-item small{font-size:8.5px}.flyer-a4.dense .flyer-head h2{font-size:18px!important}
+.flyer-a4.ultra-dense{padding:14px}.flyer-a4.ultra-dense .flyer-content-grid{gap:5px 7px}.flyer-a4.ultra-dense .flyer-item{padding:4px 6px}.flyer-a4.ultra-dense .flyer-item b,.flyer-a4.ultra-dense .flyer-item strong{font-size:9px}.flyer-a4.ultra-dense .flyer-item small{font-size:7.5px}.flyer-a4.ultra-dense .flyer-head{padding-bottom:5px!important}.flyer-a4.ultra-dense .flyer-head h2{font-size:16px!important}.flyer-a4.ultra-dense .flyer-cols p,.flyer-a4.ultra-dense .flyer-note,.flyer-a4.ultra-dense .flyer-info p{font-size:7.7px!important}
