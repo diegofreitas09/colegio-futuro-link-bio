@@ -15,3 +15,6 @@ navigate("dashboard");
 // Alertas da Direção: consulta leve a cada 60 segundos quando a sessão de Gestão está ativa.
 setInterval(()=>{ if(typeof pollApprovals==="function") pollApprovals(); },60000);
 setTimeout(()=>{ if(typeof pollApprovals==="function") pollApprovals(); },2500);
+
+// Pré-carrega o catálogo em segundo plano para reduzir o atraso ao abrir Atendimento/Panfletos.
+setTimeout(()=>{ if(typeof loadCatalogProducts==="function") loadCatalogProducts().catch(()=>{}); },700);
