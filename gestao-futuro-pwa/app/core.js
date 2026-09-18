@@ -13,12 +13,12 @@ const state = {
 };
 
 const titles = {
-  dashboard:"Dashboard", alunos:"Alunos", responsaveis:"Responsáveis", matriculas:"Matrículas",
-  documentos:"Documentos", produtos:"Produtos e mensalidades", recebimentos:"Recebimentos",
+  dashboard:"Dashboard", atendimento:"Atendimento de matrículas", panfletos:"Panfletos por série", alunos:"Alunos", responsaveis:"Responsáveis", matriculas:"Matrículas",
+  documentos:"Documentos", produtos:"Valores e reajustes", autorizacoes:"Autorizações da Gestão", recebimentos:"Recebimentos",
   caixa:"Fluxo de caixa", fechamento:"Fechamento financeiro"
 };
 
-const roleForView = view => ["produtos","recebimentos","caixa","fechamento"].includes(view) ? "admin" : ["alunos","responsaveis","matriculas","documentos"].includes(view) ? "staff" : "public";
+const roleForView = view => ["produtos","autorizacoes","recebimentos","caixa","fechamento"].includes(view) ? "admin" : ["atendimento","panfletos","alunos","responsaveis","matriculas","documentos"].includes(view) ? "staff" : "public";
 const tokenFor = role => role === "admin" ? state.adminToken : (state.staffToken || state.adminToken);
 
 function esc(v="") { return String(v ?? "").replace(/[&<>'"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c])); }
@@ -102,7 +102,7 @@ function authModal(targetRole="staff") {
       if(!res?.ok) throw new Error(res?.message||"Senha inválida.");
       state.adminToken=res.token; state.role="admin";
       sessionStorage.setItem("gf_admin_token",res.token); sessionStorage.setItem("gf_role","admin");
-      refreshSessionButton(); closeModal(); state.bootstrap=null; await navigate(state.view);
+      refreshSessionButton(); closeModal(); state.bootstrap=null; if(typeof pollApprovals==="function") pollApprovals(); await navigate(state.view);
     }catch(e){ alert(e.message); btn.disabled=false; btn.textContent="Entrar na Gestão"; }
   };
   const lo=$("#logoutBtn"); if(lo) lo.onclick=logoutAll;
@@ -142,11 +142,14 @@ async function navigate(view){
   if(!(await requireRole(view))) return;
   try{
     if(view==="dashboard") await renderDashboard();
+    if(view==="atendimento") await renderAtendimento();
+    if(view==="panfletos") await renderPanfletos();
     if(view==="alunos") await renderAlunos();
     if(view==="responsaveis") await renderResponsaveis();
     if(view==="matriculas") await renderMatriculas();
     if(view==="documentos") await renderDocumentos();
     if(view==="produtos") await renderProdutos();
+    if(view==="autorizacoes") await renderAutorizacoes();
     if(view==="recebimentos") await renderRecebimentos();
     if(view==="caixa") await renderCaixa();
     if(view==="fechamento") await renderFechamento();
@@ -172,6 +175,7 @@ async function renderDashboard(){
     }catch{}
   }
   $("#view").insertAdjacentHTML("beforeend",`<div class="section-head"><h2>Atalhos</h2></div><div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(210px,1fr))">
+    <button class="card btn-soft" data-go="atendimento" style="text-align:left"><strong>Atendimento de matrículas</strong><br><span class="muted">Funil, proposta e pedido de desconto</span></button>
     <button class="card btn-soft" data-go="alunos" style="text-align:left"><strong>Cadastro de alunos</strong><br><span class="muted">Consulta e ficha escolar</span></button>
     <button class="card btn-soft" data-go="matriculas" style="text-align:left"><strong>Nova matrícula</strong><br><span class="muted">Contrato, plano e checklist</span></button>
     <button class="card btn-soft" data-go="produtos" style="text-align:left"><strong>Produtos e valores</strong><br><span class="muted">Acesso da Gestão</span></button>
