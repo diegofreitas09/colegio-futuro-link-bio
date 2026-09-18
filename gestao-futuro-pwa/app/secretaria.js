@@ -107,6 +107,8 @@ function openMatForm(b){
   $("#saveMat").onclick=async()=>{
     const f=$("#matForm");if(!f.reportValidity())return;
     const data=Object.fromEntries(new FormData(f).entries());
+    const selectedAluno=$("#matAluno").selectedOptions[0];
+    data.NOME_ALUNO=(selectedAluno?.textContent||"").split(" — ")[0].trim();
     const serviceInfo=refreshServiceTotal(),selectedServices=prods.filter(p=>serviceInfo.ids.includes(String(p.ID_PRODUTO)));
     data.SERVICOS_ADICIONAIS=JSON.stringify(selectedServices.map(p=>({ID_PRODUTO:p.ID_PRODUTO,PRODUTO:p.PRODUTO,CATEGORIA:p.CATEGORIA,VALOR:Number(p.VALOR_BASE||0)})));
     data.VALOR_SERVICOS_ADICIONAIS=serviceInfo.total;
