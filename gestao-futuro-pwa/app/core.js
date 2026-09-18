@@ -35,6 +35,16 @@ function setNotice(message="", kind="") {
   const box = $("#notice");
   box.innerHTML = message ? `<div class="notice ${kind}">${message}</div>` : "";
 }
+function showToast(message="",kind="ok"){
+  let root=document.getElementById("toastRoot");
+  if(!root){root=document.createElement("div");root.id="toastRoot";root.className="toast-root";document.body.appendChild(root)}
+  const t=document.createElement("div");
+  t.className="app-toast "+(kind||"ok");
+  t.innerHTML=(kind==="ok"?"<span class='toast-icon'>✓</span>":kind==="error"?"<span class='toast-icon'>!</span>":"")+"<strong>"+esc(message)+"</strong>";
+  root.appendChild(t);
+  requestAnimationFrame(()=>t.classList.add("show"));
+  setTimeout(()=>{t.classList.remove("show");setTimeout(()=>t.remove(),240)},3200);
+}
 
 function currentRunMode(){ return state.runMode==="TESTE" ? "TESTE" : "PRODUCAO"; }
 function ensureTestSession(){
