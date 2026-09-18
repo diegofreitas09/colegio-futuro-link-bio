@@ -71,13 +71,13 @@ function gfFlyerMarkup(y,s,cfg,list){
         return "<div class='flyer-item'><div><b>"+esc(p.PRODUTO)+"</b><small>"+esc(p["DESCRIÇÃO"]||p["OBSERVAÇÃO"]||"")+"</small></div><strong>"+money(p.VALOR_BASE)+"</strong></div>";
       }).join("")+"</div></section>";
   });
-  var extras=gfParseExtras(cfg.SERVICOS_ADICIONAIS);
+  var extras=gfParseExtras(cfg.SERVICOS_ADICIONAIS),itemCount=(list||[]).length+extras.length,density=itemCount>18?" ultra-dense":itemCount>11?" dense":"";
   var extrasHtml=extras.length?"<section class='flyer-category flyer-extras'><h3>Produtos e serviços adicionais</h3><div class='flyer-items'>"+
     extras.map(function(x){return "<div class='flyer-item'><div><b>"+esc(x.nome||"Adicional")+"</b><small>"+esc(x.descricao||"")+"</small></div>"+(x.valor!==""&&x.valor!=null?"<strong>"+money(x.valor)+"</strong>":"")+"</div>"}).join("")+
     "</div></section>":"";
   var offer=cfg.O_QUE_OFERECE?"<section class='flyer-info'><h3>O que oferecemos</h3><p>"+esc(cfg.O_QUE_OFERECE)+"</p></section>":"";
   var notes=cfg.OBSERVACOES?"<div class='flyer-note'>"+esc(cfg.OBSERVACOES)+"</div>":"";
-  return "<article class='flyer flyer-a4' id='flyerPreview'>"+
+  return "<article class='flyer flyer-a4"+density+"' id='flyerPreview'>"+
     "<div class='flyer-head'>"+(window.FUTURO_BRAND&&window.FUTURO_BRAND.logo?"<img src='"+window.FUTURO_BRAND.logo+"' alt='Colégio Futuro'>":"")+
     "<div><span>MATRÍCULAS "+y+"</span><h2>"+esc(cfg.TITULO||("Colégio Futuro • "+s))+"</h2><p>"+esc(cfg.SUBTITULO||"Educação que prepara para o presente e impulsiona cada estudante para o futuro.")+"</p></div></div>"+
     "<div class='flyer-series'>"+esc(s)+"</div>"+
