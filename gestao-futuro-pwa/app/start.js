@@ -11,16 +11,20 @@ window.addEventListener("beforeinstallprompt", e=>{e.preventDefault();state.defe
 $("#installBtn").onclick=async()=>{if(!state.deferredInstall)return;state.deferredInstall.prompt();await state.deferredInstall.userChoice;state.deferredInstall=null;$("#installBtn").classList.add("hidden");};
 if("serviceWorker" in navigator) navigator.serviceWorker.register("/service-worker.js").catch(console.warn);
 
+applyRoleInterface();
 refreshSessionButton();
-checkApi();
 navigate("dashboard");
 
-// Alertas da Direção: consulta leve a cada 60 segundos quando a sessão de Gestão está ativa.
-setInterval(()=>{ if(typeof pollApprovals==="function") pollApprovals(); },60000);
-setTimeout(()=>{ if(typeof pollApprovals==="function") pollApprovals(); },2500);
+// Evita várias chamadas concorrentes logo na abertura. Primeiro mostra a interface; depois aquece os dados.
+const runIdle=cb=>("requestIdleCallback" in window?requestIdleCallback(cb,{timeout:2500}):setTimeout(cb,1200));
+runIdle(()=>checkApi());
 
-// Pré-carrega o catálogo em segundo plano para reduzir o atraso ao abrir Atendimento/Panfletos.
-setTimeout(()=>{ if(typeof loadCatalogProducts==="function") loadCatalogProducts().catch(()=>{}); },700);
+// Alertas da Direção: consulta leve e sem sobrepor requisições.
+setInterval(()=>{ if(document.visibilityState==="visible"&&typeof pollApprovals==="function") pollApprovals(); },60000);
+setTimeout(()=>{ if(document.visibilityState==="visible"&&typeof pollApprovals==="function") pollApprovals(); },5000);
+
+// Catálogo pré-carregado somente quando o navegador estiver ocioso.
+runIdle(()=>{ if(typeof loadCatalogProducts==="function") loadCatalogProducts().catch(()=>{}); });
 
 // Limpeza única dos rascunhos locais antigos usados durante a implantação.
 try{
