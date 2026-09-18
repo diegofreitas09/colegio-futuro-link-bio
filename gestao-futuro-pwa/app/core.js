@@ -384,7 +384,7 @@ async function navigate(view){
   if(!isViewAllowed(view)) view="dashboard";
   const seq=++state.navSeq;
   state.view=view;
-  $("#nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===view));
+  $$("#nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===view));
   $("#pageTitle").textContent=titles[view]||"Gestão Futuro";
   setNotice("");
   const target=$("#view");
