@@ -227,7 +227,7 @@ async function renderPanfletos(){
     try{
       var d=await api("getPanfletoSerie",{token:tokenFor("staff"),ano:y,serie:s});
       state.flyerCache=state.flyerCache||{};state.flyerCache[cacheKey]=d;
-      cfg=d.config||{};var list=d.produtos||localList;
+      cfg=d.config||{};var list=gfCatalog(d.produtos||localList,y,s);
       $("#flyerArea").innerHTML=gfFlyerMarkup(y,s,cfg,list)+"<div class='flyer-actions'><button class='btn btn-primary' id='printFlyer'>Imprimir / Salvar PDF</button>"+(state.adminToken?"<button class='btn btn-gold' id='editFlyer'>Editar conteúdo e adicionais</button>":"")+"</div>";
       gfBindFlyerActions(y,s,cfg,list);
     }catch(e){setNotice("Panfleto exibido com os dados locais. A personalização não pôde ser atualizada agora: "+esc(e.message),"error")}
