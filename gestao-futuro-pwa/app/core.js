@@ -45,6 +45,28 @@ function showToast(message="",kind="ok"){
   requestAnimationFrame(()=>t.classList.add("show"));
   setTimeout(()=>{t.classList.remove("show");setTimeout(()=>t.remove(),240)},3200);
 }
+function appAlert(kind="attention",message=""){
+  const patterns={
+    matricula:{vibrate:[140,70,140,70,260],tones:[[660,110],[880,130],[1100,170]]},
+    desconto:{vibrate:[220,100,220,100,320],tones:[[880,130],[740,130],[880,190]]},
+    attention:{vibrate:[180,80,220],tones:[[820,140],[980,180]]}
+  };
+  const p=patterns[kind]||patterns.attention;
+  try{ if(navigator.vibrate) navigator.vibrate(p.vibrate); }catch(e){}
+  try{
+    const C=window.AudioContext||window.webkitAudioContext;
+    if(C){
+      const ctx=new C(),gain=ctx.createGain();gain.connect(ctx.destination);gain.gain.value=.075;
+      let t=ctx.currentTime+.01;
+      p.tones.forEach(([freq,dur])=>{
+        const o=ctx.createOscillator();o.type="sine";o.frequency.value=freq;o.connect(gain);
+        o.start(t);o.stop(t+dur/1000);t+=dur/1000+.045;
+      });
+      setTimeout(()=>ctx.close().catch(()=>{}),1400);
+    }
+  }catch(e){}
+  if(message) showToast(message,"ok");
+}
 
 function currentRunMode(){ return state.runMode==="TESTE" ? "TESTE" : "PRODUCAO"; }
 function ensureTestSession(){
