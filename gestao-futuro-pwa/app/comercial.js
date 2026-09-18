@@ -81,6 +81,17 @@ function gfClearAttendanceDraft(){try{localStorage.removeItem(GF_ATT_DRAFT_KEY)}
 function gfSavedAttendanceKey(id){return "gestao_futuro_atendimento_salvo_"+String(id||"")}
 function gfCacheSavedAttendance(id,rec,itens){try{localStorage.setItem(gfSavedAttendanceKey(id),JSON.stringify({atendimento:rec,itens:itens||[],cachedAt:new Date().toISOString()}))}catch(e){}}
 function gfReadCachedAttendance(id){try{return JSON.parse(localStorage.getItem(gfSavedAttendanceKey(id))||"null")}catch(e){return null}}
+const GF_ATT_LOCAL_LIST_KEY="gestao_futuro_atendimentos_locais_v1";
+function gfLocalAttendances(){try{return JSON.parse(localStorage.getItem(GF_ATT_LOCAL_LIST_KEY)||"[]")}catch(e){return []}}
+function gfWriteLocalAttendances(list){try{localStorage.setItem(GF_ATT_LOCAL_LIST_KEY,JSON.stringify(list||[]))}catch(e){}}
+function gfUpsertLocalAttendance(rec,itens,status){
+  var list=gfLocalAttendances(),id=String(rec.ID_ATENDIMENTO||("LOCAL-"+Date.now()));
+  rec.ID_ATENDIMENTO=id;rec.SYNC_STATUS=status||rec.SYNC_STATUS||"Pendente";
+  var row={id:id,atendimento:rec,itens:itens||[],updatedAt:new Date().toISOString()};
+  var i=list.findIndex(function(x){return x.id===id});if(i>=0)list[i]=row;else list.unshift(row);
+  gfWriteLocalAttendances(list.slice(0,100));gfCacheSavedAttendance(id,rec,itens||[]);return id;
+}
+function gfRemoveLocalAttendance(id){gfWriteLocalAttendances(gfLocalAttendances().filter(function(x){return x.id!==id}))}
 function gfApplyAttendanceForm(rec){
   if(!rec)return;
   var f=$("#attForm");if(!f)return;
@@ -115,9 +126,14 @@ async function renderAtendimento(){
   state.attendanceStage=resume?.ETAPA||state.attendanceStage||"Contato";
   var studentOpts=students.map(function(a){return "<option value='"+esc(a.ID_ALUNO)+"'>"+esc(a.NOME_COMPLETO)+" • "+esc(a["SÉRIE"]||"")+"</option>"}).join("");
   var yearOpts=years.map(function(y){return "<option value='"+y+"' "+(y===year?"selected":"")+">"+y+"</option>"}).join("");
-  var recent=at.slice().reverse().slice(0,50).map(function(a){
-    var plan=a.PLANO_PARCELAS?("<br><span class='muted'>1ª parcela + "+esc(a.PLANO_PARCELAS)+"x</span>"):"";
-    return "<tr><td><b>"+esc(a.NOME_ALUNO||a.ID_ALUNO||"")+"</b><br><span class='muted'>"+esc(a.RESPONSAVEL||"")+"</span></td><td>"+esc(a.ANO_LETIVO||"")+"</td><td>"+esc(a.SERIE_PRETENDIDA||"")+"</td><td>"+pill(a.ETAPA||"")+"</td><td>"+pill(a.STATUS||"")+"</td><td class='money'>"+money(a.TOTAL_PROPOSTA)+plan+"</td><td><button class='btn btn-soft btn-sm' data-resume-att='"+esc(a.ID_ATENDIMENTO)+"'>Continuar</button></td></tr>";
+  var localRows=gfLocalAttendances();
+  var serverIds=new Set(at.map(function(x){return String(x.ID_ATENDIMENTO||"")}));
+  var combined=at.slice().reverse().map(function(a){return {a:a,local:false}}).concat(localRows.filter(function(x){return !serverIds.has(String(x.id))}).map(function(x){return {a:x.atendimento||{},local:true,itens:x.itens||[]}})).slice(0,100);
+  var recent=combined.map(function(row){
+    var a=row.a||{},plan=a.PLANO_PARCELAS?("<br><span class='muted'>1ª parcela + "+esc(a.PLANO_PARCELAS)+"x</span>"):"";
+    var sync=row.local?"<br><span class='sync-pending'>Pendente de sincronização</span>":"";
+    var retry=row.local?" <button class='btn btn-gold btn-sm' data-sync-att='"+esc(a.ID_ATENDIMENTO)+"'>Sincronizar</button>":"";
+    return "<tr><td><b>"+esc(a.NOME_ALUNO||a.ID_ALUNO||"")+"</b><br><span class='muted'>"+esc(a.RESPONSAVEL||"")+"</span>"+sync+"</td><td>"+esc(a.ANO_LETIVO||"")+"</td><td>"+esc(a.SERIE_PRETENDIDA||"")+"</td><td>"+pill(a.ETAPA||"")+"</td><td>"+pill(a.STATUS||"")+"</td><td class='money'>"+money(a.TOTAL_PROPOSTA)+plan+"</td><td><button class='btn btn-soft btn-sm' data-resume-att='"+esc(a.ID_ATENDIMENTO)+"'>Continuar</button>"+retry+"</td></tr>";
   }).join("");
   var draft=(!resume&&!state.currentAttendanceId)?gfLoadAttendanceDraft():null;
   var draftBar=draft&&draft.NOME_ALUNO?("<div class='draft-bar'><div><b>Rascunho encontrado</b><span>"+esc(draft.NOME_ALUNO)+" • "+esc(draft.SERIE_PRETENDIDA||"sem série")+" • salvo automaticamente</span></div><div><button class='btn btn-primary btn-sm' id='restoreDraft'>Retomar rascunho</button><button class='btn btn-soft btn-sm' id='discardDraft'>Descartar</button></div></div>"):"";
@@ -223,20 +239,41 @@ async function renderAtendimento(){
   $("#clearAttend").onclick=function(){state.currentAttendanceId="";state.resumeAttendance=null;state.resumeItems=[];state.attendanceItems=new Set();state.attendanceStage="Contato";gfClearAttendanceDraft();renderAtendimento()};
   $("#restoreDraft")?.addEventListener("click",function(){var d=gfLoadAttendanceDraft();if(!d)return;state.currentAttendanceId=d.ID_ATENDIMENTO||"";state.resumeAttendance=d;state.resumeItems=(d.ITENS||[]).map(function(id){return {ID_PRODUTO:id,SELECIONADO:"Sim"}});state.attendanceItems=new Set(d.ITENS||[]);state.attendanceStage=d.ETAPA||"Contato";renderAtendimento()});
   $("#discardDraft")?.addEventListener("click",function(){gfClearAttendanceDraft();$("#restoreDraft")?.closest(".draft-bar")?.remove()});
-  $$("[data-resume-att]").forEach(function(btn){btn.onclick=function(){var rec=at.find(function(a){return a.ID_ATENDIMENTO===btn.dataset.resumeAtt});gfResumeAttendance(btn.dataset.resumeAtt,rec)}});
+  $("[data-resume-att]").forEach(function(btn){btn.onclick=function(){
+    var id=btn.dataset.resumeAtt,rec=at.find(function(a){return a.ID_ATENDIMENTO===id});
+    if(!rec){var lr=gfLocalAttendances().find(function(x){return x.id===id});if(lr){rec=lr.atendimento;gfCacheSavedAttendance(id,lr.atendimento,lr.itens||[])}}
+    gfResumeAttendance(id,rec)
+  }});
+  $("[data-sync-att]").forEach(function(btn){btn.onclick=async function(){
+    var row=gfLocalAttendances().find(function(x){return x.id===btn.dataset.syncAtt});if(!row)return;
+    btn.disabled=true;btn.textContent="Sincronizando…";
+    try{
+      var data=Object.assign({},row.atendimento);if(String(data.ID_ATENDIMENTO||"").startsWith("LOCAL-"))data.ID_ATENDIMENTO="";
+      var r=await api("salvarAtendimento",{token:tokenFor("staff"),data:data,itens:row.itens||[]});
+      data.ID_ATENDIMENTO=r.id;gfRemoveLocalAttendance(row.id);gfCacheSavedAttendance(r.id,data,row.itens||[]);
+      setNotice("Atendimento sincronizado com o banco: "+esc(r.id)+".","ok");await renderAtendimento();
+    }catch(e){setNotice("Ainda não foi possível sincronizar: "+esc(e.message)+". O atendimento continua salvo neste dispositivo.","error");btn.disabled=false;btn.textContent="Sincronizar"}
+  }});
   $("#saveAttendance").onclick=async function(){
     var f=$("#attForm");if(!f.reportValidity())return;
     var data=Object.fromEntries(new FormData(f).entries());data.ID_ALUNO=$("#attStudent").value||"";data.ETAPA=state.attendanceStage;data.PROGRESSO=GF_PCT[state.attendanceStage];data.STATUS=state.attendanceStage==="Matriculado"?"Matriculado":state.attendanceStage==="Não converteu"?"Perdido":"Em andamento";
     var selected=gfCatalog(products,Number(data.ANO_LETIVO),data.SERIE_PRETENDIDA).filter(function(p){return p.CATEGORIA!=="Mensalidade"&&state.attendanceItems.has(p.ID_PRODUTO)}).map(function(p){return {ID_PRODUTO:p.ID_PRODUTO,PRODUTO:p.PRODUTO,CATEGORIA:p.CATEGORIA,SERIE:data.SERIE_PRETENDIDA,QTD:1,VALOR_TABELA:Number(p.VALOR_BASE||0),DESCONTO:0,VALOR_APRESENTADO:Number(p.VALOR_BASE||0),SELECIONADO:"Sim",OBSERVACAO:p["OBSERVAÇÃO"]||""}});
     var btn=$("#saveAttendance");btn.disabled=true;btn.textContent="Salvando…";
+    var localId=data.ID_ATENDIMENTO||("LOCAL-"+Date.now());
+    data.ID_ATENDIMENTO=localId;
+    data.TOTAL_PROPOSTA=Number(String($("#attTotal").textContent||"0").replace(/[^0-9,.-]/g,"").replace(".","").replace(",", "."))||0;
+    gfUpsertLocalAttendance(Object.assign({},data),selected,"Pendente");gfClearAttendanceDraft();
     try{
-      var r=await api("salvarAtendimento",{token:tokenFor("staff"),data:data,itens:selected});
-      state.currentAttendanceId=r.id;data.ID_ATENDIMENTO=r.id;state.resumeAttendance=data;state.resumeItems=selected;gfCacheSavedAttendance(r.id,data,selected);gfClearAttendanceDraft();
-      setNotice("Atendimento "+esc(r.id)+" salvo. Plano: 1ª parcela + "+esc(data.PLANO_PARCELAS)+"x. Você pode continuar depois em “Atendimentos salvos”.","ok");
+      var sendData=Object.assign({},data);if(String(sendData.ID_ATENDIMENTO).startsWith("LOCAL-"))sendData.ID_ATENDIMENTO="";
+      var r=await api("salvarAtendimento",{token:tokenFor("staff"),data:sendData,itens:selected});
+      gfRemoveLocalAttendance(localId);
+      state.currentAttendanceId=r.id;data.ID_ATENDIMENTO=r.id;data.SYNC_STATUS="Sincronizado";state.resumeAttendance=data;state.resumeItems=selected;gfCacheSavedAttendance(r.id,data,selected);
+      setNotice("Atendimento "+esc(r.id)+" salvo no banco. Você pode continuar depois em “Atendimentos salvos”.","ok");
       await renderAtendimento();
     }catch(e){
-      gfSaveAttendanceDraft();alert(e.message+" — O rascunho deste atendimento ficou salvo neste aparelho para você não perder os dados.");
-      btn.disabled=false;btn.textContent=state.currentAttendanceId?"Atualizar atendimento":"Salvar atendimento";
+      state.currentAttendanceId=localId;state.resumeAttendance=data;state.resumeItems=selected;
+      setNotice("O banco não confirmou o salvamento: "+esc(e.message)+". Mesmo assim, o atendimento ficou salvo neste dispositivo e aparece abaixo como “Pendente de sincronização”.","error");
+      await renderAtendimento();
     }
   };
   drawCatalog();
