@@ -441,7 +441,12 @@ async function renderAutorizacoes(){var list=await api("listarSolicitacoesDescon
 function decisionModal(r,status){modal("<div class='modal-head'><h3>"+(status==="Autorizado"?"Autorizar":"Negar")+"</h3><button class='icon-btn' data-close>✕</button></div><div class='modal-body'><div class='form-grid'>"+(status==="Autorizado"?"<div class='field'><label>Valor autorizado</label><input id='authVal' type='number' step='.01' value='"+Number(r.VALOR_SOLICITADO||0).toFixed(2)+"'></div>":"")+"<div class='field span-3'><label>Observação</label><textarea id='authNote'></textarea></div></div></div><div class='modal-foot'><button class='btn btn-soft' data-close>Cancelar</button><button class='btn btn-primary' id='confirmDecision'>Confirmar</button></div>");$$("[data-close]").forEach(function(x){x.onclick=closeModal});$("#confirmDecision").onclick=async function(){try{await api("decidirSolicitacaoDesconto",{token:state.adminToken,id:r.ID_SOLICITACAO,status:status,valorAutorizado:status==="Autorizado"?Number($("#authVal").value||0):null,observacao:$("#authNote").value});closeModal();renderAutorizacoes()}catch(e){alert(e.message)}}}
 async function requestManagerNotifications(){if("Notification" in window&&Notification.permission!=="granted")await Notification.requestPermission();navigator.vibrate&&navigator.vibrate([100,60,100]);setNotice("Alertas locais ativados.","ok")}
 function triggerManagerAlert(count){var old=Number(sessionStorage.getItem("gf_pending_approvals")||0);sessionStorage.setItem("gf_pending_approvals",String(count));var b=$("#approvalBadge");if(b){b.textContent=count;b.classList.toggle("hidden",count<1)}if(count<=old||count<1)return;appAlert("desconto","Novo pedido de desconto aguardando a Gestão");if("Notification" in window&&Notification.permission==="granted")new Notification("Gestão Futuro",{body:count+" pedido(s) aguardando decisão."})}
-async function pollApprovals(){if(!state.adminToken)return;try{var l=await api("listarSolicitacoesDesconto",{token:state.adminToken});triggerManagerAlert(l.filter(function(x){return x.STATUS==="Aguardando"}).length)}catch(e){}}
+async function pollApprovals(){
+  if(!state.adminToken||state.approvalPolling)return;
+  state.approvalPolling=true;
+  try{var l=await api("listarSolicitacoesDesconto",{token:state.adminToken});triggerManagerAlert(l.filter(function(x){return x.STATUS==="Aguardando"}).length)}
+  catch(e){}finally{state.approvalPolling=false}
+}
 
 function gfParseExtras(raw){
   if(!raw) return [];
