@@ -94,6 +94,67 @@ function gfUpsertLocalAttendance(rec,itens,status){
   gfWriteLocalAttendances(list.slice(0,100));gfCacheSavedAttendance(id,rec,itens||[]);return id;
 }
 function gfRemoveLocalAttendance(id){gfWriteLocalAttendances(gfLocalAttendances().filter(function(x){return x.id!==id}))}
+async function gfEnsureJsPdf(){
+  if(window.jspdf&&window.jspdf.jsPDF)return window.jspdf.jsPDF;
+  await new Promise(function(resolve,reject){
+    var old=document.querySelector("script[data-jspdf]");
+    if(old){old.addEventListener("load",resolve,{once:true});old.addEventListener("error",reject,{once:true});return}
+    var s=document.createElement("script");s.dataset.jspdf="1";s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js";s.onload=resolve;s.onerror=function(){reject(new Error("Não foi possível carregar o gerador de PDF."))};document.head.appendChild(s);
+  });
+  if(!(window.jspdf&&window.jspdf.jsPDF))throw new Error("Gerador de PDF indisponível.");
+  return window.jspdf.jsPDF;
+}
+function gfPdfText(v){return String(v==null?"":v)}
+function gfPdfFile(v){return String(v||"atendimento").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-zA-Z0-9_-]+/g,"_").replace(/^_+|_+$/g,"")}
+async function gfDownloadAttendancePdf(rec,itens){
+  var JsPDF=await gfEnsureJsPdf(),doc=new JsPDF({unit:"mm",format:"a4",orientation:"portrait"}),w=210,margin=14,y=16;
+  function page(){if(y>274){doc.addPage();y=16;header(false)}}
+  function header(first){
+    doc.setFillColor(18,59,118);doc.rect(0,0,w,26,"F");
+    doc.setTextColor(255,255,255);doc.setFont("helvetica","bold");doc.setFontSize(16);doc.text("COLÉGIO FUTURO",margin,11);
+    doc.setFont("helvetica","normal");doc.setFontSize(9);doc.text("Resumo de atendimento de matrícula",margin,18);
+    try{if(window.FUTURO_BRAND&&window.FUTURO_BRAND.logo)doc.addImage(window.FUTURO_BRAND.logo,"WEBP",166,4,29,18)}catch(e){}
+    y=34;
+    if(rec.MODO_REGISTRO==="TESTE"||currentRunMode()==="TESTE"){
+      doc.setTextColor(162,104,0);doc.setFillColor(255,246,218);doc.roundedRect(margin,y,w-margin*2,9,2,2,"F");doc.setFont("helvetica","bold");doc.setFontSize(10);doc.text("TESTE / SIMULAÇÃO — SEM VALIDADE OPERACIONAL",margin+4,y+6);y+=14;
+    }
+  }
+  function title(t){page();doc.setTextColor(18,59,118);doc.setFont("helvetica","bold");doc.setFontSize(11);doc.text(t,margin,y);y+=6;doc.setDrawColor(220,227,236);doc.line(margin,y,w-margin,y);y+=5}
+  function row(label,value,label2,value2){
+    page();doc.setFontSize(8);doc.setTextColor(105,115,130);doc.setFont("helvetica","normal");doc.text(label,margin,y);
+    if(label2)doc.text(label2,108,y);
+    y+=4;doc.setFontSize(10);doc.setTextColor(27,43,68);doc.setFont("helvetica","bold");
+    var a=doc.splitTextToSize(gfPdfText(value)||"—",84);doc.text(a,margin,y);
+    if(label2){var b=doc.splitTextToSize(gfPdfText(value2)||"—",84);doc.text(b,108,y);y+=Math.max(a.length,b.length)*4+3}else y+=a.length*4+3;
+  }
+  function itemLine(it){
+    page();doc.setFillColor(247,249,252);doc.roundedRect(margin,y-3,w-margin*2,12,2,2,"F");
+    doc.setFont("helvetica","bold");doc.setTextColor(26,45,78);doc.setFontSize(9);doc.text(doc.splitTextToSize(gfPdfText(it.PRODUTO||it.ID_PRODUTO),118),margin+3,y+1);
+    doc.setFont("helvetica","normal");doc.setTextColor(105,115,130);doc.setFontSize(7);var d=doc.splitTextToSize(gfPdfText(it.OBSERVACAO||it["DESCRIÇÃO"]||it.CATEGORIA||""),116);if(d[0])doc.text(d.slice(0,1),margin+3,y+6);
+    doc.setFont("helvetica","bold");doc.setTextColor(20,43,77);doc.setFontSize(9);doc.text(money(it.VALOR_APRESENTADO||it.VALOR_TABELA||0),w-margin-3,y+2,{align:"right"});y+=15;
+  }
+  header(true);
+  doc.setTextColor(20,43,77);doc.setFont("helvetica","bold");doc.setFontSize(15);doc.text("Atendimento "+gfPdfText(rec.ID_ATENDIMENTO||""),margin,y);y+=8;
+  row("Aluno",rec.NOME_ALUNO,"Responsável",rec.RESPONSAVEL);
+  row("Ano letivo",rec.ANO_LETIVO,"Série",rec.SERIE_PRETENDIDA);
+  row("Tipo",rec.TIPO_ALUNO,"Turno / modalidade",(rec.TURNO||"")+" • "+(rec.MODALIDADE||""));
+  row("Telefone",rec.TELEFONE,"E-mail",rec.EMAIL);
+  row("Etapa",rec.ETAPA,"Status",rec.STATUS);
+  title("Plano financeiro");
+  row("Anuidade oficial",money(rec.VALOR_ANUIDADE),"Forma",rec.PLANO_PARCELAS?("1ª parcela + "+rec.PLANO_PARCELAS+"x"):"—");
+  row("1ª parcela",money(rec.VALOR_PRIMEIRA_FINAL||rec.VALOR_PRIMEIRA_BASE),"Parcelas seguintes",rec.PLANO_PARCELAS?(rec.PLANO_PARCELAS+"x de "+money(rec.VALOR_PARCELA_FINAL||rec.VALOR_PARCELA_BASE)):"—");
+  row("Desconto 1ª parcela",(Number(rec["DESCONTO_PRIMEIRA_%"]||0)).toLocaleString("pt-BR",{maximumFractionDigits:2})+"%","Desconto parcelas",(Number(rec["DESCONTO_PARCELAS_%"]||0)).toLocaleString("pt-BR",{maximumFractionDigits:2})+"%");
+  row("Total do plano",money(rec.TOTAL_PLANO),"Economia",money(rec.ECONOMIA_PLANO));
+  title("Produtos e serviços selecionados");
+  (itens||[]).forEach(itemLine);
+  if(!(itens||[]).length){doc.setFont("helvetica","normal");doc.setTextColor(105,115,130);doc.setFontSize(9);doc.text("Nenhum produto ou serviço adicional selecionado.",margin,y);y+=8}
+  title("Resumo");
+  doc.setFillColor(236,244,255);doc.roundedRect(margin,y-2,w-margin*2,16,2,2,"F");doc.setTextColor(18,59,118);doc.setFont("helvetica","bold");doc.setFontSize(9);doc.text("TOTAL APRESENTADO",margin+4,y+4);doc.setFontSize(15);doc.text(money(rec.TOTAL_PROPOSTA||0),w-margin-4,y+5,{align:"right"});y+=21;
+  if(rec.OBSERVACAO){title("Observações");doc.setFont("helvetica","normal");doc.setTextColor(60,70,85);doc.setFontSize(9);var obs=doc.splitTextToSize(gfPdfText(rec.OBSERVACAO),w-margin*2);doc.text(obs,margin,y);y+=obs.length*4+4}
+  page();doc.setDrawColor(220,227,236);doc.line(margin,282,w-margin,282);doc.setFont("helvetica","normal");doc.setFontSize(7);doc.setTextColor(120,128,140);doc.text("Colégio Futuro • Gestão Futuro • PDF Solução Educacional",margin,288);doc.text(new Date().toLocaleString("pt-BR"),w-margin,288,{align:"right"});
+  var filename="Atendimento_"+gfPdfFile(rec.NOME_ALUNO)+"_"+gfPdfFile(rec.ID_ATENDIMENTO||"sem_id")+".pdf";
+  doc.save(filename);
+}
 function gfApplyAttendanceForm(rec){
   if(!rec)return;
   var f=$("#attForm");if(!f)return;
@@ -135,7 +196,8 @@ async function renderAtendimento(){
     var a=row.a||{},plan=a.PLANO_PARCELAS?("<br><span class='muted'>1ª parcela + "+esc(a.PLANO_PARCELAS)+"x</span>"):"";
     var sync=row.local?"<br><span class='sync-pending'>Pendente de sincronização</span>":"";
     var retry=row.local?" <button class='btn btn-gold btn-sm' data-sync-att='"+esc(a.ID_ATENDIMENTO)+"'>Sincronizar</button>":"";
-    return "<tr><td><b>"+esc(a.NOME_ALUNO||a.ID_ALUNO||"")+"</b><br><span class='muted'>"+esc(a.RESPONSAVEL||"")+"</span>"+sync+"</td><td>"+esc(a.ANO_LETIVO||"")+"</td><td>"+esc(a.SERIE_PRETENDIDA||"")+"</td><td>"+pill(a.ETAPA||"")+"</td><td>"+pill(a.STATUS||"")+"</td><td class='money'>"+money(a.TOTAL_PROPOSTA)+plan+"</td><td><button class='btn btn-soft btn-sm' data-resume-att='"+esc(a.ID_ATENDIMENTO)+"'>Continuar</button>"+retry+"</td></tr>";
+    var pdf=!row.local?" <button class='btn btn-soft btn-sm' data-pdf-att='"+esc(a.ID_ATENDIMENTO)+"'>PDF</button>":"";
+    return "<tr><td><b>"+esc(a.NOME_ALUNO||a.ID_ALUNO||"")+"</b><br><span class='muted'>"+esc(a.RESPONSAVEL||"")+"</span>"+sync+"</td><td>"+esc(a.ANO_LETIVO||"")+"</td><td>"+esc(a.SERIE_PRETENDIDA||"")+"</td><td>"+pill(a.ETAPA||"")+"</td><td>"+pill(a.STATUS||"")+"</td><td class='money'>"+money(a.TOTAL_PROPOSTA)+plan+"</td><td><button class='btn btn-soft btn-sm' data-resume-att='"+esc(a.ID_ATENDIMENTO)+"'>Continuar</button>"+pdf+retry+"</td></tr>";
   }).join("");
   var draft=(!resume&&!state.currentAttendanceId)?gfLoadAttendanceDraft():null;
   var draftBar=draft&&draft.NOME_ALUNO?("<div class='draft-bar'><div><b>Rascunho encontrado</b><span>"+esc(draft.NOME_ALUNO)+" • "+esc(draft.SERIE_PRETENDIDA||"sem série")+" • salvo automaticamente</span></div><div><button class='btn btn-primary btn-sm' id='restoreDraft'>Retomar rascunho</button><button class='btn btn-soft btn-sm' id='discardDraft'>Descartar</button></div></div>"):"";
@@ -154,7 +216,7 @@ async function renderAtendimento(){
   "<input type='hidden' name='TOTAL_PLANO' value='"+esc(resume?.TOTAL_PLANO||"")+"'>"+
   "<input type='hidden' name='ECONOMIA_PLANO' value='"+esc(resume?.ECONOMIA_PLANO||"")+"'>"+
   "<div class='field span-2'><label>Aluno já cadastrado</label><select id='attStudent'><option value=''>Novo / não localizado</option>"+studentOpts+"</select></div><div class='field'><label>Tipo</label><select name='TIPO_ALUNO' id='attType'><option>Novato</option><option>Veterano</option></select></div><div class='field span-2'><label>Nome do aluno *</label><input name='NOME_ALUNO' id='attName' required></div><div class='field'><label>Responsável *</label><input name='RESPONSAVEL' required></div><div class='field'><label>Telefone</label><input name='TELEFONE'></div><div class='field'><label>E-mail</label><input name='EMAIL' type='email'></div><div class='field'><label>Ano letivo *</label><select name='ANO_LETIVO' id='attYear'>"+yearOpts+"</select></div><div class='field'><label>Série pretendida *</label><select name='SERIE_PRETENDIDA' id='attSerie' required><option value=''>Selecione</option>"+gfOptions(resume?.SERIE_PRETENDIDA||"")+"</select></div><div class='field'><label>Turno</label><select name='TURNO'><option>Manhã</option><option>Tarde</option><option>Integral</option></select></div><div class='field'><label>Modalidade</label><input name='MODALIDADE' value='Regular'></div><div class='field'><label>Origem</label><select name='ORIGEM'><option></option><option>Instagram</option><option>Google</option><option>Indicação</option><option>WhatsApp</option><option>Aluno da casa</option><option>Outros</option></select></div><div class='field span-2'><label>Observações</label><textarea name='OBSERVACAO'></textarea></div></form></div>"+
-  "<div class='card stage-card'><div class='section-head compact'><h2>Etapa</h2><span id='stagePct' class='pill'>"+GF_PCT[state.attendanceStage]+"%</span></div><div class='stage-flow' id='stageFlow'>"+gfStageButtons()+"</div><div class='progress-line'><i id='stageBar' style='width:"+GF_PCT[state.attendanceStage]+"%'></i></div></div><div id='catalogArea' class='empty card'>Escolha a série.</div><div class='crm-actions'><div><span class='muted'>Total apresentado</span><strong id='attTotal'>R$ 0,00</strong></div><button class='btn btn-primary' id='saveAttendance'>"+(state.currentAttendanceId?"Atualizar atendimento":"Salvar atendimento")+"</button></div><div class='section-head'><h2>Atendimentos salvos</h2><span class='muted'>Clique em “Continuar” para retomar depois.</span></div><div class='table-wrap'><table><thead><tr><th>Aluno</th><th>Ano</th><th>Série</th><th>Etapa</th><th>Status</th><th>Total</th><th></th></tr></thead><tbody>"+(recent||"<tr><td colspan='7' class='empty'>Nenhum atendimento salvo ainda.</td></tr>")+"</tbody></table></div>";
+  "<div class='card stage-card'><div class='section-head compact'><h2>Etapa</h2><span id='stagePct' class='pill'>"+GF_PCT[state.attendanceStage]+"%</span></div><div class='stage-flow' id='stageFlow'>"+gfStageButtons()+"</div><div class='progress-line'><i id='stageBar' style='width:"+GF_PCT[state.attendanceStage]+"%'></i></div></div><div id='catalogArea' class='empty card'>Escolha a série.</div><div class='crm-actions'><div><span class='muted'>Total apresentado</span><strong id='attTotal'>R$ 0,00</strong></div><div class='pdf-actions'><button class='btn btn-soft' id='downloadAttendancePdf' "+((!state.currentAttendanceId||String(state.currentAttendanceId).startsWith("LOCAL-"))?"disabled":"")+">Baixar PDF</button><button class='btn btn-primary' id='saveAttendance'>"+(state.currentAttendanceId?"Atualizar atendimento":"Salvar atendimento")+"</button></div></div><div class='section-head'><h2>Atendimentos salvos</h2><span class='muted'>Clique em “Continuar” para retomar depois.</span></div><div class='table-wrap'><table><thead><tr><th>Aluno</th><th>Ano</th><th>Série</th><th>Etapa</th><th>Status</th><th>Total</th><th></th></tr></thead><tbody>"+(recent||"<tr><td colspan='7' class='empty'>Nenhum atendimento salvo ainda.</td></tr>")+"</tbody></table></div>";
 
   $("#changeModeInline").onclick=openModeModal;
   function setHidden(name,value){var el=$("#attForm").elements[name];if(el)el.value=value==null?"":value}
@@ -220,7 +282,7 @@ async function renderAtendimento(){
       var overall=calc.annualValue?gfRound2((calc.economy/calc.annualValue)*100):0;
       try{
         await api("solicitarDesconto",{token:tokenFor("staff"),data:{ID_ATENDIMENTO:state.currentAttendanceId,ID_PRODUTO:annual.ID_PRODUTO,ANO_LETIVO:y,SERIE:s,VALOR_TABELA:calc.annualValue,DESCONTO_SOLICITADO:overall,VALOR_SOLICITADO:calc.total,MOTIVO:"Plano 1ª parcela + "+calc.n+"x | desconto 1ª parcela: "+calc.discFirst+"% | desconto parcelas seguintes: "+calc.discRecurring+"% | "+gfPlanSummary(calc)}});
-        setNotice("Condição enviada para autorização da Gestão.","ok");
+        setNotice("Solicitação enviada.","ok");showToast("Solicitação enviada","ok");this.textContent="Enviada ✓";this.disabled=true;
       }catch(e){alert(e.message)}
     });
     $("#flyerShortcut").onclick=function(){gfSaveAttendanceDraft();state.flyerYear=y;state.flyerSeries=s;navigate("panfletos")};
@@ -249,6 +311,15 @@ async function renderAtendimento(){
     if(!rec){var lr=gfLocalAttendances().find(function(x){return x.id===id});if(lr){rec=lr.atendimento;gfCacheSavedAttendance(id,lr.atendimento,lr.itens||[])}}
     gfResumeAttendance(id,rec)
   }});
+  $$("[data-pdf-att]").forEach(function(btn){btn.onclick=async function(){
+    btn.disabled=true;var old=btn.textContent;btn.textContent="Gerando…";
+    try{
+      var id=btn.dataset.pdfAtt,d=await api("getAtendimento",{token:tokenFor("staff"),id:id});
+      await gfDownloadAttendancePdf(d.atendimento||{},d.itens||[]);
+      showToast("PDF do atendimento gerado.","ok");
+    }catch(e){alert(e.message)}
+    btn.disabled=false;btn.textContent=old;
+  }});
   $$("[data-sync-att]").forEach(function(btn){btn.onclick=async function(){
     var row=gfLocalAttendances().find(function(x){return x.id===btn.dataset.syncAtt});if(!row)return;
     btn.disabled=true;btn.textContent="Sincronizando…";
@@ -259,6 +330,19 @@ async function renderAtendimento(){
       setNotice("Atendimento sincronizado com o banco: "+esc(r.id)+".","ok");await renderAtendimento();
     }catch(e){setNotice("Ainda não foi possível sincronizar: "+esc(e.message)+". O atendimento continua salvo neste dispositivo.","error");btn.disabled=false;btn.textContent="Sincronizar"}
   }});
+  $("#downloadAttendancePdf").onclick=async function(){
+    if(!state.currentAttendanceId||String(state.currentAttendanceId).startsWith("LOCAL-"))return alert("Salve e sincronize o atendimento antes de gerar o PDF.");
+    var btn=$("#downloadAttendancePdf");btn.disabled=true;var old=btn.textContent;btn.textContent="Gerando PDF…";
+    try{
+      var f=$("#attForm"),rec=Object.assign({},state.resumeAttendance||{},Object.fromEntries(new FormData(f).entries()));
+      rec.ID_ATENDIMENTO=state.currentAttendanceId;rec.NOME_ALUNO=$("#attName").value;rec.ETAPA=state.attendanceStage;rec.STATUS=state.attendanceStage==="Matriculado"?"Matriculado":state.attendanceStage==="Não converteu"?"Perdido":"Em andamento";
+      rec.MODO_REGISTRO=currentRunMode();rec.TOTAL_PROPOSTA=Number(String($("#attTotal").textContent||"0").replace(/[^0-9,.-]/g,"").replace(/\./g,"").replace(",", "."))||0;
+      var list=gfCatalog(products,Number(rec.ANO_LETIVO),rec.SERIE_PRETENDIDA);
+      var selected=list.filter(function(p){return p.CATEGORIA!=="Mensalidade"&&state.attendanceItems.has(p.ID_PRODUTO)}).map(function(p){return {ID_PRODUTO:p.ID_PRODUTO,PRODUTO:p.PRODUTO,CATEGORIA:p.CATEGORIA,VALOR_TABELA:Number(p.VALOR_BASE||0),VALOR_APRESENTADO:Number(p.VALOR_BASE||0),OBSERVACAO:p["DESCRIÇÃO"]||p["OBSERVAÇÃO"]||""}});
+      await gfDownloadAttendancePdf(rec,selected);showToast("PDF do atendimento gerado.","ok");
+    }catch(e){alert(e.message)}
+    btn.disabled=false;btn.textContent=old;
+  };
   $("#saveAttendance").onclick=async function(){
     var f=$("#attForm");if(!f.reportValidity())return;
     var data=Object.fromEntries(new FormData(f).entries());data.ID_ALUNO=$("#attStudent").value||"";data.ETAPA=state.attendanceStage;data.MODO_REGISTRO=currentRunMode();data.SESSAO_TESTE=state.runMode==="TESTE"?ensureTestSession():"";data.PROGRESSO=GF_PCT[state.attendanceStage];data.STATUS=state.attendanceStage==="Matriculado"?"Matriculado":state.attendanceStage==="Não converteu"?"Perdido":"Em andamento";
@@ -284,7 +368,7 @@ async function renderAtendimento(){
   drawCatalog();
 }
 
-function openDiscountRequest(product,ctx){if(!state.currentAttendanceId)return alert("Salve o atendimento primeiro.");if(String(state.currentAttendanceId).startsWith("LOCAL-"))return alert("Atendimento ainda não sincronizado com o banco. Salve/sincronize o atendimento antes de pedir desconto.");var v=Number(product&&product.VALOR_BASE||0);modal("<div class='modal-head'><h3>Solicitar condição especial</h3><button class='icon-btn' data-close>✕</button></div><div class='modal-body'><div class='approval-product'><b>"+esc(product.PRODUTO)+"</b><span>Tabela: "+money(v)+"</span></div><form id='discForm' class='form-grid'><div class='field'><label>Desconto %</label><input id='discPct' name='DESCONTO' type='number' step='.01' value='0'></div><div class='field'><label>Valor solicitado</label><input id='discVal' name='VALOR' type='number' step='.01' value='"+v.toFixed(2)+"'></div><div class='field span-3'><label>Motivo *</label><textarea name='MOTIVO' required></textarea></div></form></div><div class='modal-foot'><button class='btn btn-soft' data-close>Cancelar</button><button class='btn btn-primary' id='sendDisc'>Enviar para Gestão</button></div>");$$("[data-close]").forEach(function(x){x.onclick=closeModal});$("#discPct").oninput=function(){$("#discVal").value=(v*(1-(Number($("#discPct").value)||0)/100)).toFixed(2)};$("#sendDisc").onclick=async function(){var f=$("#discForm");if(!f.reportValidity())return;var d=Object.fromEntries(new FormData(f).entries());try{await api("solicitarDesconto",{token:tokenFor("staff"),data:{ID_ATENDIMENTO:state.currentAttendanceId,ID_PRODUTO:product.ID_PRODUTO,ANO_LETIVO:ctx.ano,SERIE:ctx.serie,VALOR_TABELA:v,DESCONTO_SOLICITADO:Number(d.DESCONTO||0),VALOR_SOLICITADO:Number(d.VALOR||0),MOTIVO:d.MOTIVO}});closeModal();setNotice("Pedido enviado para a Gestão.","ok")}catch(e){alert(e.message)}}}
+function openDiscountRequest(product,ctx){if(!state.currentAttendanceId)return alert("Salve o atendimento primeiro.");if(String(state.currentAttendanceId).startsWith("LOCAL-"))return alert("Atendimento ainda não sincronizado com o banco. Salve/sincronize o atendimento antes de pedir desconto.");var v=Number(product&&product.VALOR_BASE||0);modal("<div class='modal-head'><h3>Solicitar condição especial</h3><button class='icon-btn' data-close>✕</button></div><div class='modal-body'><div class='approval-product'><b>"+esc(product.PRODUTO)+"</b><span>Tabela: "+money(v)+"</span></div><form id='discForm' class='form-grid'><div class='field'><label>Desconto %</label><input id='discPct' name='DESCONTO' type='number' step='.01' value='0'></div><div class='field'><label>Valor solicitado</label><input id='discVal' name='VALOR' type='number' step='.01' value='"+v.toFixed(2)+"'></div><div class='field span-3'><label>Motivo *</label><textarea name='MOTIVO' required></textarea></div></form></div><div class='modal-foot'><button class='btn btn-soft' data-close>Cancelar</button><button class='btn btn-primary' id='sendDisc'>Enviar para Gestão</button></div>");$$("[data-close]").forEach(function(x){x.onclick=closeModal});$("#discPct").oninput=function(){$("#discVal").value=(v*(1-(Number($("#discPct").value)||0)/100)).toFixed(2)};$("#sendDisc").onclick=async function(){var f=$("#discForm");if(!f.reportValidity())return;var d=Object.fromEntries(new FormData(f).entries());try{await api("solicitarDesconto",{token:tokenFor("staff"),data:{ID_ATENDIMENTO:state.currentAttendanceId,ID_PRODUTO:product.ID_PRODUTO,ANO_LETIVO:ctx.ano,SERIE:ctx.serie,VALOR_TABELA:v,DESCONTO_SOLICITADO:Number(d.DESCONTO||0),VALOR_SOLICITADO:Number(d.VALOR||0),MOTIVO:d.MOTIVO}});closeModal();setNotice("Solicitação enviada.","ok");showToast("Solicitação enviada","ok")}catch(e){alert(e.message)}}}
 async function renderAutorizacoes(){var list=await api("listarSolicitacoesDesconto",{token:state.adminToken}),pending=list.filter(function(x){return x.STATUS==="Aguardando"});triggerManagerAlert(pending.length);var cards=list.map(function(r){return "<article class='approval-card'><div class='approval-top'><div><b>"+esc(r.ALUNO||r.ID_ALUNO||"Aluno")+"</b><span>"+esc(r.SERIE||"")+" • "+esc(r.ANO_LETIVO||"")+"</span></div>"+pill(r.STATUS||"")+"</div><div class='approval-product'><b>"+esc(r.PRODUTO||r.ID_PRODUTO||"")+"</b></div><div class='approval-values'><div><small>Tabela</small><b>"+money(r.VALOR_TABELA)+"</b></div><div><small>Desconto</small><b>"+Number(r["DESCONTO_SOLICITADO_%"]||0).toFixed(2)+"%</b></div><div><small>Solicitado</small><b>"+money(r.VALOR_SOLICITADO)+"</b></div></div>"+(r.MOTIVO?"<p class='approval-note'><b>Pedido:</b> "+esc(r.MOTIVO)+"</p>":"")+(r.STATUS==="Aguardando"?"<div class='approval-actions'><button class='btn btn-primary' data-decide='Autorizado' data-id='"+esc(r.ID_SOLICITACAO)+"'>Autorizar</button><button class='btn btn-danger' data-decide='Negado' data-id='"+esc(r.ID_SOLICITACAO)+"'>Negar</button></div>":"")+"</article>"}).join("");$("#view").innerHTML="<div class='approval-hero'><div><span>CENTRAL DA DIREÇÃO</span><h2>Autorizações de desconto</h2><p>Pedidos da equipe sem alterar a tabela oficial.</p></div><button class='btn btn-gold' id='enableAlerts'>Ativar alertas</button></div><div class='cards grid'><div class='card metric'><div class='label'>Aguardando</div><div class='value'>"+pending.length+"</div></div><div class='card metric'><div class='label'>Autorizados</div><div class='value'>"+list.filter(function(x){return x.STATUS==="Autorizado"}).length+"</div></div><div class='card metric'><div class='label'>Negados</div><div class='value'>"+list.filter(function(x){return x.STATUS==="Negado"}).length+"</div></div><div class='card metric'><div class='label'>Concluídos</div><div class='value'>"+list.filter(function(x){return x.STATUS==="Concluído"}).length+"</div></div></div><div class='section-head'><h2>Fila de decisão</h2></div><div class='approval-list'>"+(cards||"<div class='card empty'>Nenhum pedido.</div>")+"</div>";$("#enableAlerts").onclick=requestManagerNotifications;$$("[data-decide]").forEach(function(b){b.onclick=function(){decisionModal(list.find(function(x){return x.ID_SOLICITACAO===b.dataset.id}),b.dataset.decide)}})}
 function decisionModal(r,status){modal("<div class='modal-head'><h3>"+(status==="Autorizado"?"Autorizar":"Negar")+"</h3><button class='icon-btn' data-close>✕</button></div><div class='modal-body'><div class='form-grid'>"+(status==="Autorizado"?"<div class='field'><label>Valor autorizado</label><input id='authVal' type='number' step='.01' value='"+Number(r.VALOR_SOLICITADO||0).toFixed(2)+"'></div>":"")+"<div class='field span-3'><label>Observação</label><textarea id='authNote'></textarea></div></div></div><div class='modal-foot'><button class='btn btn-soft' data-close>Cancelar</button><button class='btn btn-primary' id='confirmDecision'>Confirmar</button></div>");$$("[data-close]").forEach(function(x){x.onclick=closeModal});$("#confirmDecision").onclick=async function(){try{await api("decidirSolicitacaoDesconto",{token:state.adminToken,id:r.ID_SOLICITACAO,status:status,valorAutorizado:status==="Autorizado"?Number($("#authVal").value||0):null,observacao:$("#authNote").value});closeModal();renderAutorizacoes()}catch(e){alert(e.message)}}}
 async function requestManagerNotifications(){if("Notification" in window&&Notification.permission!=="granted")await Notification.requestPermission();navigator.vibrate&&navigator.vibrate([100,60,100]);setNotice("Alertas locais ativados.","ok")}
