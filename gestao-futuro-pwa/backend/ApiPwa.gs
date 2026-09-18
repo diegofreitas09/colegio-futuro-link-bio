@@ -221,6 +221,76 @@ function salvarPanfletoSeriePwa_(token,ano,serie,data){
   });
 }
 
+
+function pwaUniqueProductId_(prefix,name,year){
+  var base=(prefix||"SRV")+"-"+pwaSlug_(name||"ITEM")+"-"+String(year||"");
+  var all=rows_(S.PRODUTOS),id=base,n=2;
+  while(all.some(function(x){return String(x.ID_PRODUTO)===id})){id=base+"-"+n;n++}
+  return id;
+}
+function pwaCriarProdutoServico_(token,data){
+  pwaAdmin_(token);data=data||{};
+  if(!data.PRODUTO||!data.ANO_LETIVO||!data.CATEGORIA)throw new Error("Produto/serviço, categoria e ano letivo são obrigatórios.");
+  return pwaWithLock_(function(){
+    var year=Number(data.ANO_LETIVO),id=pwaUniqueProductId_(data.CATEGORIA==="Serviço"?"SRV":"PRD",data.PRODUTO,year),now=new Date();
+    var rec={
+      ID_PRODUTO:id,
+      CATEGORIA:data.CATEGORIA||"Serviço",
+      SUBCATEGORIA:data.SUBCATEGORIA||"",
+      PRODUTO:data.PRODUTO||"",
+      "SEGMENTO_SÉRIE":data["SEGMENTO_SÉRIE"]||data.SEGMENTO_SERIE||"Todos",
+      "DESCRIÇÃO":data["DESCRIÇÃO"]||data.DESCRICAO||"",
+      VALOR_BASE:pwaNum_(data.VALOR_BASE),
+      "VALOR_PÓS_VENCIMENTO":pwaNum_(data["VALOR_PÓS_VENCIMENTO"]),
+      "VALOR_CRÉDITO":pwaNum_(data["VALOR_CRÉDITO"]),
+      QTD_PARCELAS:Number(data.QTD_PARCELAS||1),
+      VALOR_PARCELA:pwaNum_(data.VALOR_PARCELA),
+      VENCIMENTO_PADRÃO:data.VENCIMENTO_PADRÃO||"",
+      ANO_LETIVO:year,
+      ATIVO:data.ATIVO||"Sim",
+      "OBSERVAÇÃO":data["OBSERVAÇÃO"]||data.OBSERVACAO||"",
+      ORIGEM:"Gestão Futuro",
+      TIPO_COBRANCA:data.TIPO_COBRANCA||"Única",
+      DISPONIVEL_MATRICULA:data.DISPONIVEL_MATRICULA||"Sim",
+      ORDEM_EXIBICAO:Number(data.ORDEM_EXIBICAO||100),
+      OBSERVACAO_INTERNA:data.OBSERVACAO_INTERNA||"",
+      VALOR_ORIGEM:"",
+      ANO_ORIGEM:"",
+      "REAJUSTE_%":"",
+      PUBLICADO_ATENDIMENTO:data.PUBLICADO_ATENDIMENTO||"Sim",
+      ATUALIZADO_EM:now,
+      ATUALIZADO_POR:pwaUser_("Gestão")
+    };
+    append_(S.PRODUTOS,rec);
+    audit_("Gestão","CRIAR","Produto/Serviço",id,"",JSON.stringify(rec));
+    SpreadsheetApp.flush();
+    return {ok:true,id:id,produto:rec.PRODUTO,ano:year};
+  });
+}
+function aplicarReajusteIndividualPwa_(token,d){
+  pwaAdmin_(token);d=d||{};
+  var origem=Number(d.anoOrigem),destino=Number(d.anoDestino),id=String(d.idProduto||""),modo=String(d.modo||"percentual"),v=pwaNum_(d.valor),pub=String(d.publicar||"Sim");
+  if(!id||!origem||!destino||origem===destino)throw new Error("Informe produto, ano de origem e ano de destino.");
+  return pwaWithLock_(function(){
+    var p=findById_(S.PRODUTOS,"ID_PRODUTO",id);if(!p)throw new Error("Produto/serviço de origem não encontrado.");
+    if(Number(p.ANO_LETIVO)!==origem)throw new Error("O produto selecionado não pertence ao ano de origem.");
+    var current=pwaNum_(p.VALOR_BASE),newValue=modo==="valor"?v:gfRoundMoneyPwa_(current*(1+v/100));
+    var pct=current?gfRoundMoneyPwa_(((newValue/current)-1)*100):0,now=new Date();
+    var destId=String(id).indexOf(String(origem))>=0?String(id).replace(String(origem),String(destino)):String(id)+"-"+destino;
+    var all=rows_(S.PRODUTOS),old=all.find(function(x){return x.ID_PRODUTO===destId||Number(x.ANO_LETIVO)===destino&&x.PRODUTO===String(p.PRODUTO||"").replace(String(origem),String(destino))&&x.CATEGORIA===p.CATEGORIA&&x["SEGMENTO_SÉRIE"]===p["SEGMENTO_SÉRIE"]});
+    var factor=current?newValue/current:1,rec=Object.assign({},p);
+    rec.ID_PRODUTO=old&&old.ID_PRODUTO||destId;rec.ANO_LETIVO=destino;rec.ANO_ORIGEM=origem;rec.VALOR_ORIGEM=current;rec["REAJUSTE_%"]=pct;rec.PUBLICADO_ATENDIMENTO=pub;rec.ATUALIZADO_EM=now;rec.ATUALIZADO_POR=pwaUser_("Gestão");rec.ORIGEM="Reajuste individual "+origem+"→"+destino;rec.PRODUTO=String(p.PRODUTO||"").replace(String(origem),String(destino));
+    rec.VALOR_BASE=newValue;
+    ["VALOR_PÓS_VENCIMENTO","VALOR_CRÉDITO","VALOR_PARCELA"].forEach(function(k){if(p[k]!==""&&p[k]!=null)rec[k]=gfRoundMoneyPwa_(pwaNum_(p[k])*factor)});
+    if(old)updateById_(S.PRODUTOS,"ID_PRODUTO",old.ID_PRODUTO,rec);else append_(S.PRODUTOS,rec);
+    var hid=nextId_("REJ-",GF_TABS.REAJUSTES,"ID_REAJUSTE");
+    append_(GF_TABS.REAJUSTES,{ID_REAJUSTE:hid,ANO_ORIGEM:origem,ANO_DESTINO:destino,ESCOPO:"Produto individual",CATEGORIA:p.CATEGORIA||"",SERIE:p["SEGMENTO_SÉRIE"]||"","PERCENTUAL_%":pct,QTD_ITENS:1,EXECUTADO_POR:pwaUser_("Gestão"),EXECUTADO_EM:now,STATUS:"Concluído",OBSERVACAO:(d.observacao||"")+" | Publicar: "+pub,LOTE_REFERENCIA:hid});
+    audit_("Gestão","REAJUSTE_INDIVIDUAL","Produto",rec.ID_PRODUTO,JSON.stringify(p),JSON.stringify(rec));
+    SpreadsheetApp.flush();
+    return {ok:true,id:rec.ID_PRODUTO,produto:rec.PRODUTO,valor:newValue,percentual:pct};
+  });
+}
+
 function pwaAtualizarProduto_(token,id,patch){
   pwaAdmin_(token);return pwaWithLock_(function(){
     var old=findById_(S.PRODUTOS,"ID_PRODUTO",id);if(!old)throw new Error("Produto não encontrado.");
@@ -275,6 +345,8 @@ function doPost(e){
       case "listarCaixa":data=listarCaixa(body.token);break;
       case "listarProdutosGestao":data=listarProdutosGestao(body.token);break;
       case "atualizarProduto":data=pwaAtualizarProduto_(body.token,body.id,body.data||{});break;
+      case "criarProdutoServico":data=pwaCriarProdutoServico_(body.token,body.data||{});break;
+      case "aplicarReajusteIndividual":data=aplicarReajusteIndividualPwa_(body.token,body.data||{});break;
       case "listarBeneficios":data=listarBeneficios(body.token);break;
       case "listarCategorias":data=listarCategorias(body.token);break;
       case "getFechamento":data=getFechamento(body.token);break;
