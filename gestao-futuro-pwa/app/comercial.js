@@ -116,22 +116,94 @@ async function renderAtendimento(){
   var studentOpts=students.map(function(a){return "<option value='"+esc(a.ID_ALUNO)+"'>"+esc(a.NOME_COMPLETO)+" • "+esc(a["SÉRIE"]||"")+"</option>"}).join("");
   var yearOpts=years.map(function(y){return "<option value='"+y+"' "+(y===year?"selected":"")+">"+y+"</option>"}).join("");
   var recent=at.slice().reverse().slice(0,50).map(function(a){
-    return "<tr><td><b>"+esc(a.NOME_ALUNO||a.ID_ALUNO||"")+"</b><br><span class='muted'>"+esc(a.RESPONSAVEL||"")+"</span></td><td>"+esc(a.ANO_LETIVO||"")+"</td><td>"+esc(a.SERIE_PRETENDIDA||"")+"</td><td>"+pill(a.ETAPA||"")+"</td><td>"+pill(a.STATUS||"")+"</td><td class='money'>"+money(a.TOTAL_PROPOSTA)+"</td><td><button class='btn btn-soft btn-sm' data-resume-att='"+esc(a.ID_ATENDIMENTO)+"'>Continuar</button></td></tr>";
+    var plan=a.PLANO_PARCELAS?("<br><span class='muted'>1ª parcela + "+esc(a.PLANO_PARCELAS)+"x</span>"):"";
+    return "<tr><td><b>"+esc(a.NOME_ALUNO||a.ID_ALUNO||"")+"</b><br><span class='muted'>"+esc(a.RESPONSAVEL||"")+"</span></td><td>"+esc(a.ANO_LETIVO||"")+"</td><td>"+esc(a.SERIE_PRETENDIDA||"")+"</td><td>"+pill(a.ETAPA||"")+"</td><td>"+pill(a.STATUS||"")+"</td><td class='money'>"+money(a.TOTAL_PROPOSTA)+plan+"</td><td><button class='btn btn-soft btn-sm' data-resume-att='"+esc(a.ID_ATENDIMENTO)+"'>Continuar</button></td></tr>";
   }).join("");
   var draft=(!resume&&!state.currentAttendanceId)?gfLoadAttendanceDraft():null;
   var draftBar=draft&&draft.NOME_ALUNO?("<div class='draft-bar'><div><b>Rascunho encontrado</b><span>"+esc(draft.NOME_ALUNO)+" • "+esc(draft.SERIE_PRETENDIDA||"sem série")+" • salvo automaticamente</span></div><div><button class='btn btn-primary btn-sm' id='restoreDraft'>Retomar rascunho</button><button class='btn btn-soft btn-sm' id='discardDraft'>Descartar</button></div></div>"):"";
   $("#view").innerHTML=draftBar+"<div class='crm-hero'><div><span>ATENDIMENTO DE MATRÍCULAS</span><h2>Da primeira conversa à matrícula, em um único fluxo.</h2><p>Escolha ano e série. A proposta usa somente os valores publicados pela Gestão.</p></div><div class='crm-hero-kpi'><small>Em andamento</small><strong>"+at.filter(function(x){return x.STATUS==="Em andamento"}).length+"</strong></div></div>"+
-  "<div class='card'><div class='section-head compact'><h2>Quem vamos atender?</h2><div class='toolbar'><span id='autosaveStatus' class='muted autosave-status'>Rascunho automático ativo</span><button class='btn btn-soft' id='clearAttend'>Novo atendimento</button></div></div><form id='attForm' class='form-grid'><input type='hidden' name='ID_ATENDIMENTO' value='"+esc(state.currentAttendanceId||resume?.ID_ATENDIMENTO||"")+"'><div class='field span-2'><label>Aluno já cadastrado</label><select id='attStudent'><option value=''>Novo / não localizado</option>"+studentOpts+"</select></div><div class='field'><label>Tipo</label><select name='TIPO_ALUNO' id='attType'><option>Novato</option><option>Veterano</option></select></div><div class='field span-2'><label>Nome do aluno *</label><input name='NOME_ALUNO' id='attName' required></div><div class='field'><label>Responsável *</label><input name='RESPONSAVEL' required></div><div class='field'><label>Telefone</label><input name='TELEFONE'></div><div class='field'><label>E-mail</label><input name='EMAIL' type='email'></div><div class='field'><label>Ano letivo *</label><select name='ANO_LETIVO' id='attYear'>"+yearOpts+"</select></div><div class='field'><label>Série pretendida *</label><select name='SERIE_PRETENDIDA' id='attSerie' required><option value=''>Selecione</option>"+gfOptions(resume?.SERIE_PRETENDIDA||"")+"</select></div><div class='field'><label>Turno</label><select name='TURNO'><option>Manhã</option><option>Tarde</option><option>Integral</option></select></div><div class='field'><label>Modalidade</label><input name='MODALIDADE' value='Regular'></div><div class='field'><label>Origem</label><select name='ORIGEM'><option></option><option>Instagram</option><option>Google</option><option>Indicação</option><option>WhatsApp</option><option>Aluno da casa</option><option>Outros</option></select></div><div class='field span-2'><label>Observações</label><textarea name='OBSERVACAO'></textarea></div></form></div>"+
+  "<div class='card'><div class='section-head compact'><h2>Quem vamos atender?</h2><div class='toolbar'><span id='autosaveStatus' class='muted autosave-status'>Rascunho automático ativo</span><button class='btn btn-soft' id='clearAttend'>Novo atendimento</button></div></div><form id='attForm' class='form-grid'>"+
+  "<input type='hidden' name='ID_ATENDIMENTO' value='"+esc(state.currentAttendanceId||resume?.ID_ATENDIMENTO||"")+"'>"+
+  "<input type='hidden' name='PLANO_PARCELAS' value='"+esc(resume?.PLANO_PARCELAS||12)+"'>"+
+  "<input type='hidden' name='VALOR_ANUIDADE' value='"+esc(resume?.VALOR_ANUIDADE||"")+"'>"+
+  "<input type='hidden' name='VALOR_PRIMEIRA_BASE' value='"+esc(resume?.VALOR_PRIMEIRA_BASE||"")+"'>"+
+  "<input type='hidden' name='DESCONTO_PRIMEIRA_%' value='"+esc(resume?.["DESCONTO_PRIMEIRA_%"]||0)+"'>"+
+  "<input type='hidden' name='VALOR_PRIMEIRA_FINAL' value='"+esc(resume?.VALOR_PRIMEIRA_FINAL||"")+"'>"+
+  "<input type='hidden' name='VALOR_PARCELA_BASE' value='"+esc(resume?.VALOR_PARCELA_BASE||"")+"'>"+
+  "<input type='hidden' name='DESCONTO_PARCELAS_%' value='"+esc(resume?.["DESCONTO_PARCELAS_%"]||0)+"'>"+
+  "<input type='hidden' name='VALOR_PARCELA_FINAL' value='"+esc(resume?.VALOR_PARCELA_FINAL||"")+"'>"+
+  "<input type='hidden' name='TOTAL_PLANO' value='"+esc(resume?.TOTAL_PLANO||"")+"'>"+
+  "<input type='hidden' name='ECONOMIA_PLANO' value='"+esc(resume?.ECONOMIA_PLANO||"")+"'>"+
+  "<div class='field span-2'><label>Aluno já cadastrado</label><select id='attStudent'><option value=''>Novo / não localizado</option>"+studentOpts+"</select></div><div class='field'><label>Tipo</label><select name='TIPO_ALUNO' id='attType'><option>Novato</option><option>Veterano</option></select></div><div class='field span-2'><label>Nome do aluno *</label><input name='NOME_ALUNO' id='attName' required></div><div class='field'><label>Responsável *</label><input name='RESPONSAVEL' required></div><div class='field'><label>Telefone</label><input name='TELEFONE'></div><div class='field'><label>E-mail</label><input name='EMAIL' type='email'></div><div class='field'><label>Ano letivo *</label><select name='ANO_LETIVO' id='attYear'>"+yearOpts+"</select></div><div class='field'><label>Série pretendida *</label><select name='SERIE_PRETENDIDA' id='attSerie' required><option value=''>Selecione</option>"+gfOptions(resume?.SERIE_PRETENDIDA||"")+"</select></div><div class='field'><label>Turno</label><select name='TURNO'><option>Manhã</option><option>Tarde</option><option>Integral</option></select></div><div class='field'><label>Modalidade</label><input name='MODALIDADE' value='Regular'></div><div class='field'><label>Origem</label><select name='ORIGEM'><option></option><option>Instagram</option><option>Google</option><option>Indicação</option><option>WhatsApp</option><option>Aluno da casa</option><option>Outros</option></select></div><div class='field span-2'><label>Observações</label><textarea name='OBSERVACAO'></textarea></div></form></div>"+
   "<div class='card stage-card'><div class='section-head compact'><h2>Etapa</h2><span id='stagePct' class='pill'>"+GF_PCT[state.attendanceStage]+"%</span></div><div class='stage-flow' id='stageFlow'>"+gfStageButtons()+"</div><div class='progress-line'><i id='stageBar' style='width:"+GF_PCT[state.attendanceStage]+"%'></i></div></div><div id='catalogArea' class='empty card'>Escolha a série.</div><div class='crm-actions'><div><span class='muted'>Total apresentado</span><strong id='attTotal'>R$ 0,00</strong></div><button class='btn btn-primary' id='saveAttendance'>"+(state.currentAttendanceId?"Atualizar atendimento":"Salvar atendimento")+"</button></div><div class='section-head'><h2>Atendimentos salvos</h2><span class='muted'>Clique em “Continuar” para retomar depois.</span></div><div class='table-wrap'><table><thead><tr><th>Aluno</th><th>Ano</th><th>Série</th><th>Etapa</th><th>Status</th><th>Total</th><th></th></tr></thead><tbody>"+(recent||"<tr><td colspan='7' class='empty'>Nenhum atendimento salvo ainda.</td></tr>")+"</tbody></table></div>";
+
+  function setHidden(name,value){var el=$("#attForm").elements[name];if(el)el.value=value==null?"":value}
+  function currentPlanDiscounts(){
+    return {
+      first:Number($("#attForm").elements["DESCONTO_PRIMEIRA_%"].value||0),
+      recurring:Number($("#attForm").elements["DESCONTO_PARCELAS_%"].value||0),
+      n:Number($("#attForm").elements["PLANO_PARCELAS"].value||12)
+    };
+  }
   function drawCatalog(){
-    var s=$("#attSerie").value,y=Number($("#attYear").value);state.attendanceYear=y;if(!s){$("#catalogArea").className="empty card";$("#catalogArea").innerHTML="Escolha a série.";return}
-    var list=gfCatalog(products,y,s),groups=gfGroups(list),html="<div class='section-head'><div><h2>Proposta automática • "+esc(s)+" • "+y+"</h2><span class='muted'>"+list.length+" item(ns) publicados</span></div><button class='btn btn-soft' id='flyerShortcut'>Panfleto da série</button></div><div class='catalog-groups'>";
-    Object.keys(groups).forEach(function(cat){html+="<section class='catalog-group'><h3>"+esc(cat)+"</h3><div class='catalog-grid'>";groups[cat].forEach(function(p){var checked=state.attendanceItems.has(p.ID_PRODUTO);html+="<article class='catalog-item "+(checked?"selected":"")+"'><label><input type='checkbox' data-att-product='"+esc(p.ID_PRODUTO)+"' "+(checked?"checked":"")+"><div><small>"+esc(p.SUBCATEGORIA||"")+"</small><strong>"+esc(p.PRODUTO)+"</strong><span>"+esc(p["DESCRIÇÃO"]||p["OBSERVAÇÃO"]||"")+"</span></div></label><div class='catalog-price'><b>"+money(p.VALOR_BASE)+"</b><button type='button' class='discount-link' data-discount='"+esc(p.ID_PRODUTO)+"'>Pedir desconto</button></div></article>"});html+="</div></section>"});
+    var s=$("#attSerie").value,y=Number($("#attYear").value);state.attendanceYear=y;
+    if(!s){$("#catalogArea").className="empty card";$("#catalogArea").innerHTML="Escolha a série.";$("#attTotal").textContent=money(0);return}
+    var list=gfCatalog(products,y,s),monthly=list.filter(function(p){return p.CATEGORIA==="Mensalidade"}),others=list.filter(function(p){return p.CATEGORIA!=="Mensalidade"}),annual=gfAnnualProduct(monthly),groups=gfGroups(others),disc=currentPlanDiscounts();
+    var availablePlans=[12,11].filter(function(n){return !!gfRecurringProduct(monthly,n)});
+    if(!availablePlans.length)availablePlans=[12,11];
+    if(!availablePlans.includes(disc.n))disc.n=availablePlans[0];
+    var plan=gfPlanCalc(monthly,disc.n,disc.first,disc.recurring);
+    var planHtml="";
+    if(annual){
+      planHtml="<section class='finance-plan-card'><div class='section-head compact'><div><h3>Plano financeiro da mensalidade</h3><span class='muted'>Cálculo feito sobre a anuidade oficial de "+money(plan.annualValue)+".</span></div><span class='plan-total-badge'>"+money(plan.total)+"</span></div>"+
+      "<div class='finance-plan-grid'><div class='field'><label>Forma de pagamento</label><select id='planCount'>"+availablePlans.map(function(n){return "<option value='"+n+"' "+(n===plan.n?"selected":"")+">1ª parcela + "+n+"x</option>"}).join("")+"</select></div>"+
+      "<div class='field'><label>Desconto na 1ª parcela (%)</label><input id='planDiscFirst' type='number' min='0' max='100' step='0.01' value='"+plan.discFirst+"'></div>"+
+      "<div class='field'><label>Desconto nas parcelas seguintes (%)</label><input id='planDiscRecurring' type='number' min='0' max='100' step='0.01' value='"+plan.discRecurring+"'></div></div>"+
+      "<div class='plan-results'><div><small>1ª parcela base</small><b id='planFirstBase'>"+money(plan.firstBase)+"</b></div><div><small>1ª parcela com desconto</small><b id='planFirstFinal'>"+money(plan.firstFinal)+"</b></div><div><small>"+plan.n+" parcelas base</small><b id='planRecurringBase'>"+money(plan.recurringBase)+"</b></div><div><small>"+plan.n+" parcelas com desconto</small><b id='planRecurringFinal'>"+money(plan.recurringFinal)+"</b></div><div class='total'><small>Total negociado</small><b id='planTotal'>"+money(plan.total)+"</b></div><div class='economy'><small>Economia</small><b id='planEconomy'>"+money(plan.economy)+"</b></div></div>"+
+      "<div class='plan-note'><span>Resumo:</span><b id='planSummary'>"+gfPlanSummary(plan)+"</b><button type='button' class='btn btn-gold btn-sm "+((plan.discFirst||plan.discRecurring)?"":"hidden")+"' id='requestPlanDiscount'>Solicitar autorização desta condição</button></div></section>";
+    }
+    var html="<div class='section-head'><div><h2>Proposta automática • "+esc(s)+" • "+y+"</h2><span class='muted'>Mensalidade calculada pela anuidade + produtos e serviços escolhidos.</span></div><button class='btn btn-soft' id='flyerShortcut'>Panfleto da série</button></div>"+planHtml+"<div class='catalog-groups'>";
+    Object.keys(groups).forEach(function(cat){
+      html+="<section class='catalog-group'><h3>"+esc(cat)+"</h3><div class='catalog-grid'>";
+      groups[cat].forEach(function(p){
+        var checked=state.attendanceItems.has(p.ID_PRODUTO);
+        html+="<article class='catalog-item "+(checked?"selected":"")+"'><label><input type='checkbox' data-att-product='"+esc(p.ID_PRODUTO)+"' "+(checked?"checked":"")+"><div><small>"+esc(p.SUBCATEGORIA||"")+"</small><strong>"+esc(p.PRODUTO)+"</strong><span>"+esc(p["DESCRIÇÃO"]||p["OBSERVAÇÃO"]||"")+"</span></div></label><div class='catalog-price'><b>"+money(p.VALOR_BASE)+"</b><button type='button' class='discount-link' data-discount='"+esc(p.ID_PRODUTO)+"'>Pedir desconto</button></div></article>";
+      });
+      html+="</div></section>";
+    });
     $("#catalogArea").className="";$("#catalogArea").innerHTML=html+"</div>";
-    $("#attTotal").textContent=money(products.filter(function(p){return state.attendanceItems.has(p.ID_PRODUTO)}).reduce(function(a,p){return a+Number(p.VALOR_BASE||0)},0));
+
+    function updatePlanAndTotal(){
+      var n=Number($("#planCount")?.value||disc.n||12),d1=Number($("#planDiscFirst")?.value||0),dr=Number($("#planDiscRecurring")?.value||0),calc=gfPlanCalc(monthly,n,d1,dr);
+      setHidden("PLANO_PARCELAS",calc.n);setHidden("VALOR_ANUIDADE",calc.annualValue);setHidden("VALOR_PRIMEIRA_BASE",calc.firstBase);setHidden("DESCONTO_PRIMEIRA_%",calc.discFirst);setHidden("VALOR_PRIMEIRA_FINAL",calc.firstFinal);setHidden("VALOR_PARCELA_BASE",calc.recurringBase);setHidden("DESCONTO_PARCELAS_%",calc.discRecurring);setHidden("VALOR_PARCELA_FINAL",calc.recurringFinal);setHidden("TOTAL_PLANO",calc.total);setHidden("ECONOMIA_PLANO",calc.economy);
+      if($("#planFirstBase"))$("#planFirstBase").textContent=money(calc.firstBase);
+      if($("#planFirstFinal"))$("#planFirstFinal").textContent=money(calc.firstFinal);
+      if($("#planRecurringBase"))$("#planRecurringBase").textContent=money(calc.recurringBase);
+      if($("#planRecurringFinal"))$("#planRecurringFinal").textContent=money(calc.recurringFinal);
+      if($("#planTotal"))$("#planTotal").textContent=money(calc.total);
+      if($(".plan-total-badge"))$(".plan-total-badge").textContent=money(calc.total);
+      if($("#planEconomy"))$("#planEconomy").textContent=money(calc.economy);
+      if($("#planSummary"))$("#planSummary").textContent=gfPlanSummary(calc);
+      var req=$("#requestPlanDiscount");if(req)req.classList.toggle("hidden",!(calc.discFirst||calc.discRecurring));
+      var extras=others.filter(function(p){return state.attendanceItems.has(p.ID_PRODUTO)}).reduce(function(a,p){return a+Number(p.VALOR_BASE||0)},0);
+      $("#attTotal").textContent=money(gfRound2(calc.total+extras));
+      gfSaveAttendanceDraft();
+      return calc;
+    }
+    ["#planCount","#planDiscFirst","#planDiscRecurring"].forEach(function(sel){var el=$(sel);if(el){el.oninput=updatePlanAndTotal;el.onchange=updatePlanAndTotal}});
     $$("[data-att-product]").forEach(function(x){x.onchange=function(){x.checked?state.attendanceItems.add(x.dataset.attProduct):state.attendanceItems.delete(x.dataset.attProduct);gfSaveAttendanceDraft();drawCatalog()}});
     $$("[data-discount]").forEach(function(x){x.onclick=function(){openDiscountRequest(list.find(function(p){return p.ID_PRODUTO===x.dataset.discount}),{ano:y,serie:s})}});
+    $("#requestPlanDiscount")?.addEventListener("click",async function(){
+      var calc=updatePlanAndTotal();
+      if(!state.currentAttendanceId)return alert("Salve o atendimento primeiro. Depois você pode enviar esta condição para autorização da Gestão.");
+      var overall=calc.annualValue?gfRound2((calc.economy/calc.annualValue)*100):0;
+      try{
+        await api("solicitarDesconto",{token:tokenFor("staff"),data:{ID_ATENDIMENTO:state.currentAttendanceId,ID_PRODUTO:annual.ID_PRODUTO,ANO_LETIVO:y,SERIE:s,VALOR_TABELA:calc.annualValue,DESCONTO_SOLICITADO:overall,VALOR_SOLICITADO:calc.total,MOTIVO:"Plano 1ª parcela + "+calc.n+"x | desconto 1ª parcela: "+calc.discFirst+"% | desconto parcelas seguintes: "+calc.discRecurring+"% | "+gfPlanSummary(calc)}});
+        setNotice("Condição enviada para autorização da Gestão.","ok");
+      }catch(e){alert(e.message)}
+    });
     $("#flyerShortcut").onclick=function(){gfSaveAttendanceDraft();state.flyerYear=y;state.flyerSeries=s;navigate("panfletos")};
+    updatePlanAndTotal();
   }
   if(resume){
     gfApplyAttendanceForm(resume);
@@ -155,12 +227,12 @@ async function renderAtendimento(){
   $("#saveAttendance").onclick=async function(){
     var f=$("#attForm");if(!f.reportValidity())return;
     var data=Object.fromEntries(new FormData(f).entries());data.ID_ALUNO=$("#attStudent").value||"";data.ETAPA=state.attendanceStage;data.PROGRESSO=GF_PCT[state.attendanceStage];data.STATUS=state.attendanceStage==="Matriculado"?"Matriculado":state.attendanceStage==="Não converteu"?"Perdido":"Em andamento";
-    var selected=gfCatalog(products,Number(data.ANO_LETIVO),data.SERIE_PRETENDIDA).filter(function(p){return state.attendanceItems.has(p.ID_PRODUTO)}).map(function(p){return {ID_PRODUTO:p.ID_PRODUTO,PRODUTO:p.PRODUTO,CATEGORIA:p.CATEGORIA,SERIE:data.SERIE_PRETENDIDA,QTD:1,VALOR_TABELA:Number(p.VALOR_BASE||0),DESCONTO:0,VALOR_APRESENTADO:Number(p.VALOR_BASE||0),SELECIONADO:"Sim",OBSERVACAO:p["OBSERVAÇÃO"]||""}});
+    var selected=gfCatalog(products,Number(data.ANO_LETIVO),data.SERIE_PRETENDIDA).filter(function(p){return p.CATEGORIA!=="Mensalidade"&&state.attendanceItems.has(p.ID_PRODUTO)}).map(function(p){return {ID_PRODUTO:p.ID_PRODUTO,PRODUTO:p.PRODUTO,CATEGORIA:p.CATEGORIA,SERIE:data.SERIE_PRETENDIDA,QTD:1,VALOR_TABELA:Number(p.VALOR_BASE||0),DESCONTO:0,VALOR_APRESENTADO:Number(p.VALOR_BASE||0),SELECIONADO:"Sim",OBSERVACAO:p["OBSERVAÇÃO"]||""}});
     var btn=$("#saveAttendance");btn.disabled=true;btn.textContent="Salvando…";
     try{
       var r=await api("salvarAtendimento",{token:tokenFor("staff"),data:data,itens:selected});
       state.currentAttendanceId=r.id;data.ID_ATENDIMENTO=r.id;state.resumeAttendance=data;state.resumeItems=selected;gfCacheSavedAttendance(r.id,data,selected);gfClearAttendanceDraft();
-      setNotice("Atendimento "+esc(r.id)+" salvo no banco. Ele ficará disponível em “Atendimentos salvos” para continuar depois.","ok");
+      setNotice("Atendimento "+esc(r.id)+" salvo. Plano: 1ª parcela + "+esc(data.PLANO_PARCELAS)+"x. Você pode continuar depois em “Atendimentos salvos”.","ok");
       await renderAtendimento();
     }catch(e){
       gfSaveAttendanceDraft();alert(e.message+" — O rascunho deste atendimento ficou salvo neste aparelho para você não perder os dados.");
