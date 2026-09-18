@@ -252,7 +252,8 @@ function doPost(e){
       case "gerarResumoAluno":data=gerarResumoAluno(body.token,body.idAluno);break;
       case "registrarPagamento":data=pwaWithLock_(function(){return registrarPagamento(body.token,body.data||{})});break;
       case "salvarMovimentoCaixa":data=pwaWithLock_(function(){return salvarMovimentoCaixa(body.token,body.data||{})});break;
-      case "listarAtendimentos":data=listarAtendimentosPwa_(body.token);break;\n      case "getAtendimento":data=getAtendimentoPwa_(body.token,body.id);break;
+      case "listarAtendimentos":data=listarAtendimentosPwa_(body.token);break;
+      case "getAtendimento":data=getAtendimentoPwa_(body.token,body.id);break;
       case "salvarAtendimento":data=salvarAtendimentoPwa_(body.token,body.data,body.itens);break;
       case "solicitarDesconto":data=solicitarDescontoPwa_(body.token,body.data);break;
       case "listarSolicitacoesDesconto":data=listarSolicitacoesDescontoPwa_(body.token);break;
