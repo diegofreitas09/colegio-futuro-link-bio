@@ -9,5 +9,9 @@
   },
   "devDependencies": {
     "@netlify/functions": "latest"
+  },
+  "dependencies": {
+    "@netlify/blobs": "latest",
+    "web-push": "latest"
   }
 }
