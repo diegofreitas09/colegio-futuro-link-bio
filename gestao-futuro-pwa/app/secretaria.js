@@ -99,6 +99,7 @@ function openMatForm(b){
     const o=$("#matAluno").selectedOptions[0];
     if(o?.dataset.serie)$("#matSerie").value=o.dataset.serie;
     if(o?.dataset.turno)$("#matTurno").value=o.dataset.turno;
+    refreshPlans();
     const id=$("#matAluno").value;
     const rr=resp.filter(r=>r.ID_ALUNO===id);
     $("#matResp").innerHTML=`<option value="">Selecione</option>${rr.map(r=>`<option value="${esc(r.ID_RESPONSAVEL)}">${esc(r.NOME_COMPLETO)}${r.RESPONSAVEL_FINANCEIRO==="Sim"?" • financeiro":""}</option>`).join("")}`;
