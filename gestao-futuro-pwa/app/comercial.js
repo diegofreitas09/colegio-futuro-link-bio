@@ -36,6 +36,32 @@ function gfApplies(p,serie){
 }
 function gfCatalog(ps,y,s){return (ps||[]).filter(function(p){var pub=gfNorm(p.PUBLICADO_ATENDIMENTO);return p.ATIVO==="Sim"&&gfYear(p)===Number(y)&&pub!=="nao"&&pub!=="não"&&gfApplies(p,s)})}
 function gfGroups(list){var m={};list.forEach(function(p){var k=p.CATEGORIA||"Outros";(m[k]||(m[k]=[])).push(p)});return m}
+function gfRound2(v){return Math.round((Number(v||0)+Number.EPSILON)*100)/100}
+function gfAnnualProduct(list){return (list||[]).find(function(p){return p.CATEGORIA==="Mensalidade"&&(gfNorm(p.SUBCATEGORIA).includes("anuidade")||gfNorm(p.PRODUTO).includes("anuidade")||Number(p.QTD_PARCELAS)===1)})||null}
+function gfRecurringProduct(list,n){return (list||[]).find(function(p){return p.CATEGORIA==="Mensalidade"&&Number(p.QTD_PARCELAS)===Number(n)})||null}
+function gfPlanCalc(list,n,discFirst,discRecurring){
+  n=Number(n||12);discFirst=Math.max(0,Math.min(100,Number(discFirst||0)));discRecurring=Math.max(0,Math.min(100,Number(discRecurring||0)));
+  var annual=gfAnnualProduct(list),annualValue=Number(annual&&annual.VALOR_BASE||0),monthly=gfRecurringProduct(list,n),recurringBase=Number(monthly&&monthly.VALOR_BASE||0);
+  if(!recurringBase&&annualValue)recurringBase=gfRound2(annualValue/(n+1));
+  var firstBase=annualValue?gfRound2(annualValue-(recurringBase*n)):recurringBase;
+  if(firstBase<=0)firstBase=recurringBase;
+  var firstFinal=gfRound2(firstBase*(1-discFirst/100)),recurringFinal=gfRound2(recurringBase*(1-discRecurring/100));
+  var total=gfRound2(firstFinal+(recurringFinal*n)),economy=gfRound2(Math.max(0,annualValue-total));
+  return {n:n,annual:annual,annualValue:annualValue,monthly:monthly,firstBase:firstBase,recurringBase:recurringBase,discFirst:discFirst,discRecurring:discRecurring,firstFinal:firstFinal,recurringFinal:recurringFinal,total:total,economy:economy};
+}
+function gfPlanSummary(plan){return "1ª parcela "+money(plan.firstFinal)+" + "+plan.n+"x de "+money(plan.recurringFinal)}
+function gfFlyerPlanMeta(p,list){
+  if(p.CATEGORIA!=="Mensalidade")return null;
+  var q=Number(p.QTD_PARCELAS||0);
+  if(q===11||q===12){
+    var pl=gfPlanCalc(list,q,0,0);
+    return {title:"Plano 1ª parcela + "+q+"x",desc:"1ª parcela: "+money(pl.firstBase)+" • "+q+" parcelas de "+money(pl.recurringBase),value:money(pl.recurringBase)};
+  }
+  if(gfNorm(p.SUBCATEGORIA).includes("anuidade")||gfNorm(p.PRODUTO).includes("anuidade")){
+    return {title:p.PRODUTO,desc:"Anuidade total",value:money(p.VALOR_BASE)};
+  }
+  return null;
+}
 function gfOptions(sel){return GF_SERIES.map(function(s){return "<option "+(s===sel?"selected":"")+">"+esc(s)+"</option>"}).join("")}
 function gfStageButtons(){return GF_STAGES.map(function(s,i){return "<button type='button' data-stage='"+esc(s)+"'><i>"+(i+1)+"</i><span>"+esc(s)+"</span></button>"}).join("")+"<button type='button' class='loss' data-stage='Não converteu'><i>×</i><span>Não converteu</span></button>"}
 
@@ -175,7 +201,9 @@ function gfFlyerMarkup(y,s,cfg,list){
   Object.keys(groups).forEach(function(cat){
     body+="<section class='flyer-category'><h3>"+esc(cat)+"</h3><div class='flyer-items'>"+
       groups[cat].map(function(p){
-        return "<div class='flyer-item'><div><b>"+esc(p.PRODUTO)+"</b><small>"+esc(p["DESCRIÇÃO"]||p["OBSERVAÇÃO"]||"")+"</small></div><strong>"+money(p.VALOR_BASE)+"</strong></div>";
+        var meta=gfFlyerPlanMeta(p,list);
+        var title=meta?meta.title:p.PRODUTO,desc=meta?meta.desc:(p["DESCRIÇÃO"]||p["OBSERVAÇÃO"]||""),value=meta?meta.value:money(p.VALOR_BASE);
+        return "<div class='flyer-item'><div><b>"+esc(title)+"</b><small>"+esc(desc)+"</small></div><strong>"+value+"</strong></div>";
       }).join("")+"</div></section>";
   });
   var extras=gfParseExtras(cfg.SERVICOS_ADICIONAIS),itemCount=(list||[]).length+extras.length,density=itemCount>18?" ultra-dense":itemCount>11?" dense":"";
