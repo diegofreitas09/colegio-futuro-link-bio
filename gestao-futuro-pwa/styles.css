@@ -88,3 +88,27 @@ button,input,select,textarea{font:inherit}.hidden{display:none!important}.muted{
 .draft-bar>div:first-child{display:grid;gap:3px}.draft-bar span{font-size:12px;color:#6b5a20}.draft-bar>div:last-child{display:flex;gap:8px;flex-wrap:wrap}
 .autosave-status{font-size:11px;white-space:nowrap}.btn-sm{padding:7px 10px!important;font-size:11px!important;border-radius:9px!important}
 @media(max-width:760px){.draft-bar{align-items:flex-start;flex-direction:column}.draft-bar>div:last-child{width:100%}.draft-bar .btn{flex:1}}
+
+/* Planos de mensalidade no Atendimento */
+.finance-plan-card{background:linear-gradient(180deg,#f8fbff,#fff);border:1px solid #cfe0f7;border-radius:17px;padding:14px;margin-bottom:14px;box-shadow:var(--shadow)}
+.finance-plan-card h3{margin:0;color:var(--blue);font-size:17px}.finance-plan-grid{display:grid;grid-template-columns:1.1fr 1fr 1fr;gap:10px;margin-top:10px}
+.plan-total-badge{background:#123b76;color:#fff;padding:7px 11px;border-radius:999px;font-weight:900}
+.plan-results{display:grid;grid-template-columns:repeat(6,minmax(110px,1fr));gap:8px;margin-top:12px}
+.plan-results>div{background:#f1f5fb;border-radius:11px;padding:9px}.plan-results small{display:block;color:var(--muted);font-size:9px;text-transform:uppercase;font-weight:800}.plan-results b{display:block;color:#123b76;margin-top:3px;font-size:13px}
+.plan-results .total{background:#eaf2ff}.plan-results .economy{background:#eaf9f0}.plan-note{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;padding-top:9px;border-top:1px dashed #ccd8e8;font-size:12px}.plan-note span{color:var(--muted)}.hidden{display:none!important}
+
+/* Dashboard comparativo 2026 x 2027 */
+.dashboard-chart-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.chart-card{min-height:260px}.chart-title{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:14px}.chart-title h3{margin:0;color:var(--blue);font-size:16px}.chart-title span{font-size:10px;color:var(--muted);text-align:right}
+.compare-row{display:grid;grid-template-columns:minmax(110px,.8fr) 1.6fr;gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid #edf1f6}.compare-label{display:grid;gap:2px;min-width:0}.compare-label b{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.compare-label span{font-size:9px;color:var(--muted)}
+.compare-bars{display:grid;gap:4px}.bar-line{display:grid;grid-template-columns:34px 1fr auto;gap:5px;align-items:center;font-size:9px}.bar-line em{font-style:normal;color:var(--muted)}.bar-line i{display:block;height:8px;min-width:2px;border-radius:999px;background:#96b9ea}.bar-line.y2 i{background:#f2bd2c}.bar-line strong{font-size:9px;white-space:nowrap}
+.pct-row{display:grid;grid-template-columns:minmax(100px,1fr) 1.4fr 52px;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid #edf1f6}.pct-row>div:first-child{display:grid}.pct-row b{font-size:11px}.pct-row small{font-size:9px;color:var(--muted)}.pct-track{height:9px;background:#edf1f6;border-radius:999px;overflow:hidden}.pct-track i{display:block;height:100%;background:linear-gradient(90deg,#1e63d8,#f7b500);border-radius:999px}.pct-row>strong{text-align:right;font-size:11px}
+.variation{font-weight:900;padding:4px 7px;border-radius:999px;background:#eef3fb}.variation.up{background:#fff3d5;color:#7e5b00}.variation.down{background:#eaf9f0;color:#12673c}
+
+/* Produtos/serviços adicionais na Matrícula */
+.service-picker{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px;padding:10px;background:#f7f9fd;border:1px solid var(--line);border-radius:12px;max-height:310px;overflow:auto}
+.service-option{display:grid;grid-template-columns:auto 1fr auto;align-items:start;gap:8px;padding:9px;background:#fff;border:1px solid var(--line);border-radius:10px;cursor:pointer}.service-option input{margin-top:3px}.service-option span{display:grid;gap:2px}.service-option b{font-size:12px;color:#123b76}.service-option small{font-size:10px;color:var(--muted);line-height:1.25}.service-option strong{font-size:11px;white-space:nowrap}
+.service-total{display:flex;justify-content:flex-end;gap:10px;align-items:center;margin-top:7px;font-size:11px}.service-total span{color:var(--muted)}.service-total b{font-size:14px;color:#123b76}
+
+@media(max-width:1100px){.dashboard-chart-grid{grid-template-columns:1fr 1fr}.plan-results{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:760px){.dashboard-chart-grid{grid-template-columns:1fr}.finance-plan-grid{grid-template-columns:1fr}.plan-results{grid-template-columns:1fr 1fr}.compare-row{grid-template-columns:1fr}.service-picker{grid-template-columns:1fr}}
