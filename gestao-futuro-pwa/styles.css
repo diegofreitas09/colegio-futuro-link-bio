@@ -173,3 +173,8 @@ body.interface-staff .nav button.active{box-shadow:inset 3px 0 0 #79b5ff}
 .fast-loading span{width:18px;height:18px;border:2px solid #d9e4f1;border-top-color:#1d66d2;border-radius:50%;animation:gfspin .65s linear infinite}
 @keyframes gfspin{to{transform:rotate(360deg)}}
 .nav button,.btn,select,input[type="checkbox"],.catalog-item{touch-action:manipulation}
+
+/* Renderização progressiva de listas longas */
+@supports (content-visibility:auto){
+  .catalog-group,.approval-card{content-visibility:auto;contain-intrinsic-size:240px}
+}
