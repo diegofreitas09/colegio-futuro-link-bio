@@ -167,3 +167,9 @@ body.interface-staff .nav button.active{box-shadow:inset 3px 0 0 #79b5ff}
   .access-choice{align-items:flex-start;flex-direction:column}
   .access-choice .btn{width:100%}
 }
+
+/* Resposta visual instantânea ao navegar */
+.fast-loading{min-height:180px;display:flex;align-items:center;justify-content:center;gap:10px;color:#66758a;font-size:12px}
+.fast-loading span{width:18px;height:18px;border:2px solid #d9e4f1;border-top-color:#1d66d2;border-radius:50%;animation:gfspin .65s linear infinite}
+@keyframes gfspin{to{transform:rotate(360deg)}}
+.nav button,.btn,select,input[type="checkbox"],.catalog-item{touch-action:manipulation}
