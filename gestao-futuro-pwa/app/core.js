@@ -12,7 +12,9 @@ const state = {
   studentsFilter: "",
   catalogProducts: null,
   catalogPromise: null,
-  flyerCache: {}
+  flyerCache: {},
+  runMode: sessionStorage.getItem("gf_run_mode") || "",
+  testSession: sessionStorage.getItem("gf_test_session") || ""
 };
 
 const titles = {
@@ -34,8 +36,83 @@ function setNotice(message="", kind="") {
   box.innerHTML = message ? `<div class="notice ${kind}">${message}</div>` : "";
 }
 
+function currentRunMode(){ return state.runMode==="TESTE" ? "TESTE" : "PRODUCAO"; }
+function ensureTestSession(){
+  if(state.runMode!=="TESTE") return "";
+  if(!state.testSession){
+    state.testSession="TST-"+Date.now()+"-"+Math.random().toString(36).slice(2,7).toUpperCase();
+    sessionStorage.setItem("gf_test_session",state.testSession);
+  }
+  return state.testSession;
+}
+function refreshModeButton(){
+  const b=$("#modeBtn"); if(!b) return;
+  if(state.runMode==="TESTE"){
+    b.textContent="🧪 Teste / Simulação";
+    b.className="btn btn-test";
+    b.title="Registros desta sessão serão marcados como teste e poderão ser apagados.";
+  }else if(state.runMode==="PRODUCAO"){
+    b.textContent="✓ Produção";
+    b.className="btn btn-production";
+    b.title="Registros oficiais.";
+  }else{
+    b.textContent="Escolher modo";
+    b.className="btn btn-soft";
+  }
+}
+function setRunMode(mode){
+  state.runMode=mode==="TESTE"?"TESTE":"PRODUCAO";
+  sessionStorage.setItem("gf_run_mode",state.runMode);
+  if(state.runMode==="TESTE") ensureTestSession();
+  else { state.testSession=""; sessionStorage.removeItem("gf_test_session"); }
+  state.bootstrap=null;
+  refreshModeButton();
+}
+function clearLocalTestData(){
+  try{
+    const key="gestao_futuro_atendimentos_locais_v1";
+    const rows=JSON.parse(localStorage.getItem(key)||"[]");
+    localStorage.setItem(key,JSON.stringify(rows.filter(x=>(x?.atendimento?.MODO_REGISTRO||"")!=="TESTE")));
+  }catch(e){}
+  try{
+    const d=JSON.parse(localStorage.getItem("gestao_futuro_atendimento_rascunho_v1")||"null");
+    if(d?.MODO_REGISTRO==="TESTE") localStorage.removeItem("gestao_futuro_atendimento_rascunho_v1");
+  }catch(e){}
+}
+function openModeModal(){
+  modal(`
+    <div class="modal-head"><h3>Como você quer usar a plataforma agora?</h3><button class="icon-btn" data-close>✕</button></div>
+    <div class="modal-body">
+      <div class="mode-grid">
+        <button class="mode-card production" id="chooseProduction">
+          <span class="mode-icon">✓</span><strong>Produção</strong>
+          <small>Alunos, atendimentos, matrículas e financeiro entram nos registros oficiais.</small>
+        </button>
+        <button class="mode-card test" id="chooseTest">
+          <span class="mode-icon">🧪</span><strong>Teste / Simulação</strong>
+          <small>Registros ficam identificados como teste, fora dos indicadores oficiais e podem ser apagados depois.</small>
+        </button>
+      </div>
+      ${state.adminToken?`<div class="test-cleanup"><div><b>Ambiente de testes</b><span>Apaga somente registros marcados como TESTE. Catálogo oficial e dados de produção são preservados.</span></div><button class="btn btn-danger" id="clearTestData">Limpar todos os testes</button></div>`:""}
+    </div>`);
+  $("#chooseProduction").onclick=()=>{setRunMode("PRODUCAO");closeModal();navigate(state.view)};
+  $("#chooseTest").onclick=()=>{setRunMode("TESTE");closeModal();navigate(state.view)};
+  $("[data-close]").onclick=closeModal;
+  const clear=$("#clearTestData");
+  if(clear) clear.onclick=async()=>{
+    if(!confirm("Apagar TODOS os registros marcados como TESTE/Simulação? Os dados oficiais de produção serão preservados.")) return;
+    clear.disabled=true;clear.textContent="Limpando…";
+    try{
+      const res=await api("limparDadosTeste",{token:state.adminToken});
+      clearLocalTestData();state.bootstrap=null;
+      setNotice("Ambiente de testes limpo: "+esc(res?.total||0)+" registro(s) removido(s).","ok");
+      closeModal();await navigate(state.view);
+    }catch(e){alert(e.message);clear.disabled=false;clear.textContent="Limpar todos os testes"}
+  };
+}
 async function api(action, payload={}) {
-  const r = await fetch(API, {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({action,...payload})});
+  const meta={modo:currentRunMode(),sessaoTeste:state.runMode==="TESTE"?ensureTestSession():""};
+  const r = await fetch(API, {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({action,...meta,...payload})});
   let out;
   try { out = await r.json(); } catch { throw new Error("Resposta inválida do servidor."); }
   if (!r.ok || !out.ok) throw new Error(out.error || "Falha no servidor.");
