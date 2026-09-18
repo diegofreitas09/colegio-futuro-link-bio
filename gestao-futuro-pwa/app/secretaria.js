@@ -63,15 +63,27 @@ function openMatForm(b){
     <div class="field"><label>Dia vencimento</label><input type="number" name="DIA_VENCIMENTO" id="matDueDay" value="5" min="1" max="31"></div>
     <div class="field"><label>Primeiro vencimento</label><input type="date" name="PRIMEIRO_VENCIMENTO" id="matFirstDue" value="${firstDue}"></div>
     <div class="field span-2"><label>Responsável financeiro</label><select name="ID_RESP_FINANCEIRO" id="matResp"><option value="">Selecione o aluno primeiro</option></select></div>
+    <div class="field span-3"><label>Produtos e serviços adicionais</label><div id="matServices" class="service-picker"><span class="muted">Escolha ano e série para carregar os serviços disponíveis.</span></div><div class="service-total"><span>Total dos adicionais selecionados</span><b id="matServicesTotal">R$ 0,00</b></div></div>
     <div class="field span-3"><label>Observação</label><textarea name="OBSERVAÇÃO"></textarea></div>
   </form></div><div class="modal-foot"><button class="btn btn-soft" data-close>Cancelar</button><button class="btn btn-primary" id="saveMat">Criar matrícula</button></div>`);
 
   $$('[data-close]').forEach(x=>x.onclick=closeModal);
 
   const refreshPlans=()=>{
-    const year=Number($("#matYear").value);
-    const filtered=prods.filter(p=>p.CATEGORIA==="Mensalidade"&&inferYear(p)===year);
-    $("#matPlano").innerHTML=`<option value="">Definir manualmente</option>${filtered.map(p=>`<option value="${esc(p.ID_PRODUTO)}">${esc(p.PRODUTO)} — ${money(p.VALOR_BASE)}</option>`).join("")}`;
+    const year=Number($("#matYear").value),serie=$("#matSerie").value||"";
+    const available=(typeof gfCatalog==="function"&&serie)?gfCatalog(prods,year,serie):prods.filter(p=>inferYear(p)===year&&p.ATIVO==="Sim");
+    const filtered=available.filter(p=>p.CATEGORIA==="Mensalidade");
+    $("#matPlano").innerHTML=`<option value="">Definir manualmente</option>${filtered.map(p=>`<option value="${esc(p.ID_PRODUTO)}">${esc(p.PRODUTO)} — ${esc(p.SUBCATEGORIA||p.QTD_PARCELAS+" parcela(s)")} — ${money(p.VALOR_BASE)}</option>`).join("")}`;
+    const services=available.filter(p=>p.CATEGORIA!=="Mensalidade"&&p.DISPONIVEL_MATRICULA!=="Não");
+    $("#matServices").innerHTML=services.length?services.map(p=>`<label class="service-option"><input type="checkbox" data-mat-service="${esc(p.ID_PRODUTO)}"><span><b>${esc(p.PRODUTO)}</b><small>${esc(p.CATEGORIA||"")} • ${esc(p["DESCRIÇÃO"]||p["OBSERVAÇÃO"]||"")}</small></span><strong>${money(p.VALOR_BASE)}</strong></label>`).join(""):`<span class="muted">Nenhum produto ou serviço adicional disponível para esta série.</span>`;
+    $("[data-mat-service]").forEach(x=>x.onchange=refreshServiceTotal);
+    refreshServiceTotal();
+  };
+  const refreshServiceTotal=()=>{
+    const ids=$("[data-mat-service]:checked").map(x=>x.dataset.matService);
+    const total=prods.filter(p=>ids.includes(String(p.ID_PRODUTO))).reduce((s,p)=>s+Number(p.VALOR_BASE||0),0);
+    $("#matServicesTotal").textContent=money(total);
+    return {ids,total};
   };
   const syncFirstDue=()=>{
     const year=Number($("#matYear").value)||currentYear;
@@ -81,6 +93,7 @@ function openMatForm(b){
   refreshPlans();
 
   $("#matYear").onchange=()=>{refreshPlans();syncFirstDue();};
+  $("#matSerie").onchange=refreshPlans;
   $("#matDueDay").onchange=syncFirstDue;
   $("#matAluno").onchange=()=>{
     const o=$("#matAluno").selectedOptions[0];
@@ -93,6 +106,13 @@ function openMatForm(b){
   $("#saveMat").onclick=async()=>{
     const f=$("#matForm");if(!f.reportValidity())return;
     const data=Object.fromEntries(new FormData(f).entries());
+    const serviceInfo=refreshServiceTotal(),selectedServices=prods.filter(p=>serviceInfo.ids.includes(String(p.ID_PRODUTO)));
+    data.SERVICOS_ADICIONAIS=JSON.stringify(selectedServices.map(p=>({ID_PRODUTO:p.ID_PRODUTO,PRODUTO:p.PRODUTO,CATEGORIA:p.CATEGORIA,VALOR:Number(p.VALOR_BASE||0)})));
+    data.VALOR_SERVICOS_ADICIONAIS=serviceInfo.total;
+    if(selectedServices.length){
+      const resumo="Produtos/serviços adicionais: "+selectedServices.map(p=>p.PRODUTO+" ("+money(p.VALOR_BASE)+")").join("; ")+". Total adicionais: "+money(serviceInfo.total)+".";
+      data["OBSERVAÇÃO"]=(data["OBSERVAÇÃO"]?data["OBSERVAÇÃO"]+"\n":"")+resumo;
+    }
     const btn=$("#saveMat");btn.disabled=true;btn.textContent="Criando…";
     try{
       const res=await api("criarMatriculaCompleta",{token:tokenFor("staff"),data});
