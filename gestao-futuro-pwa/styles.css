@@ -178,3 +178,16 @@ body.interface-staff .nav button.active{box-shadow:inset 3px 0 0 #79b5ff}
 @supports (content-visibility:auto){
   .catalog-group,.approval-card{content-visibility:auto;contain-intrinsic-size:240px}
 }
+
+/* Central de Integrações */
+.integration-hero{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:20px;border-radius:18px;background:linear-gradient(135deg,#123b76,#1e63d8);color:#fff;margin-bottom:16px;box-shadow:var(--shadow)}
+.integration-hero span{font-size:9px;font-weight:900;letter-spacing:.12em;opacity:.78}.integration-hero h2{margin:4px 0 5px;font-size:22px}.integration-hero p{margin:0;max-width:720px;font-size:12px;opacity:.9}
+.integration-badges{display:flex;gap:7px;flex-wrap:wrap}.integration-badges b{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);padding:7px 10px;border-radius:999px;font-size:10px}
+.integration-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.integration-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:12px;flex-wrap:wrap}
+.integration-api-card{margin-bottom:16px}.api-example{background:#0f213d;color:#dbeafe;border-radius:12px;padding:12px;margin-bottom:12px;overflow:auto}.api-example code{font-size:10px;line-height:1.45;white-space:pre-wrap}
+.integration-row-actions{display:flex;gap:6px;flex-wrap:wrap}.api-key-box{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;background:#f4f7fb;border:1px solid var(--line);border-radius:12px;padding:12px}.api-key-box code{overflow-wrap:anywhere;font-size:11px}
+.integration-summary{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}.integration-summary span{background:#f3f6fa;border:1px solid var(--line);padding:7px 10px;border-radius:10px;font-size:10px}.integration-summary b{color:#123b76}
+.preview-table{max-height:420px;overflow:auto}.preview-table table{font-size:10px}.preview-table th{position:sticky;top:0;background:#f7f9fc;z-index:1}
+@media(max-width:900px){.integration-grid{grid-template-columns:1fr}.integration-hero{align-items:flex-start;flex-direction:column}}
+@media(max-width:650px){.api-key-box{grid-template-columns:1fr}.integration-actions{display:grid;grid-template-columns:1fr}.integration-actions .btn{width:100%}}
