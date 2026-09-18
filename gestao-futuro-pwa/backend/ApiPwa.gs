@@ -87,6 +87,13 @@ function pwaSalvarResponsavel_(token,data){pwaStaff_(token);return pwaWithLock_(
 function pwaCriarMatricula_(token,data){pwaStaff_(token);return pwaWithLock_(function(){return criarMatriculaCompleta(data||{})})}
 
 function listarAtendimentosPwa_(token){pwaStaff_(token);return rows_(GF_TABS.ATENDIMENTOS)}
+function getAtendimentoPwa_(token,id){
+  pwaStaff_(token);
+  var atendimento=findById_(GF_TABS.ATENDIMENTOS,"ID_ATENDIMENTO",id);
+  if(!atendimento)throw new Error("Atendimento não encontrado.");
+  var itens=rows_(GF_TABS.ITENS_ATENDIMENTO).filter(function(x){return x.ID_ATENDIMENTO===id&&x.SELECIONADO!=="Não"});
+  return {atendimento:atendimento,itens:itens};
+}
 function salvarAtendimentoPwa_(token,data,itens){
   pwaStaff_(token);data=data||{};itens=Array.isArray(itens)?itens:[];
   if(!data.NOME_ALUNO||!data.ANO_LETIVO||!data.SERIE_PRETENDIDA)throw new Error("Aluno, ano letivo e série são obrigatórios.");
@@ -245,7 +252,7 @@ function doPost(e){
       case "gerarResumoAluno":data=gerarResumoAluno(body.token,body.idAluno);break;
       case "registrarPagamento":data=pwaWithLock_(function(){return registrarPagamento(body.token,body.data||{})});break;
       case "salvarMovimentoCaixa":data=pwaWithLock_(function(){return salvarMovimentoCaixa(body.token,body.data||{})});break;
-      case "listarAtendimentos":data=listarAtendimentosPwa_(body.token);break;
+      case "listarAtendimentos":data=listarAtendimentosPwa_(body.token);break;\n      case "getAtendimento":data=getAtendimentoPwa_(body.token,body.id);break;
       case "salvarAtendimento":data=salvarAtendimentoPwa_(body.token,body.data,body.itens);break;
       case "solicitarDesconto":data=solicitarDescontoPwa_(body.token,body.data);break;
       case "listarSolicitacoesDesconto":data=listarSolicitacoesDescontoPwa_(body.token);break;
