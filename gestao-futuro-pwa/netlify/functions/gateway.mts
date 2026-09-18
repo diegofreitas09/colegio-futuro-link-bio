@@ -1,4 +1,6 @@
 import type { Config, Context } from "@netlify/functions";
+import { getStore } from "@netlify/blobs";
+import webpush from "web-push";
 
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwzZJUloa6YdIfJZdCmYw5ch_GkjuS20gUa5zyhulMiAiQj9pH9B3BOE7UU5jZvb_svig/exec";
 
@@ -7,6 +9,57 @@ function json(data: unknown, status = 200) {
     status,
     headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" }
   });
+}
+async function notifyDirector(payload: Record<string, unknown>) {
+  const publicKey = Netlify.env.get("FUTURO_VAPID_PUBLIC_KEY") || "";
+  const privateKey = Netlify.env.get("FUTURO_VAPID_PRIVATE_KEY") || "";
+  if (!publicKey || !privateKey) return;
+  try {
+    webpush.setVapidDetails("https://gestao-futuro-pwa.netlify.app", publicKey, privateKey);
+    const store = getStore("gestao-futuro-push");
+    const subs = await store.get("director-subscriptions", { type: "json" }) as any[] | null;
+    const rows = Array.isArray(subs) ? subs : [];
+    const keep:any[] = [];
+    for (const row of rows) {
+      try {
+        await webpush.sendNotification(row.subscription, JSON.stringify(payload));
+        keep.push(row);
+      } catch (e:any) {
+        const code = Number(e?.statusCode || 0);
+        if (code !== 404 && code !== 410) keep.push(row);
+      }
+    }
+    if (keep.length !== rows.length) await store.setJSON("director-subscriptions", keep);
+  } catch {}
+}
+
+function enrollmentPush(body: Record<string, unknown>) {
+  const data = (body.data || {}) as Record<string, unknown>;
+  const mode = String(body.modo || "PRODUCAO");
+  const aluno = String(data.NOME_ALUNO || data.ID_ALUNO || "Aluno");
+  const serie = String(data.SERIE || data["SÉRIE"] || "");
+  const ano = String(data.ANO_LETIVO || "");
+  return {
+    title: mode === "TESTE" ? "🧪 Matrícula de teste realizada" : "🎓 Nova matrícula realizada",
+    body: [aluno, serie, ano].filter(Boolean).join(" • "),
+    icon: "/assets/icon.svg",
+    badge: "/assets/icon.svg",
+    url: "/"
+  };
+}
+
+function discountPush(body: Record<string, unknown>) {
+  const data = (body.data || {}) as Record<string, unknown>;
+  const mode = String(body.modo || "PRODUCAO");
+  const serie = String(data.SERIE || "");
+  const valor = Number(data.VALOR_SOLICITADO || 0);
+  return {
+    title: mode === "TESTE" ? "🧪 Desconto de teste solicitado" : "💰 Nova solicitação de desconto",
+    body: [serie, valor ? "R$ " + valor.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) : ""].filter(Boolean).join(" • "),
+    icon: "/assets/icon.svg",
+    badge: "/assets/icon.svg",
+    url: "/"
+  };
 }
 
 export default async (req: Request, _context: Context) => {
@@ -60,6 +113,11 @@ export default async (req: Request, _context: Context) => {
       data = JSON.parse(text);
     } catch {
       return json({ ok: false, error: "O Apps Script respondeu em formato inesperado." }, 502);
+    }
+
+    if (upstream.ok && (data as any)?.ok) {
+      if (action === "criarMatriculaCompleta") await notifyDirector(enrollmentPush(body));
+      if (action === "solicitarDesconto") await notifyDirector(discountPush(body));
     }
 
     return json(data, upstream.ok ? 200 : 502);
