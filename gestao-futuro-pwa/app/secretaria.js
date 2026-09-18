@@ -80,7 +80,7 @@ function openMatForm(b){
     refreshServiceTotal();
   };
   const refreshServiceTotal=()=>{
-    const ids=$("[data-mat-service]:checked").map(x=>x.dataset.matService);
+    const ids=$$("[data-mat-service]:checked").map(x=>x.dataset.matService);
     const total=prods.filter(p=>ids.includes(String(p.ID_PRODUTO))).reduce((s,p)=>s+Number(p.VALOR_BASE||0),0);
     $("#matServicesTotal").textContent=money(total);
     return {ids,total};
@@ -119,6 +119,7 @@ function openMatForm(b){
       const res=await api("criarMatriculaCompleta",{token:tokenFor("staff"),data});
       state.bootstrap=null;closeModal();
       setNotice(`Matrícula ${esc(res.id)} criada para ${esc(data.ANO_LETIVO)}. ${res.parcelas||0} parcela(s) gerada(s) e ${res.servicos||0} produto(s)/serviço(s) adicional(is) integrado(s).`,"ok");
+      appAlert("matricula","Matrícula realizada com sucesso ✓");
       await renderMatriculas();
     }catch(e){alert(e.message);btn.disabled=false;btn.textContent="Criar matrícula";}
   };
