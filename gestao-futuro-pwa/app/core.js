@@ -184,9 +184,9 @@ function dashBarRows(rows,maxValue,formatter){
   }).join("");
 }
 async function renderDashboard(){
-  $("#view").innerHTML=\`<div class="cards grid">${["Alunos ativos","Matrículas ativas","Documentos pendentes","Status"].map(x=>\`<div class="card metric"><div class="label">${x}</div><div class="value">…</div><div class="hint">atualizando</div></div>\`).join("")}</div>\`;
+  $("#view").innerHTML=`<div class="cards grid">${["Alunos ativos","Matrículas ativas","Documentos pendentes","Status"].map(x=>`<div class="card metric"><div class="label">${x}</div><div class="value">…</div><div class="hint">atualizando</div></div>`).join("")}</div>`;
   let publicData={};
-  try{ publicData=await api("dashboardPublico"); }catch(e){ setNotice(\`Conexão da PWA pendente: ${esc(e.message)}\`,"error"); }
+  try{ publicData=await api("dashboardPublico"); }catch(e){ setNotice(`Conexão da PWA pendente: ${esc(e.message)}`,"error"); }
   const vals=[publicData?.["Alunos ativos"]??0, publicData?.["Matrículas ativas"]??0, publicData?.["Documentos pendentes"]??0, "Online"];
   $$(".metric .value").forEach((el,i)=>el.textContent=vals[i]);
   $$(".metric .hint").forEach((el,i)=>el.textContent=i===3?"Apps Script + Google Sheets":"visão operacional");
@@ -197,8 +197,8 @@ async function renderDashboard(){
         api("dashboardGestao",{token:state.adminToken}).catch(()=>({})),
         api("listarProdutosGestao",{token:state.adminToken}).catch(()=>([]))
       ]);
-      const cards=Object.entries(d).slice(0,8).map(([k,v])=>\`<div class="card metric"><div class="label">${esc(k)}</div><div class="value" style="font-size:22px">${esc(v)}</div><div class="hint">Gestão</div></div>\`).join("");
-      if(cards)$("#view").insertAdjacentHTML("beforeend",\`<div class="section-head"><h2>Indicadores financeiros</h2></div><div class="cards grid">${cards}</div>\`);
+      const cards=Object.entries(d).slice(0,8).map(([k,v])=>`<div class="card metric"><div class="label">${esc(k)}</div><div class="value" style="font-size:22px">${esc(v)}</div><div class="hint">Gestão</div></div>`).join("");
+      if(cards)$("#view").insertAdjacentHTML("beforeend",`<div class="section-head"><h2>Indicadores financeiros</h2></div><div class="cards grid">${cards}</div>`);
 
       const p26=products.filter(p=>dashYear(p)===2026&&p.ATIVO!=="Não"),p27=products.filter(p=>dashYear(p)===2027&&p.ATIVO!=="Não");
       const m26=new Map(p26.map(p=>[dashKey(p),p])),m27=new Map(p27.map(p=>[dashKey(p),p]));
@@ -214,7 +214,7 @@ async function renderDashboard(){
       const pctRows=cats.map(cat=>{const arr=both.filter(x=>x.cat===cat);return {label:cat,a:0,b:arr.length?arr.reduce((s,x)=>s+x.pct,0)/arr.length:0,sub:arr.length+" item(ns) comparáveis"}});
       const maxCount=Math.max(1,...countRows.flatMap(r=>[r.a,r.b])),maxValue=Math.max(1,...valueRows.flatMap(r=>[r.a,r.b])),maxPct=Math.max(1,...pctRows.map(r=>Math.abs(r.b)));
       $("#view").insertAdjacentHTML("beforeend",
-        \`<div class="section-head"><div><h2>Comparativo do catálogo • 2026 × 2027</h2><span class="muted">Produtos e serviços oficiais, incluindo mensalidades, materiais, fardamento e adicionais.</span></div><button class="btn btn-soft" data-go="produtos">Abrir catálogo</button></div>
+        `<div class="section-head"><div><h2>Comparativo do catálogo • 2026 × 2027</h2><span class="muted">Produtos e serviços oficiais, incluindo mensalidades, materiais, fardamento e adicionais.</span></div><button class="btn btn-soft" data-go="produtos">Abrir catálogo</button></div>
         <div class="cards grid comparison-kpis">
           <div class="card metric"><div class="label">Itens 2026</div><div class="value">${p26.length}</div><div class="hint">ativos no catálogo</div></div>
           <div class="card metric"><div class="label">Itens 2027</div><div class="value">${p27.length}</div><div class="hint">ativos no catálogo</div></div>
@@ -224,22 +224,22 @@ async function renderDashboard(){
         <div class="dashboard-chart-grid">
           <section class="card chart-card"><div class="chart-title"><h3>Quantidade por categoria</h3><span>2026 × 2027</span></div>${dashBarRows(countRows,maxCount,v=>String(Math.round(v)))}</section>
           <section class="card chart-card"><div class="chart-title"><h3>Soma dos valores cadastrados</h3><span>visão de catálogo, não receita</span></div>${dashBarRows(valueRows,maxValue,v=>money(v))}</section>
-          <section class="card chart-card"><div class="chart-title"><h3>Reajuste médio por categoria</h3><span>itens equivalentes</span></div>${pctRows.map(r=>\`<div class="pct-row"><div><b>${esc(r.label)}</b><small>${esc(r.sub)}</small></div><div class="pct-track"><i style="width:${Math.min(100,Math.abs(r.b)/maxPct*100)}%"></i></div><strong>${Number(r.b).toLocaleString("pt-BR",{maximumFractionDigits:2})}%</strong></div>\`).join("")}</section>
+          <section class="card chart-card"><div class="chart-title"><h3>Reajuste médio por categoria</h3><span>itens equivalentes</span></div>${pctRows.map(r=>`<div class="pct-row"><div><b>${esc(r.label)}</b><small>${esc(r.sub)}</small></div><div class="pct-track"><i style="width:${Math.min(100,Math.abs(r.b)/maxPct*100)}%"></i></div><strong>${Number(r.b).toLocaleString("pt-BR",{maximumFractionDigits:2})}%</strong></div>`).join("")}</section>
         </div>
         <div class="section-head"><h2>Todos os produtos e serviços comparados</h2><span class="muted">${compare.length} linhas</span></div>
-        <div class="table-wrap"><table class="comparison-table"><thead><tr><th>Categoria</th><th>Produto/serviço</th><th>Série</th><th>2026</th><th>2027</th><th>Variação</th></tr></thead><tbody>${compare.map(x=>\`<tr><td>${esc(x.cat)}</td><td><strong>${esc(x.label)}</strong></td><td>${esc(x.serie)}</td><td class="money">${x.v26?money(x.v26):"—"}</td><td class="money">${x.v27?money(x.v27):"—"}</td><td>${x.pct==null?pill(x.v27?"Novo":"Sem 2027",x.v27?"ok":"warn"):\`<span class="variation ${x.pct>0?"up":x.pct<0?"down":""}">${x.pct>0?"+":""}${x.pct.toLocaleString("pt-BR",{maximumFractionDigits:2})}%</span>\`}</td></tr>\`).join("")||\`<tr><td colspan="6" class="empty">Sem dados comparativos.</td></tr>\`}</tbody></table></div>\`
+        <div class="table-wrap"><table class="comparison-table"><thead><tr><th>Categoria</th><th>Produto/serviço</th><th>Série</th><th>2026</th><th>2027</th><th>Variação</th></tr></thead><tbody>${compare.map(x=>`<tr><td>${esc(x.cat)}</td><td><strong>${esc(x.label)}</strong></td><td>${esc(x.serie)}</td><td class="money">${x.v26?money(x.v26):"—"}</td><td class="money">${x.v27?money(x.v27):"—"}</td><td>${x.pct==null?pill(x.v27?"Novo":"Sem 2027",x.v27?"ok":"warn"):`<span class="variation ${x.pct>0?"up":x.pct<0?"down":""}">${x.pct>0?"+":""}${x.pct.toLocaleString("pt-BR",{maximumFractionDigits:2})}%</span>`}</td></tr>`).join("")||`<tr><td colspan="6" class="empty">Sem dados comparativos.</td></tr>`}</tbody></table></div>`
       );
     }catch(e){
-      $("#view").insertAdjacentHTML("beforeend",\`<div class="notice error">Não foi possível montar o comparativo 2026 × 2027: ${esc(e.message)}</div>\`);
+      $("#view").insertAdjacentHTML("beforeend",`<div class="notice error">Não foi possível montar o comparativo 2026 × 2027: ${esc(e.message)}</div>`);
     }
   }
-  $("#view").insertAdjacentHTML("beforeend",\`<div class="section-head"><h2>Atalhos</h2></div><div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(210px,1fr))">
+  $("#view").insertAdjacentHTML("beforeend",`<div class="section-head"><h2>Atalhos</h2></div><div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(210px,1fr))">
     <button class="card btn-soft" data-go="atendimento" style="text-align:left"><strong>Atendimento de matrículas</strong><br><span class="muted">Funil, proposta e pedido de desconto</span></button>
     <button class="card btn-soft" data-go="alunos" style="text-align:left"><strong>Cadastro de alunos</strong><br><span class="muted">Consulta e ficha escolar</span></button>
     <button class="card btn-soft" data-go="matriculas" style="text-align:left"><strong>Nova matrícula</strong><br><span class="muted">Contrato, plano e checklist</span></button>
     <button class="card btn-soft" data-go="produtos" style="text-align:left"><strong>Produtos e valores</strong><br><span class="muted">Acesso da Gestão</span></button>
     <button class="card btn-soft" data-go="caixa" style="text-align:left"><strong>Fluxo de caixa</strong><br><span class="muted">Entradas e saídas</span></button>
-  </div>\`);
+  </div>`);
   $$('[data-go]').forEach(b=>b.onclick=()=>navigate(b.dataset.go));
 }
 
