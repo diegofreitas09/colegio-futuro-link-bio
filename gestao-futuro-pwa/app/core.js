@@ -23,15 +23,15 @@ const state = {
 const titles = {
   dashboard:"Dashboard", atendimento:"Atendimento de matrículas", panfletos:"Panfletos por série", alunos:"Alunos", responsaveis:"Responsáveis", matriculas:"Matrículas",
   documentos:"Documentos", produtos:"Valores e reajustes", autorizacoes:"Autorizações da Gestão", recebimentos:"Recebimentos",
-  caixa:"Fluxo de caixa", fechamento:"Fechamento financeiro"
+  caixa:"Fluxo de caixa", fechamento:"Fechamento financeiro", integracoes:"Central de integrações"
 };
 
 const INTERFACE_VIEWS = Object.freeze({
   staff:["dashboard","atendimento","panfletos","alunos","responsaveis","matriculas","documentos"],
-  admin:["dashboard","panfletos","produtos","autorizacoes","recebimentos","caixa","fechamento"],
+  admin:["dashboard","panfletos","produtos","autorizacoes","recebimentos","caixa","fechamento","integracoes"],
   public:["dashboard"]
 });
-const roleForView = view => ["produtos","autorizacoes","recebimentos","caixa","fechamento"].includes(view) ? "admin" : ["atendimento","alunos","responsaveis","matriculas","documentos"].includes(view) ? "staff" : view==="panfletos" ? "shared" : "public";
+const roleForView = view => ["produtos","autorizacoes","recebimentos","caixa","fechamento","integracoes"].includes(view) ? "admin" : ["atendimento","alunos","responsaveis","matriculas","documentos"].includes(view) ? "staff" : view==="panfletos" ? "shared" : "public";
 const activeInterfaceRole = () => state.role==="admin" && state.adminToken ? "admin" : state.role==="staff" && state.staffToken ? "staff" : "public";
 const allowedViewsFor = role => INTERFACE_VIEWS[role] || INTERFACE_VIEWS.public;
 const tokenFor = role => role === "admin" ? state.adminToken : (state.role==="staff" ? state.staffToken : state.adminToken);
@@ -405,6 +405,7 @@ async function navigate(view){
     if(view==="recebimentos") await renderRecebimentos();
     if(view==="caixa") await renderCaixa();
     if(view==="fechamento") await renderFechamento();
+    if(view==="integracoes") await renderIntegracoes();
   }catch(e){
     if(/Sessão.*expirada|Sessão.*inválida/i.test(e.message)){ await logoutAll(); authModal(roleForView(view)); }
     $("#view").innerHTML=`<div class="card"><div class="empty">${esc(e.message)}</div></div>`;
@@ -486,6 +487,7 @@ async function renderDashboard(){
         <button class="card btn-soft" data-go="recebimentos"><strong>Recebimentos</strong><br><span class="muted">Receitas e pagamentos registrados</span></button>
         <button class="card btn-soft" data-go="caixa"><strong>Fluxo de caixa</strong><br><span class="muted">Entradas, saídas e movimentações</span></button>
         <button class="card btn-soft" data-go="fechamento"><strong>Fechamento</strong><br><span class="muted">Visão financeira consolidada</span></button>
+        <button class="card btn-soft" data-go="integracoes"><strong>Integrações</strong><br><span class="muted">API, CSV, Excel e conexão com outras plataformas</span></button>
         <button class="card btn-soft" data-go="panfletos"><strong>Panfletos por série</strong><br><span class="muted">Editar conteúdo oficial para famílias</span></button>
       </div>`
     : role==="staff"
