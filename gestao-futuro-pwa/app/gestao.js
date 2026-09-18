@@ -8,6 +8,8 @@ async function renderProdutos(){
   $("#view").innerHTML=`<div class="section-head"><h2>Catálogo oficial</h2><div class="toolbar">
     <select id="prodYear" class="search" style="max-width:160px">${years.map(y=>`<option value="${y}" ${y===defaultYear?"selected":""}>${y}</option>`).join("")}</select>
     <input class="search" id="prodSearch" placeholder="Buscar produto, série…">
+    <button class="btn btn-soft" id="newProductService">+ Produto/serviço</button>
+    <button class="btn btn-gold" id="individualAdjustment">Reajuste individual</button>
     <button class="btn btn-primary" id="newSchoolYear">Reajuste em lote</button>
   </div></div>
   <div class="card" style="margin-bottom:14px"><strong>Ano letivo: <span id="yearLabel">${defaultYear}</span></strong><br><span class="muted">Cada ano mantém seu próprio catálogo e seus próprios valores. O histórico dos anos anteriores não é apagado.</span></div>
@@ -25,6 +27,8 @@ async function renderProdutos(){
   $("#prodSearch").oninput=draw;
   $("#prodYear").onchange=draw;
   $("#newSchoolYear").onclick=()=>openSchoolYearForm(years);
+  $("#individualAdjustment").onclick=()=>openIndividualAdjustment(list,years);
+  $("#newProductService").onclick=()=>openNewProductService();
   draw();
 }
 
@@ -46,6 +50,74 @@ function openSchoolYearForm(years){
     const f=$("#yearForm");if(!f.reportValidity())return;const data=Object.fromEntries(new FormData(f).entries());
     const btn=$("#createYear");btn.disabled=true;btn.textContent="Aplicando…";
     try{const res=await api("aplicarReajusteCatalogo",{token:state.adminToken,data});state.productYear=Number(data.anoDestino);closeModal();setNotice(`Reajuste aplicado em ${res.quantidade||0} produto(s). O catálogo ${data.anoDestino} está ${data.publicar==="Sim"?"publicado":"em rascunho"} para o Atendimento.`,"ok");await renderProdutos()}catch(e){alert(e.message);btn.disabled=false;btn.textContent="Aplicar reajuste"}
+  };
+}
+
+function openIndividualAdjustment(list,years){
+  const origem=Number(state.productYear||years[0]||2026),destino=origem+1;
+  const source=list.filter(p=>Number(p.ANO_LETIVO)===origem);
+  modal(\`<div class="modal-head"><h3>Reajuste individual</h3><button class="icon-btn" data-close>✕</button></div>
+  <div class="modal-body"><div class="notice">Escolha um único produto ou serviço. Você pode aplicar percentual ou definir diretamente o novo valor para o ano de destino.</div>
+  <form id="individualForm" class="form-grid">
+    <div class="field"><label>Ano de origem</label><select name="anoOrigem" id="indOrigin">\${years.map(y=>\`<option value="\${y}" \${y===origem?"selected":""}>\${y}</option>\`).join("")}</select></div>
+    <div class="field"><label>Ano de destino</label><input type="number" name="anoDestino" value="\${destino}" min="2026" max="2100" required></div>
+    <div class="field span-2"><label>Produto / serviço</label><select name="idProduto" id="indProduct" required></select></div>
+    <div class="field"><label>Modo</label><select name="modo" id="indMode"><option value="percentual">Percentual (%)</option><option value="valor">Novo valor</option></select></div>
+    <div class="field"><label id="indValueLabel">Reajuste (%)</label><input type="number" step="0.01" name="valor" id="indValue" value="0" required></div>
+    <div class="field"><label>Publicar no Atendimento</label><select name="publicar"><option>Sim</option><option>Não</option></select></div>
+    <div class="field span-3"><label>Observação</label><input name="observacao" placeholder="Ex.: reajuste negociado individualmente para 2027"></div>
+  </form></div>
+  <div class="modal-foot"><button class="btn btn-soft" data-close>Cancelar</button><button class="btn btn-primary" id="applyIndividual">Aplicar reajuste individual</button></div>\`);
+  const fill=()=>{const y=Number($("#indOrigin").value),arr=list.filter(p=>Number(p.ANO_LETIVO)===y);$("#indProduct").innerHTML=arr.map(p=>\`<option value="\${esc(p.ID_PRODUTO)}">\${esc(p.PRODUTO)} • \${esc(p["SEGMENTO_SÉRIE"]||"")} • \${money(p.VALOR_BASE)}</option>\`).join("")};
+  fill();$("#indOrigin").onchange=fill;$("#indMode").onchange=()=>{$("#indValueLabel").textContent=$("#indMode").value==="percentual"?"Reajuste (%)":"Novo valor (R$)"};
+  $$('[data-close]').forEach(x=>x.onclick=closeModal);
+  $("#applyIndividual").onclick=async()=>{
+    const f=$("#individualForm");if(!f.reportValidity())return;
+    const data=Object.fromEntries(new FormData(f).entries()),btn=$("#applyIndividual");btn.disabled=true;btn.textContent="Aplicando…";
+    try{
+      const res=await api("aplicarReajusteIndividual",{token:state.adminToken,data});
+      state.productYear=Number(data.anoDestino);state.catalogProducts=null;state.bootstrap=null;closeModal();
+      setNotice(\`Reajuste individual aplicado em \${esc(res.produto||data.idProduto)}. O item já fica disponível no catálogo \${data.anoDestino} conforme a publicação escolhida.\`,"ok");
+      await renderProdutos();
+    }catch(e){alert(e.message);btn.disabled=false;btn.textContent="Aplicar reajuste individual"}
+  };
+}
+
+function openNewProductService(){
+  const y=Number(state.productYear||new Date().getFullYear());
+  modal(\`<div class="modal-head"><h3>Novo produto ou serviço</h3><button class="icon-btn" data-close>✕</button></div>
+  <div class="modal-body"><div class="notice">Cadastro central. O que for publicado passa a alimentar automaticamente Atendimento, Panfletos e opções da Matrícula.</div>
+  <form id="newServiceForm" class="form-grid">
+    <div class="field"><label>Ano letivo</label><input type="number" name="ANO_LETIVO" value="\${y}" min="2026" max="2100" required></div>
+    <div class="field"><label>Categoria</label><select name="CATEGORIA"><option>Serviço</option><option>Adicional</option><option>Mensalidade</option><option>Material Didático</option><option>Fardamento</option><option>Taxa</option><option>Outros</option></select></div>
+    <div class="field"><label>Subcategoria</label><input name="SUBCATEGORIA" placeholder="Ex.: Esporte, Integral, Transporte, Agenda"></div>
+    <div class="field span-2"><label>Nome do produto / serviço</label><input name="PRODUTO" required placeholder="Ex.: Ballet, Futsal, Tempo Integral"></div>
+    <div class="field"><label>Série / segmento</label><input name="SEGMENTO_SÉRIE" required placeholder="Ex.: Infantil 2 ao 5, 6º Ano, Todos"></div>
+    <div class="field span-3"><label>Descrição para a família</label><textarea name="DESCRIÇÃO" placeholder="O que está incluído, carga horária, material, condições..."></textarea></div>
+    <div class="field span-3"><label>Observação pública</label><textarea name="OBSERVAÇÃO" placeholder="Informação que pode aparecer no atendimento e panfleto"></textarea></div>
+    <div class="field span-3"><label>Observação interna</label><textarea name="OBSERVACAO_INTERNA" placeholder="Uso exclusivo da Gestão/Secretaria"></textarea></div>
+    <div class="field"><label>Tipo de cobrança</label><select name="TIPO_COBRANCA"><option>Única</option><option>Mensal</option><option>Parcelada</option><option>Anual</option><option>Opcional</option></select></div>
+    <div class="field"><label>Valor base</label><input type="number" step="0.01" name="VALOR_BASE" value="0" required></div>
+    <div class="field"><label>Valor pós-vencimento</label><input type="number" step="0.01" name="VALOR_PÓS_VENCIMENTO" value="0"></div>
+    <div class="field"><label>Valor crédito</label><input type="number" step="0.01" name="VALOR_CRÉDITO" value="0"></div>
+    <div class="field"><label>Qtd. parcelas</label><input type="number" name="QTD_PARCELAS" min="1" value="1"></div>
+    <div class="field"><label>Valor da parcela</label><input type="number" step="0.01" name="VALOR_PARCELA" value="0"></div>
+    <div class="field"><label>Vencimento padrão</label><input name="VENCIMENTO_PADRÃO" placeholder="Ex.: Dia 5 / Na compra"></div>
+    <div class="field"><label>Disponível na matrícula</label><select name="DISPONIVEL_MATRICULA"><option>Sim</option><option>Não</option></select></div>
+    <div class="field"><label>Publicado no atendimento/panfleto</label><select name="PUBLICADO_ATENDIMENTO"><option>Sim</option><option>Não</option></select></div>
+    <div class="field"><label>Ativo</label><select name="ATIVO"><option>Sim</option><option>Não</option></select></div>
+    <div class="field"><label>Ordem de exibição</label><input type="number" name="ORDEM_EXIBICAO" value="100"></div>
+  </form></div>
+  <div class="modal-foot"><button class="btn btn-soft" data-close>Cancelar</button><button class="btn btn-primary" id="saveNewService">Cadastrar e integrar</button></div>\`);
+  $$('[data-close]').forEach(x=>x.onclick=closeModal);
+  $("#saveNewService").onclick=async()=>{
+    const f=$("#newServiceForm");if(!f.reportValidity())return;const data=Object.fromEntries(new FormData(f).entries()),btn=$("#saveNewService");btn.disabled=true;btn.textContent="Integrando…";
+    try{
+      const res=await api("criarProdutoServico",{token:state.adminToken,data});
+      state.productYear=Number(data.ANO_LETIVO);state.catalogProducts=null;state.bootstrap=null;state.flyerCache={};closeModal();
+      setNotice(\`\${esc(data.PRODUTO)} cadastrado com ID \${esc(res.id)} e integrado ao catálogo oficial.\`,"ok");
+      await renderProdutos();
+    }catch(e){alert(e.message);btn.disabled=false;btn.textContent="Cadastrar e integrar"}
   };
 }
 
