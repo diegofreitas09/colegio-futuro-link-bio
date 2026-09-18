@@ -402,6 +402,62 @@ function pwaAtualizarProduto_(token,id,patch){
     updateById_(S.PRODUTOS,"ID_PRODUTO",id,clean);audit_("Gestão","EDITAR","Produto",id,JSON.stringify(old),JSON.stringify(clean));SpreadsheetApp.flush();return {ok:true,id:id};
   });
 }
+function importarLoteIntegracaoPwa_(token,data,modo,sessao){
+  pwaAdmin_(token);data=data||{};
+  var entity=String(data.entity||"").toLowerCase(),records=Array.isArray(data.records)?data.records:[],source=String(data.source||"Integração"),jobId=String(data.jobId||"");
+  if(!records.length)throw new Error("Nenhum registro para importar.");
+  if(records.length>200)throw new Error("Máximo de 200 registros por lote de integração.");
+  var result={ok:true,entity:entity,jobId:jobId,source:source,recebidos:records.length,criados:0,atualizados:0,ignorados:0,erros:[]};
+  return pwaWithLock_(function(){
+    records.forEach(function(raw,index){
+      try{
+        var row=Object.assign({},raw||{});
+        row.MODO_REGISTRO=pwaMode_(modo);row.SESSAO_TESTE=pwaMode_(modo)==="TESTE"?String(sessao||jobId||""):"";
+        if(entity==="alunos"){
+          var exists=row.ID_ALUNO?findById_(S.ALUNOS,"ID_ALUNO",row.ID_ALUNO):null;
+          var res=salvarAluno(row);
+          var id=res&&(res.id||res.ID_ALUNO)||row.ID_ALUNO||"";
+          if(id)pwaMarkWhere_("ALUNOS","ID_ALUNO",id,modo,sessao||jobId);
+          exists?result.atualizados++:result.criados++;
+        }else if(entity==="responsaveis"){
+          var oldR=row.ID_RESPONSAVEL?findById_(S.RESPONSAVEIS||"RESPONSAVEIS","ID_RESPONSAVEL",row.ID_RESPONSAVEL):null;
+          var rr=salvarResponsavel(row);
+          var rid=rr&&(rr.id||rr.ID_RESPONSAVEL)||row.ID_RESPONSAVEL||"";
+          if(rid)pwaMarkWhere_("RESPONSAVEIS","ID_RESPONSAVEL",rid,modo,sessao||jobId);
+          oldR?result.atualizados++:result.criados++;
+        }else if(entity==="atendimentos"){
+          var oldA=row.ID_ATENDIMENTO?findById_(GF_TABS.ATENDIMENTOS,"ID_ATENDIMENTO",row.ID_ATENDIMENTO):null;
+          salvarAtendimentoPwa_(token,row,Array.isArray(row.ITENS)?row.ITENS:[],modo,sessao||jobId);
+          oldA?result.atualizados++:result.criados++;
+        }else if(entity==="produtos"){
+          var oldP=row.ID_PRODUTO?findById_(S.PRODUTOS,"ID_PRODUTO",row.ID_PRODUTO):null;
+          if(oldP){
+            pwaAtualizarProduto_(token,row.ID_PRODUTO,row);result.atualizados++;
+          }else{
+            pwaCriarProdutoServico_(token,row);result.criados++;
+          }
+        }else if(entity==="matriculas"){
+          var mid=row["ID_MATRÍCULA"]||row.ID_MATRICULA||"";
+          var oldM=mid?findById_(S.MATRICULAS||"MATRICULAS","ID_MATRÍCULA",mid):null;
+          if(oldM){
+            result.ignorados++;
+          }else{
+            pwaCriarMatricula_(token,row,modo,sessao||jobId);result.criados++;
+          }
+        }else{
+          throw new Error("Entidade não suportada.");
+        }
+      }catch(err){
+        result.erros.push({linha:index+1,mensagem:String(err&&err.message||err)});
+      }
+    });
+    audit_("Integração","IMPORTAR_LOTE",entity,jobId,"",JSON.stringify({source:source,recebidos:result.recebidos,criados:result.criados,atualizados:result.atualizados,ignorados:result.ignorados,erros:result.erros.length}));
+    SpreadsheetApp.flush();
+    result.ok=result.erros.length===0;
+    return result;
+  });
+}
+
 function aplicarReajusteCatalogoPwa_(token,d){
   pwaAdmin_(token);d=d||{};var origem=Number(d.anoOrigem),destino=Number(d.anoDestino),pct=pwaNum_(d.percentual),cat=String(d.categoria||"Todas"),pub=String(d.publicar||"Sim");
   if(!origem||!destino||origem===destino)throw new Error("Informe anos de origem e destino diferentes.");
@@ -462,6 +518,7 @@ function doPost(e){
       case "getPanfletoSerie":data=getPanfletoSeriePwa_(body.token,body.ano,body.serie);break;
       case "salvarPanfletoSerie":data=salvarPanfletoSeriePwa_(body.token,body.ano,body.serie,body.data);break;
       case "aplicarReajusteCatalogo":data=aplicarReajusteCatalogoPwa_(body.token,body.data);break;
+      case "importarLoteIntegracao":data=importarLoteIntegracaoPwa_(body.token,body.data,body.modo,body.sessaoTeste);break;
       case "limparDadosTeste":data=limparDadosTestePwa_(body.token);break;
       default:throw new Error("Ação não reconhecida: "+action);
     }
