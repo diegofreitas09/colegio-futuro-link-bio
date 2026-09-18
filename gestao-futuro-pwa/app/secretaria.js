@@ -40,8 +40,8 @@ function openRespForm(alunos){
 }
 
 async function renderMatriculas(){
-  const b=await loadBootstrap();const mats=b.matriculas||[],alunos=b.alunos||[];const names=Object.fromEntries(alunos.map(a=>[a.ID_ALUNO,a.NOME_COMPLETO]));
-  $("#view").innerHTML=`<div class="section-head"><h2>Matrículas</h2><div class="toolbar"><button class="btn btn-primary" id="newMat">+ Nova matrícula</button></div></div><div class="table-wrap"><table><thead><tr><th>Matrícula</th><th>Aluno</th><th>Ano</th><th>Série</th><th>Plano</th><th>Valor contratado</th><th>Documentos</th><th>Status</th></tr></thead><tbody>${mats.map(m=>`<tr><td>${esc(m["ID_MATRÍCULA"]||"")}</td><td><strong>${esc(names[m.ID_ALUNO]||m.ID_ALUNO||"")}</strong></td><td>${esc(m.ANO_LETIVO||"")}</td><td>${esc(m["SÉRIE"]||"")}</td><td>${esc(m.PLANO_PARCELAS||"")}x</td><td class="money">${money(m.VALOR_ANUIDADE_CONTRATADO)}</td><td>${pill(m.STATUS_DOCUMENTOS||"Pendente",m.STATUS_DOCUMENTOS==="Concluído"?"ok":"warn")}</td><td>${pill(m.STATUS||"",m.STATUS==="Ativa"?"ok":"")}</td></tr>`).join("")||`<tr><td colspan="8" class="empty">Nenhuma matrícula.</td></tr>`}</tbody></table></div>`;
+  const b=await loadBootstrap();const mats=b.matriculas||[],alunos=b.alunos||[],itens=b.itensContrato||[];const names=Object.fromEntries(alunos.map(a=>[a.ID_ALUNO,a.NOME_COMPLETO]));
+  $("#view").innerHTML=`<div class="section-head"><h2>Matrículas</h2><div class="toolbar"><button class="btn btn-primary" id="newMat">+ Nova matrícula</button></div></div><div class="table-wrap"><table><thead><tr><th>Matrícula</th><th>Aluno</th><th>Ano</th><th>Série</th><th>Plano</th><th>Valor contratado</th><th>Produtos/serviços</th><th>Documentos</th><th>Status</th></tr></thead><tbody>${mats.map(m=>{const mid=m["ID_MATRÍCULA"]||"",mi=itens.filter(x=>x["ID_MATRÍCULA"]===mid&&x.STATUS!=="Cancelado");return `<tr><td>${esc(mid)}</td><td><strong>${esc(names[m.ID_ALUNO]||m.ID_ALUNO||"")}</strong></td><td>${esc(m.ANO_LETIVO||"")}</td><td>${esc(m["SÉRIE"]||"")}</td><td>${esc(m.PLANO_PARCELAS||"")}x</td><td class="money">${money(m.VALOR_ANUIDADE_CONTRATADO)}</td><td>${mi.length?`<b>${mi.length} item(ns)</b><br><span class="muted">${esc(mi.slice(0,3).map(x=>x.PRODUTO).join(" • "))}${mi.length>3?"…":""}</span>`:"—"}</td><td>${pill(m.STATUS_DOCUMENTOS||"Pendente",m.STATUS_DOCUMENTOS==="Concluído"?"ok":"warn")}</td><td>${pill(m.STATUS||"",m.STATUS==="Ativa"?"ok":"")}</td></tr>`}).join("")||`<tr><td colspan="9" class="empty">Nenhuma matrícula.</td></tr>`}</tbody></table></div>`;
   $("#newMat").onclick=()=>openMatForm(b);
 }
 function openMatForm(b){
@@ -118,7 +118,7 @@ function openMatForm(b){
     try{
       const res=await api("criarMatriculaCompleta",{token:tokenFor("staff"),data});
       state.bootstrap=null;closeModal();
-      setNotice(`Matrícula ${esc(res.id)} criada para ${esc(data.ANO_LETIVO)}. ${res.parcelas||0} parcela(s) gerada(s).`,"ok");
+      setNotice(`Matrícula ${esc(res.id)} criada para ${esc(data.ANO_LETIVO)}. ${res.parcelas||0} parcela(s) gerada(s) e ${res.servicos||0} produto(s)/serviço(s) adicional(is) integrado(s).`,"ok");
       await renderMatriculas();
     }catch(e){alert(e.message);btn.disabled=false;btn.textContent="Criar matrícula";}
   };
