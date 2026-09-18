@@ -71,7 +71,7 @@ function openMatForm(b){
 
   const refreshPlans=()=>{
     const year=Number($("#matYear").value),serie=$("#matSerie").value||"";
-    const available=(typeof gfCatalog==="function"&&serie)?gfCatalog(prods,year,serie):prods.filter(p=>inferYear(p)===year&&p.ATIVO==="Sim");
+    const available=prods.filter(p=>inferYear(p)===year&&p.ATIVO==="Sim"&&(!serie||typeof gfApplies!=="function"||gfApplies(p,serie)));
     const filtered=available.filter(p=>p.CATEGORIA==="Mensalidade");
     $("#matPlano").innerHTML=`<option value="">Definir manualmente</option>${filtered.map(p=>`<option value="${esc(p.ID_PRODUTO)}">${esc(p.PRODUTO)} — ${esc(p.SUBCATEGORIA||p.QTD_PARCELAS+" parcela(s)")} — ${money(p.VALOR_BASE)}</option>`).join("")}`;
     const services=available.filter(p=>p.CATEGORIA!=="Mensalidade"&&p.DISPONIVEL_MATRICULA!=="Não");
