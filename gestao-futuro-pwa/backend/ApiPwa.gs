@@ -95,13 +95,44 @@ function pwaPublished_(p){var v=pwaNorm_(p.PUBLICADO_ATENDIMENTO);return v!=="na
 function pwaCatalogo_(ano,serie){
   return rows_(S.PRODUTOS).filter(function(p){return p.ATIVO==="Sim"&&Number(p.ANO_LETIVO)===Number(ano)&&pwaPublished_(p)&&pwaProductApplies_(p,serie)});
 }
-function pwaBootstrapSecretaria_(token){pwaStaff_(token);return bootstrap()}
+function pwaBootstrapSecretaria_(token){pwaStaff_(token);var b=bootstrap();try{b.itensContrato=rows_("ITENS_CONTRATO")}catch(e){b.itensContrato=[]}return b}
 function pwaAtualizarDocumento_(token,id,patch){pwaStaff_(token);return pwaWithLock_(function(){return atualizarDocumento(id,patch||{})})}
 function pwaListarDocumentosAluno_(token,idAluno){pwaStaff_(token);return listarDocumentosAluno(idAluno)}
 function pwaListarRecebimentosAluno_(token,idAluno){pwaStaff_(token);return listarRecebimentosAluno(idAluno)}
 function pwaSalvarAluno_(token,data){pwaStaff_(token);return pwaWithLock_(function(){return salvarAluno(data||{})})}
 function pwaSalvarResponsavel_(token,data){pwaStaff_(token);return pwaWithLock_(function(){return salvarResponsavel(data||{})})}
-function pwaCriarMatricula_(token,data){pwaStaff_(token);return pwaWithLock_(function(){return criarMatriculaCompleta(data||{})})}
+function pwaCriarMatricula_(token,data){
+  pwaStaff_(token);data=data||{};
+  return pwaWithLock_(function(){
+    var res=criarMatriculaCompleta(data||{}),id=res&& (res.id||res["ID_MATRÍCULA"]||res.ID_MATRICULA)||"",services=[];
+    try{services=JSON.parse(String(data.SERVICOS_ADICIONAIS||"[]"))}catch(e){services=[]}
+    if(id&&Array.isArray(services)&&services.length){
+      services.forEach(function(s){
+        var p=findById_(S.PRODUTOS,"ID_PRODUTO",s.ID_PRODUTO)||{},iid=nextId_("ITC-","ITENS_CONTRATO","ID_ITEM"),qtd=1,unit=pwaNum_(s.VALOR||p.VALOR_BASE);
+        append_("ITENS_CONTRATO",{
+          ID_ITEM:iid,
+          "ID_MATRÍCULA":id,
+          ID_PRODUTO:s.ID_PRODUTO||"",
+          PRODUTO:s.PRODUTO||p.PRODUTO||"",
+          QTD:qtd,
+          VALOR_UNIT_TABELA:unit,
+          "DESCONTO_%":0,
+          VALOR_UNIT_CONTRATADO:unit,
+          "TOTAL_LÍQUIDO":unit*qtd,
+          FORMA_PAGAMENTO:p.TIPO_COBRANCA||"Conforme produto",
+          PARCELAS:Number(p.QTD_PARCELAS||1),
+          "DATA_INÍCIO":new Date(),
+          STATUS:"Ativo",
+          "OBSERVAÇÃO":"Adicionado pela Gestão Futuro • "+String(p["DESCRIÇÃO"]||p["OBSERVAÇÃO"]||"")
+        });
+      });
+      audit_("Secretaria","ADICIONAR_SERVICOS_MATRICULA","Matrícula",id,"",JSON.stringify(services));
+      SpreadsheetApp.flush();
+    }
+    if(res&&typeof res==="object")res.servicos=services.length;
+    return res;
+  })
+}
 
 function listarAtendimentosPwa_(token){pwaStaff_(token);return rows_(GF_TABS.ATENDIMENTOS)}
 function getAtendimentoPwa_(token,id){
