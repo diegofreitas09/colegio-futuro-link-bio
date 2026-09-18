@@ -59,8 +59,8 @@ function openIndividualAdjustment(list,years){
   modal(\`<div class="modal-head"><h3>Reajuste individual</h3><button class="icon-btn" data-close>✕</button></div>
   <div class="modal-body"><div class="notice">Escolha um único produto ou serviço. Você pode aplicar percentual ou definir diretamente o novo valor para o ano de destino.</div>
   <form id="individualForm" class="form-grid">
-    <div class="field"><label>Ano de origem</label><select name="anoOrigem" id="indOrigin">\${years.map(y=>\`<option value="\${y}" \${y===origem?"selected":""}>\${y}</option>\`).join("")}</select></div>
-    <div class="field"><label>Ano de destino</label><input type="number" name="anoDestino" value="\${destino}" min="2026" max="2100" required></div>
+    <div class="field"><label>Ano de origem</label><select name="anoOrigem" id="indOrigin">${years.map(y=>\`<option value="${y}" ${y===origem?"selected":""}>${y}</option>\`).join("")}</select></div>
+    <div class="field"><label>Ano de destino</label><input type="number" name="anoDestino" value="${destino}" min="2026" max="2100" required></div>
     <div class="field span-2"><label>Produto / serviço</label><select name="idProduto" id="indProduct" required></select></div>
     <div class="field"><label>Modo</label><select name="modo" id="indMode"><option value="percentual">Percentual (%)</option><option value="valor">Novo valor</option></select></div>
     <div class="field"><label id="indValueLabel">Reajuste (%)</label><input type="number" step="0.01" name="valor" id="indValue" value="0" required></div>
@@ -68,7 +68,7 @@ function openIndividualAdjustment(list,years){
     <div class="field span-3"><label>Observação</label><input name="observacao" placeholder="Ex.: reajuste negociado individualmente para 2027"></div>
   </form></div>
   <div class="modal-foot"><button class="btn btn-soft" data-close>Cancelar</button><button class="btn btn-primary" id="applyIndividual">Aplicar reajuste individual</button></div>\`);
-  const fill=()=>{const y=Number($("#indOrigin").value),arr=list.filter(p=>Number(p.ANO_LETIVO)===y);$("#indProduct").innerHTML=arr.map(p=>\`<option value="\${esc(p.ID_PRODUTO)}">\${esc(p.PRODUTO)} • \${esc(p["SEGMENTO_SÉRIE"]||"")} • \${money(p.VALOR_BASE)}</option>\`).join("")};
+  const fill=()=>{const y=Number($("#indOrigin").value),arr=list.filter(p=>Number(p.ANO_LETIVO)===y);$("#indProduct").innerHTML=arr.map(p=>\`<option value="${esc(p.ID_PRODUTO)}">${esc(p.PRODUTO)} • ${esc(p["SEGMENTO_SÉRIE"]||"")} • ${money(p.VALOR_BASE)}</option>\`).join("")};
   fill();$("#indOrigin").onchange=fill;$("#indMode").onchange=()=>{$("#indValueLabel").textContent=$("#indMode").value==="percentual"?"Reajuste (%)":"Novo valor (R$)"};
   $$('[data-close]').forEach(x=>x.onclick=closeModal);
   $("#applyIndividual").onclick=async()=>{
@@ -77,7 +77,7 @@ function openIndividualAdjustment(list,years){
     try{
       const res=await api("aplicarReajusteIndividual",{token:state.adminToken,data});
       state.productYear=Number(data.anoDestino);state.catalogProducts=null;state.bootstrap=null;closeModal();
-      setNotice(\`Reajuste individual aplicado em \${esc(res.produto||data.idProduto)}. O item já fica disponível no catálogo \${data.anoDestino} conforme a publicação escolhida.\`,"ok");
+      setNotice(\`Reajuste individual aplicado em ${esc(res.produto||data.idProduto)}. O item já fica disponível no catálogo ${data.anoDestino} conforme a publicação escolhida.\`,"ok");
       await renderProdutos();
     }catch(e){alert(e.message);btn.disabled=false;btn.textContent="Aplicar reajuste individual"}
   };
@@ -88,7 +88,7 @@ function openNewProductService(){
   modal(\`<div class="modal-head"><h3>Novo produto ou serviço</h3><button class="icon-btn" data-close>✕</button></div>
   <div class="modal-body"><div class="notice">Cadastro central. O que for publicado passa a alimentar automaticamente Atendimento, Panfletos e opções da Matrícula.</div>
   <form id="newServiceForm" class="form-grid">
-    <div class="field"><label>Ano letivo</label><input type="number" name="ANO_LETIVO" value="\${y}" min="2026" max="2100" required></div>
+    <div class="field"><label>Ano letivo</label><input type="number" name="ANO_LETIVO" value="${y}" min="2026" max="2100" required></div>
     <div class="field"><label>Categoria</label><select name="CATEGORIA"><option>Serviço</option><option>Adicional</option><option>Mensalidade</option><option>Material Didático</option><option>Fardamento</option><option>Taxa</option><option>Outros</option></select></div>
     <div class="field"><label>Subcategoria</label><input name="SUBCATEGORIA" placeholder="Ex.: Esporte, Integral, Transporte, Agenda"></div>
     <div class="field span-2"><label>Nome do produto / serviço</label><input name="PRODUTO" required placeholder="Ex.: Ballet, Futsal, Tempo Integral"></div>
@@ -115,7 +115,7 @@ function openNewProductService(){
     try{
       const res=await api("criarProdutoServico",{token:state.adminToken,data});
       state.productYear=Number(data.ANO_LETIVO);state.catalogProducts=null;state.bootstrap=null;state.flyerCache={};closeModal();
-      setNotice(\`\${esc(data.PRODUTO)} cadastrado com ID \${esc(res.id)} e integrado ao catálogo oficial.\`,"ok");
+      setNotice(\`${esc(data.PRODUTO)} cadastrado com ID ${esc(res.id)} e integrado ao catálogo oficial.\`,"ok");
       await renderProdutos();
     }catch(e){alert(e.message);btn.disabled=false;btn.textContent="Cadastrar e integrar"}
   };
@@ -123,25 +123,25 @@ function openNewProductService(){
 
 function openProductForm(p){
   modal(\`<div class="modal-head"><h3>Editar produto / serviço</h3><button class="icon-btn" data-close>✕</button></div><div class="modal-body"><form id="prodForm" class="form-grid">
-    <div class="field"><label>Ano letivo</label><input type="number" name="ANO_LETIVO" value="\${esc(p.ANO_LETIVO||state.productYear||"")}" min="2026" max="2100"></div>
-    <div class="field"><label>Categoria</label><select name="CATEGORIA">\${["Mensalidade","Material Didático","Fardamento","Adicional","Serviço","Taxa","Outros"].map(x=>\`<option \${p.CATEGORIA===x?"selected":""}>\${x}</option>\`).join("")}</select></div>
-    <div class="field"><label>Subcategoria</label><input name="SUBCATEGORIA" value="\${esc(p.SUBCATEGORIA||"")}"></div>
-    <div class="field span-2"><label>Produto / serviço</label><input name="PRODUTO" value="\${esc(p.PRODUTO||"")}"></div>
-    <div class="field"><label>Série / segmento</label><input name="SEGMENTO_SÉRIE" value="\${esc(p["SEGMENTO_SÉRIE"]||"")}"></div>
-    <div class="field span-3"><label>Descrição para a família</label><textarea name="DESCRIÇÃO">\${esc(p["DESCRIÇÃO"]||"")}</textarea></div>
-    <div class="field span-3"><label>Observação pública</label><textarea name="OBSERVAÇÃO">\${esc(p["OBSERVAÇÃO"]||"")}</textarea></div>
-    <div class="field span-3"><label>Observação interna</label><textarea name="OBSERVACAO_INTERNA">\${esc(p.OBSERVACAO_INTERNA||"")}</textarea></div>
-    <div class="field"><label>Tipo de cobrança</label><select name="TIPO_COBRANCA">\${["Única","Mensal","Parcelada","Anual","Opcional"].map(x=>\`<option \${p.TIPO_COBRANCA===x?"selected":""}>\${x}</option>\`).join("")}</select></div>
-    <div class="field"><label>Valor base</label><input type="number" step="0.01" name="VALOR_BASE" value="\${esc(p.VALOR_BASE||0)}"></div>
-    <div class="field"><label>Valor pós-vencimento</label><input type="number" step="0.01" name="VALOR_PÓS_VENCIMENTO" value="\${esc(p["VALOR_PÓS_VENCIMENTO"]||0)}"></div>
-    <div class="field"><label>Valor crédito</label><input type="number" step="0.01" name="VALOR_CRÉDITO" value="\${esc(p["VALOR_CRÉDITO"]||0)}"></div>
-    <div class="field"><label>Valor parcela</label><input type="number" step="0.01" name="VALOR_PARCELA" value="\${esc(p.VALOR_PARCELA||0)}"></div>
-    <div class="field"><label>Qtd parcelas</label><input type="number" name="QTD_PARCELAS" value="\${esc(p.QTD_PARCELAS||1)}"></div>
-    <div class="field"><label>Vencimento padrão</label><input name="VENCIMENTO_PADRÃO" value="\${esc(p.VENCIMENTO_PADRÃO||"")}"></div>
-    <div class="field"><label>Disponível na matrícula</label><select name="DISPONIVEL_MATRICULA"><option \${p.DISPONIVEL_MATRICULA!=="Não"?"selected":""}>Sim</option><option \${p.DISPONIVEL_MATRICULA==="Não"?"selected":""}>Não</option></select></div>
-    <div class="field"><label>Publicado no Atendimento/Panfleto</label><select name="PUBLICADO_ATENDIMENTO"><option \${p.PUBLICADO_ATENDIMENTO!=="Não"?"selected":""}>Sim</option><option \${p.PUBLICADO_ATENDIMENTO==="Não"?"selected":""}>Não</option></select></div>
-    <div class="field"><label>Ativo</label><select name="ATIVO"><option \${p.ATIVO==="Sim"?"selected":""}>Sim</option><option \${p.ATIVO==="Não"?"selected":""}>Não</option></select></div>
-    <div class="field"><label>Ordem de exibição</label><input type="number" name="ORDEM_EXIBICAO" value="\${esc(p.ORDEM_EXIBICAO||100)}"></div>
+    <div class="field"><label>Ano letivo</label><input type="number" name="ANO_LETIVO" value="${esc(p.ANO_LETIVO||state.productYear||"")}" min="2026" max="2100"></div>
+    <div class="field"><label>Categoria</label><select name="CATEGORIA">${["Mensalidade","Material Didático","Fardamento","Adicional","Serviço","Taxa","Outros"].map(x=>\`<option ${p.CATEGORIA===x?"selected":""}>${x}</option>\`).join("")}</select></div>
+    <div class="field"><label>Subcategoria</label><input name="SUBCATEGORIA" value="${esc(p.SUBCATEGORIA||"")}"></div>
+    <div class="field span-2"><label>Produto / serviço</label><input name="PRODUTO" value="${esc(p.PRODUTO||"")}"></div>
+    <div class="field"><label>Série / segmento</label><input name="SEGMENTO_SÉRIE" value="${esc(p["SEGMENTO_SÉRIE"]||"")}"></div>
+    <div class="field span-3"><label>Descrição para a família</label><textarea name="DESCRIÇÃO">${esc(p["DESCRIÇÃO"]||"")}</textarea></div>
+    <div class="field span-3"><label>Observação pública</label><textarea name="OBSERVAÇÃO">${esc(p["OBSERVAÇÃO"]||"")}</textarea></div>
+    <div class="field span-3"><label>Observação interna</label><textarea name="OBSERVACAO_INTERNA">${esc(p.OBSERVACAO_INTERNA||"")}</textarea></div>
+    <div class="field"><label>Tipo de cobrança</label><select name="TIPO_COBRANCA">${["Única","Mensal","Parcelada","Anual","Opcional"].map(x=>\`<option ${p.TIPO_COBRANCA===x?"selected":""}>${x}</option>\`).join("")}</select></div>
+    <div class="field"><label>Valor base</label><input type="number" step="0.01" name="VALOR_BASE" value="${esc(p.VALOR_BASE||0)}"></div>
+    <div class="field"><label>Valor pós-vencimento</label><input type="number" step="0.01" name="VALOR_PÓS_VENCIMENTO" value="${esc(p["VALOR_PÓS_VENCIMENTO"]||0)}"></div>
+    <div class="field"><label>Valor crédito</label><input type="number" step="0.01" name="VALOR_CRÉDITO" value="${esc(p["VALOR_CRÉDITO"]||0)}"></div>
+    <div class="field"><label>Valor parcela</label><input type="number" step="0.01" name="VALOR_PARCELA" value="${esc(p.VALOR_PARCELA||0)}"></div>
+    <div class="field"><label>Qtd parcelas</label><input type="number" name="QTD_PARCELAS" value="${esc(p.QTD_PARCELAS||1)}"></div>
+    <div class="field"><label>Vencimento padrão</label><input name="VENCIMENTO_PADRÃO" value="${esc(p.VENCIMENTO_PADRÃO||"")}"></div>
+    <div class="field"><label>Disponível na matrícula</label><select name="DISPONIVEL_MATRICULA"><option ${p.DISPONIVEL_MATRICULA!=="Não"?"selected":""}>Sim</option><option ${p.DISPONIVEL_MATRICULA==="Não"?"selected":""}>Não</option></select></div>
+    <div class="field"><label>Publicado no Atendimento/Panfleto</label><select name="PUBLICADO_ATENDIMENTO"><option ${p.PUBLICADO_ATENDIMENTO!=="Não"?"selected":""}>Sim</option><option ${p.PUBLICADO_ATENDIMENTO==="Não"?"selected":""}>Não</option></select></div>
+    <div class="field"><label>Ativo</label><select name="ATIVO"><option ${p.ATIVO==="Sim"?"selected":""}>Sim</option><option ${p.ATIVO==="Não"?"selected":""}>Não</option></select></div>
+    <div class="field"><label>Ordem de exibição</label><input type="number" name="ORDEM_EXIBICAO" value="${esc(p.ORDEM_EXIBICAO||100)}"></div>
   </form></div><div class="modal-foot"><button class="btn btn-soft" data-close>Cancelar</button><button class="btn btn-primary" id="saveProd">Salvar e sincronizar</button></div>\`);
   $$('[data-close]').forEach(x=>x.onclick=closeModal);
   $("#saveProd").onclick=async()=>{
