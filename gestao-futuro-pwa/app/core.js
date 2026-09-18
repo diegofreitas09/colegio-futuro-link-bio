@@ -14,7 +14,10 @@ const state = {
   catalogPromise: null,
   flyerCache: {},
   runMode: sessionStorage.getItem("gf_run_mode") || "",
-  testSession: sessionStorage.getItem("gf_test_session") || ""
+  testSession: sessionStorage.getItem("gf_test_session") || "",
+  apiCache: new Map(),
+  apiInflight: new Map(),
+  navSeq: 0
 };
 
 const titles = {
@@ -222,15 +225,43 @@ function openModeModal(){
     }
   };
 }
+const API_CACHE_TTL = Object.freeze({
+  dashboardPublico:15000,dashboardGestao:15000,bootstrapSecretaria:30000,
+  listarProdutosPublicos:300000,listarProdutosGestao:60000,listarAtendimentos:12000,
+  getPanfletoSerie:60000,listarSolicitacoesDesconto:8000,listarRecebimentos:15000,
+  listarCaixa:15000,listarCategorias:120000,getFechamento:15000
+});
+function apiCacheKey(action,payload,meta){
+  const safe={...payload}; if(safe.password)safe.password="***";
+  return action+"|"+meta.modo+"|"+JSON.stringify(safe);
+}
+function clearApiCache(){state.apiCache.clear();state.bootstrap=null}
 async function api(action, payload={}) {
-  const writeActions=["salvarAluno","salvarResponsavel","criarMatriculaCompleta","atualizarDocumento","registrarPagamento","salvarMovimentoCaixa","salvarAtendimento","solicitarDesconto","decidirSolicitacaoDesconto","salvarPanfletoSerie","atualizarProduto","criarProdutoServico","aplicarReajusteIndividual","aplicarReajusteCatalogo"];
-  if(writeActions.includes(action)&&!state.runMode){ openModeModal(); throw new Error("Escolha Produção ou Teste/Simulação antes de salvar."); }
+  const writeActions=["salvarAluno","salvarResponsavel","criarMatriculaCompleta","atualizarDocumento","registrarPagamento","salvarMovimentoCaixa","salvarAtendimento","solicitarDesconto","decidirSolicitacaoDesconto","salvarPanfletoSerie","atualizarProduto","criarProdutoServico","aplicarReajusteIndividual","aplicarReajusteCatalogo","limparDadosTeste"];
+  if(writeActions.includes(action)&&!state.runMode){openModeModal();throw new Error("Escolha Produção ou Teste/Simulação antes de salvar.")}
   const meta={modo:currentRunMode(),sessaoTeste:state.runMode==="TESTE"?ensureTestSession():""};
-  const r = await fetch(API, {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({action,...meta,...payload})});
-  let out;
-  try { out = await r.json(); } catch { throw new Error("Resposta inválida do servidor."); }
-  if (!r.ok || !out.ok) throw new Error(out.error || "Falha no servidor.");
-  return out.data;
+  const ttl=API_CACHE_TTL[action]||0,key=ttl?apiCacheKey(action,payload,meta):"";
+  if(ttl){
+    const hit=state.apiCache.get(key);
+    if(hit&&(Date.now()-hit.at)<ttl)return hit.data;
+    if(state.apiInflight.has(key))return state.apiInflight.get(key);
+  }
+  const request=(async()=>{
+    const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),25000);
+    try{
+      const r=await fetch(API,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action,...meta,...payload}),signal:ctrl.signal});
+      let out;try{out=await r.json()}catch{throw new Error("Resposta inválida do servidor.")}
+      if(!r.ok||!out.ok)throw new Error(out.error||"Falha no servidor.");
+      if(ttl)state.apiCache.set(key,{at:Date.now(),data:out.data});
+      if(writeActions.includes(action))clearApiCache();
+      return out.data;
+    }catch(e){
+      if(e?.name==="AbortError")throw new Error("O servidor demorou demais para responder. Tente novamente.");
+      throw e;
+    }finally{clearTimeout(timer);if(ttl)state.apiInflight.delete(key)}
+  })();
+  if(ttl)state.apiInflight.set(key,request);
+  return request;
 }
 
 async function checkApi() {
@@ -351,11 +382,16 @@ async function loadBootstrap(){
 async function navigate(view){
   applyRoleInterface();
   if(!isViewAllowed(view)) view="dashboard";
+  const seq=++state.navSeq;
   state.view=view;
-  $("#nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===view));
+  $$("#nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===view));
   $("#pageTitle").textContent=titles[view]||"Gestão Futuro";
   setNotice("");
+  const target=$("#view");
+  if(target)target.innerHTML="<div class='fast-loading'><span></span><b>Abrindo…</b></div>";
+  await new Promise(requestAnimationFrame);
   if(!(await requireRole(view))) return;
+  if(seq!==state.navSeq)return;
   try{
     if(view==="dashboard") await renderDashboard();
     if(view==="atendimento") await renderAtendimento();
