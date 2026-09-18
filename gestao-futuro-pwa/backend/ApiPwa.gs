@@ -71,6 +71,50 @@ function pwaNum_(v){var n=Number(String(v==null?"":v).replace(",","."));return N
 function gfRoundMoneyPwa_(v){return Math.round((Number(v||0)+Number.EPSILON)*100)/100}
 function pwaSlug_(v){return String(v||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase().replace(/[^A-Z0-9]+/g,"-").replace(/^-+|-+$/g,"")}
 function pwaNorm_(v){return String(v||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase()}
+function pwaMode_(mode){return String(mode||"PRODUCAO").toUpperCase()==="TESTE"?"TESTE":"PRODUCAO"}
+function pwaModeMatches_(row,mode){var r=String(row&&row.MODO_REGISTRO||"").toUpperCase();return pwaMode_(mode)==="TESTE"?r==="TESTE":r!=="TESTE"}
+function pwaFilterMode_(arr,mode){return (arr||[]).filter(function(x){return pwaModeMatches_(x,mode)})}
+function pwaMarkWhere_(sheetName,matchKeys,matchValue,mode,sessao){
+  if(!matchValue)return 0;
+  var sh=SpreadsheetApp.getActive().getSheetByName(sheetName);if(!sh)return 0;
+  var lastCol=sh.getLastColumn(),lastRow=sh.getLastRow();if(lastRow<5)return 0;
+  var headers=sh.getRange(4,1,1,lastCol).getDisplayValues()[0];
+  var modeCol=headers.indexOf("MODO_REGISTRO")+1,sessCol=headers.indexOf("SESSAO_TESTE")+1;if(!modeCol)return 0;
+  var matchCol=0;
+  (Array.isArray(matchKeys)?matchKeys:[matchKeys]).some(function(k){var i=headers.indexOf(k);if(i>=0){matchCol=i+1;return true}return false});
+  if(!matchCol)return 0;
+  var vals=sh.getRange(5,matchCol,lastRow-4,1).getDisplayValues(),count=0;
+  vals.forEach(function(row,i){if(String(row[0])===String(matchValue)){sh.getRange(i+5,modeCol).setValue(pwaMode_(mode));if(sessCol)sh.getRange(i+5,sessCol).setValue(pwaMode_(mode)==="TESTE"?String(sessao||""):"");count++}});
+  return count;
+}
+function pwaDeleteTestRows_(sheetName){
+  var sh=SpreadsheetApp.getActive().getSheetByName(sheetName);if(!sh)return 0;
+  var lastCol=sh.getLastColumn(),lastRow=sh.getLastRow();if(lastRow<5)return 0;
+  var headers=sh.getRange(4,1,1,lastCol).getDisplayValues()[0],modeCol=headers.indexOf("MODO_REGISTRO")+1;if(!modeCol)return 0;
+  var vals=sh.getRange(5,modeCol,lastRow-4,1).getDisplayValues(),rows=[];
+  vals.forEach(function(r,i){if(String(r[0]||"").toUpperCase()==="TESTE")rows.push(i+5)});
+  for(var i=rows.length-1;i>=0;i--)sh.deleteRow(rows[i]);
+  return rows.length;
+}
+function limparDadosTestePwa_(token){
+  pwaAdmin_(token);
+  var tabs=["SOLICITACOES_DESCONTO","ATENDIMENTO_ITENS","ATENDIMENTOS","ITENS_CONTRATO","DOCUMENTOS_ALUNO","RECEBIMENTOS","CAIXA","MATRICULAS","RESPONSAVEIS","ALUNOS"];
+  var out={},total=0;
+  pwaWithLock_(function(){tabs.forEach(function(t){var n=pwaDeleteTestRows_(t);out[t]=n;total+=n});SpreadsheetApp.flush()});
+  audit_("Gestão","LIMPAR_TESTES","Sistema","TESTES","",JSON.stringify(out));
+  return {ok:true,total:total,porTabela:out};
+}
+function pwaDashboardPublico_(mode){
+  var alunos=pwaFilterMode_(rows_(S.ALUNOS||"ALUNOS"),mode),mats=pwaFilterMode_(rows_(S.MATRICULAS||"MATRICULAS"),mode),docs=pwaFilterMode_(rows_("DOCUMENTOS_ALUNO"),mode);
+  return {"Alunos ativos":alunos.filter(function(x){return x.STATUS!=="Inativo"}).length,"Matrículas ativas":mats.filter(function(x){return x.STATUS==="Ativa"||x.STATUS==="Ativo"}).length,"Documentos pendentes":docs.filter(function(x){return x.STATUS!=="Entregue"}).length};
+}
+function pwaDashboardGestao_(token,mode){
+  pwaAdmin_(token);
+  var recs=pwaFilterMode_(rows_(S.RECEBIMENTOS||"RECEBIMENTOS"),mode),cx=pwaFilterMode_(rows_(S.CAIXA||"CAIXA"),mode),ats=pwaFilterMode_(rows_(GF_TABS.ATENDIMENTOS),mode),mats=pwaFilterMode_(rows_(S.MATRICULAS||"MATRICULAS"),mode);
+  var previsto=recs.reduce(function(s,x){return s+pwaNum_(x.VALOR_PREVISTO)},0),recebido=recs.reduce(function(s,x){return s+pwaNum_(x.VALOR_RECEBIDO)},0);
+  var entradas=cx.filter(function(x){return x.TIPO==="Entrada"}).reduce(function(s,x){return s+pwaNum_(x.VALOR)},0),saidas=cx.filter(function(x){return x.TIPO==="Saída"}).reduce(function(s,x){return s+pwaNum_(x.VALOR)},0);
+  return {"Receita prevista":gfRoundMoneyPwa_(previsto),"Receita recebida":gfRoundMoneyPwa_(recebido),"Saldo a receber":gfRoundMoneyPwa_(previsto-recebido),"Entradas de caixa":gfRoundMoneyPwa_(entradas),"Saídas de caixa":gfRoundMoneyPwa_(saidas),"Saldo de caixa":gfRoundMoneyPwa_(entradas-saidas),"Atendimentos em andamento":ats.filter(function(x){return x.STATUS==="Em andamento"}).length,"Matrículas ativas":mats.filter(function(x){return x.STATUS==="Ativa"||x.STATUS==="Ativo"}).length};
+}
 function pwaSpecificSeries_(p){
   var t=pwaNorm_(String(p.PRODUTO||"")+" "+String(p["DESCRIÇÃO"]||"")),m=t.match(/infantil\s*([2-5])\b/);
   if(m)return "infantil "+m[1];
@@ -101,16 +145,33 @@ function pwaPublished_(p){var v=pwaNorm_(p.PUBLICADO_ATENDIMENTO);return v!=="na
 function pwaCatalogo_(ano,serie){
   return rows_(S.PRODUTOS).filter(function(p){return p.ATIVO==="Sim"&&Number(p.ANO_LETIVO)===Number(ano)&&pwaPublished_(p)&&pwaProductApplies_(p,serie)});
 }
-function pwaBootstrapSecretaria_(token){pwaStaff_(token);var b=bootstrap();try{b.itensContrato=rows_("ITENS_CONTRATO")}catch(e){b.itensContrato=[]}return b}
+function pwaBootstrapSecretaria_(token,modo){
+  pwaStaff_(token);var b=bootstrap(),keys=["alunos","matriculas","responsaveis","documentos","recebimentos","caixa"];
+  keys.forEach(function(k){if(Array.isArray(b[k]))b[k]=pwaFilterMode_(b[k],modo)});
+  try{b.itensContrato=pwaFilterMode_(rows_("ITENS_CONTRATO"),modo)}catch(e){b.itensContrato=[]}
+  return b
+}
 function pwaAtualizarDocumento_(token,id,patch){pwaStaff_(token);return pwaWithLock_(function(){return atualizarDocumento(id,patch||{})})}
 function pwaListarDocumentosAluno_(token,idAluno){pwaStaff_(token);return listarDocumentosAluno(idAluno)}
 function pwaListarRecebimentosAluno_(token,idAluno){pwaStaff_(token);return listarRecebimentosAluno(idAluno)}
-function pwaSalvarAluno_(token,data){pwaStaff_(token);return pwaWithLock_(function(){return salvarAluno(data||{})})}
-function pwaSalvarResponsavel_(token,data){pwaStaff_(token);return pwaWithLock_(function(){return salvarResponsavel(data||{})})}
-function pwaCriarMatricula_(token,data){
-  pwaStaff_(token);data=data||{};
+function pwaSalvarAluno_(token,data,modo,sessao){
+  pwaStaff_(token);data=data||{};data.MODO_REGISTRO=pwaMode_(modo);data.SESSAO_TESTE=pwaMode_(modo)==="TESTE"?String(sessao||""):"";
+  return pwaWithLock_(function(){var res=salvarAluno(data),id=res&&(res.id||res.ID_ALUNO)||data.ID_ALUNO||"";if(id)pwaMarkWhere_("ALUNOS","ID_ALUNO",id,modo,sessao);return res})
+}
+function pwaSalvarResponsavel_(token,data,modo,sessao){
+  pwaStaff_(token);data=data||{};data.MODO_REGISTRO=pwaMode_(modo);data.SESSAO_TESTE=pwaMode_(modo)==="TESTE"?String(sessao||""):"";
+  return pwaWithLock_(function(){var res=salvarResponsavel(data),id=res&&(res.id||res.ID_RESPONSAVEL)||data.ID_RESPONSAVEL||"";if(id)pwaMarkWhere_("RESPONSAVEIS","ID_RESPONSAVEL",id,modo,sessao);return res})
+}
+function pwaCriarMatricula_(token,data,modo,sessao){
+  pwaStaff_(token);data=data||{};data.MODO_REGISTRO=pwaMode_(modo);data.SESSAO_TESTE=pwaMode_(modo)==="TESTE"?String(sessao||""):"";
   return pwaWithLock_(function(){
     var res=criarMatriculaCompleta(data||{}),id=res&& (res.id||res["ID_MATRÍCULA"]||res.ID_MATRICULA)||"",services=[];
+    if(id){
+      pwaMarkWhere_("MATRICULAS",["ID_MATRÍCULA","ID_MATRICULA"],id,modo,sessao);
+      pwaMarkWhere_("DOCUMENTOS_ALUNO",["ID_MATRICULA","ID_MATRÍCULA"],id,modo,sessao);
+      pwaMarkWhere_("RECEBIMENTOS",["ID_MATRÍCULA","ID_MATRICULA"],id,modo,sessao);
+      pwaMarkWhere_("ITENS_CONTRATO",["ID_MATRÍCULA","ID_MATRICULA"],id,modo,sessao);
+    }
     try{services=JSON.parse(String(data.SERVICOS_ADICIONAIS||"[]"))}catch(e){services=[]}
     if(id&&Array.isArray(services)&&services.length){
       services.forEach(function(s){
@@ -129,7 +190,8 @@ function pwaCriarMatricula_(token,data){
           PARCELAS:Number(p.QTD_PARCELAS||1),
           "DATA_INÍCIO":new Date(),
           STATUS:"Ativo",
-          "OBSERVAÇÃO":"Adicionado pela Gestão Futuro • "+String(p["DESCRIÇÃO"]||p["OBSERVAÇÃO"]||"")
+          "OBSERVAÇÃO":"Adicionado pela Gestão Futuro • "+String(p["DESCRIÇÃO"]||p["OBSERVAÇÃO"]||""),
+          MODO_REGISTRO:pwaMode_(modo),SESSAO_TESTE:pwaMode_(modo)==="TESTE"?String(sessao||""):""
         });
       });
       audit_("Secretaria","ADICIONAR_SERVICOS_MATRICULA","Matrícula",id,"",JSON.stringify(services));
@@ -140,7 +202,7 @@ function pwaCriarMatricula_(token,data){
   })
 }
 
-function listarAtendimentosPwa_(token){pwaStaff_(token);return rows_(GF_TABS.ATENDIMENTOS)}
+function listarAtendimentosPwa_(token,modo){pwaStaff_(token);return pwaFilterMode_(rows_(GF_TABS.ATENDIMENTOS),modo)}
 function getAtendimentoPwa_(token,id){
   pwaStaff_(token);
   var atendimento=findById_(GF_TABS.ATENDIMENTOS,"ID_ATENDIMENTO",id);
@@ -148,7 +210,7 @@ function getAtendimentoPwa_(token,id){
   var itens=rows_(GF_TABS.ITENS_ATENDIMENTO).filter(function(x){return x.ID_ATENDIMENTO===id&&x.SELECIONADO!=="Não"});
   return {atendimento:atendimento,itens:itens};
 }
-function salvarAtendimentoPwa_(token,data,itens){
+function salvarAtendimentoPwa_(token,data,itens,modo,sessao){
   pwaStaff_(token);data=data||{};itens=Array.isArray(itens)?itens:[];
   if(!data.NOME_ALUNO||!data.ANO_LETIVO||!data.SERIE_PRETENDIDA)throw new Error("Aluno, ano letivo e série são obrigatórios.");
   return pwaWithLock_(function(){
@@ -196,14 +258,15 @@ function salvarAtendimentoPwa_(token,data,itens){
       "DESCONTO_PARCELAS_%":pwaNum_(data["DESCONTO_PARCELAS_%"]),
       VALOR_PARCELA_FINAL:pwaNum_(data.VALOR_PARCELA_FINAL),
       TOTAL_PLANO:planTotal,
-      ECONOMIA_PLANO:pwaNum_(data.ECONOMIA_PLANO)
+      ECONOMIA_PLANO:pwaNum_(data.ECONOMIA_PLANO),
+      MODO_REGISTRO:pwaMode_(modo),SESSAO_TESTE:pwaMode_(modo)==="TESTE"?String(sessao||""):""
     };
     if(old)updateById_(GF_TABS.ATENDIMENTOS,"ID_ATENDIMENTO",id,rec);else append_(GF_TABS.ATENDIMENTOS,rec);
     var existentes=rows_(GF_TABS.ITENS_ATENDIMENTO).filter(function(x){return x.ID_ATENDIMENTO===id});
     existentes.forEach(function(x){updateById_(GF_TABS.ITENS_ATENDIMENTO,"ID_ITEM_ATENDIMENTO",x.ID_ITEM_ATENDIMENTO,{SELECIONADO:"Não",ATUALIZADO_EM:now})});
     itens.forEach(function(x){
       var ex=existentes.find(function(e){return e.ID_PRODUTO===x.ID_PRODUTO}),iid=ex&&ex.ID_ITEM_ATENDIMENTO||nextId_("ATI-",GF_TABS.ITENS_ATENDIMENTO,"ID_ITEM_ATENDIMENTO"),item={
-        ID_ITEM_ATENDIMENTO:iid,ID_ATENDIMENTO:id,ID_PRODUTO:x.ID_PRODUTO||"",ANO_LETIVO:Number(data.ANO_LETIVO),PRODUTO:x.PRODUTO||"",CATEGORIA:x.CATEGORIA||"",SERIE:data.SERIE_PRETENDIDA||"",QTD:Number(x.QTD||1),VALOR_TABELA:pwaNum_(x.VALOR_TABELA),"DESCONTO_%":pwaNum_(x.DESCONTO),VALOR_APRESENTADO:pwaNum_(x.VALOR_APRESENTADO||x.VALOR_TABELA),OBRIGATORIO:x.OBRIGATORIO||"Não",SELECIONADO:"Sim",OBSERVACAO:x.OBSERVACAO||"",CRIADO_EM:ex&&ex.CRIADO_EM||now,ATUALIZADO_EM:now
+        ID_ITEM_ATENDIMENTO:iid,ID_ATENDIMENTO:id,ID_PRODUTO:x.ID_PRODUTO||"",ANO_LETIVO:Number(data.ANO_LETIVO),PRODUTO:x.PRODUTO||"",CATEGORIA:x.CATEGORIA||"",SERIE:data.SERIE_PRETENDIDA||"",QTD:Number(x.QTD||1),VALOR_TABELA:pwaNum_(x.VALOR_TABELA),"DESCONTO_%":pwaNum_(x.DESCONTO),VALOR_APRESENTADO:pwaNum_(x.VALOR_APRESENTADO||x.VALOR_TABELA),OBRIGATORIO:x.OBRIGATORIO||"Não",SELECIONADO:"Sim",OBSERVACAO:x.OBSERVACAO||"",CRIADO_EM:ex&&ex.CRIADO_EM||now,ATUALIZADO_EM:now,MODO_REGISTRO:pwaMode_(modo),SESSAO_TESTE:pwaMode_(modo)==="TESTE"?String(sessao||""):""
       };
       if(ex)updateById_(GF_TABS.ITENS_ATENDIMENTO,"ID_ITEM_ATENDIMENTO",iid,item);else append_(GF_TABS.ITENS_ATENDIMENTO,item);
     });
@@ -212,22 +275,22 @@ function salvarAtendimentoPwa_(token,data,itens){
   });
 }
 
-function solicitarDescontoPwa_(token,d){
+function solicitarDescontoPwa_(token,d,modo,sessao){
   pwaStaff_(token);d=d||{};
   if(!d.ID_ATENDIMENTO||!d.ID_PRODUTO)throw new Error("Atendimento e produto são obrigatórios.");
   return pwaWithLock_(function(){
     var at=findById_(GF_TABS.ATENDIMENTOS,"ID_ATENDIMENTO",d.ID_ATENDIMENTO);if(!at)throw new Error("Atendimento não encontrado.");
     var prod=findById_(S.PRODUTOS,"ID_PRODUTO",d.ID_PRODUTO),id=nextId_("SOL-",GF_TABS.SOLICITACOES,"ID_SOLICITACAO"),now=new Date();
     append_(GF_TABS.SOLICITACOES,{
-      ID_SOLICITACAO:id,ID_ATENDIMENTO:d.ID_ATENDIMENTO,ID_ALUNO:at.ID_ALUNO||"",ID_PRODUTO:d.ID_PRODUTO,ANO_LETIVO:Number(d.ANO_LETIVO||at.ANO_LETIVO),SERIE:d.SERIE||at.SERIE_PRETENDIDA||"",VALOR_TABELA:pwaNum_(d.VALOR_TABELA), "DESCONTO_SOLICITADO_%":pwaNum_(d.DESCONTO_SOLICITADO),VALOR_SOLICITADO:pwaNum_(d.VALOR_SOLICITADO),MOTIVO:d.MOTIVO||"",STATUS:"Aguardando",VALOR_AUTORIZADO:"",OBSERVACAO_GESTAO:"",SOLICITADO_POR:pwaUser_("Atendimento"),SOLICITADO_EM:now,DECIDIDO_POR:"",DECIDIDO_EM:"",ALERTA_ENVIADO:"Não",CONCLUIDO_EM:"",OBSERVACAO_FINAL:""
+      ID_SOLICITACAO:id,ID_ATENDIMENTO:d.ID_ATENDIMENTO,ID_ALUNO:at.ID_ALUNO||"",ID_PRODUTO:d.ID_PRODUTO,ANO_LETIVO:Number(d.ANO_LETIVO||at.ANO_LETIVO),SERIE:d.SERIE||at.SERIE_PRETENDIDA||"",VALOR_TABELA:pwaNum_(d.VALOR_TABELA), "DESCONTO_SOLICITADO_%":pwaNum_(d.DESCONTO_SOLICITADO),VALOR_SOLICITADO:pwaNum_(d.VALOR_SOLICITADO),MOTIVO:d.MOTIVO||"",STATUS:"Aguardando",VALOR_AUTORIZADO:"",OBSERVACAO_GESTAO:"",SOLICITADO_POR:pwaUser_("Atendimento"),SOLICITADO_EM:now,DECIDIDO_POR:"",DECIDIDO_EM:"",ALERTA_ENVIADO:"Não",CONCLUIDO_EM:"",OBSERVACAO_FINAL:"",MODO_REGISTRO:pwaMode_(modo),SESSAO_TESTE:pwaMode_(modo)==="TESTE"?String(sessao||""):""
     });
     updateById_(GF_TABS.ATENDIMENTOS,"ID_ATENDIMENTO",d.ID_ATENDIMENTO,{PEDIDO_DESCONTO_PENDENTE:"Sim",ATUALIZADO_EM:now});
     audit_("Atendimento","SOLICITAR_DESCONTO","Solicitação",id,"",JSON.stringify(d));SpreadsheetApp.flush();return {ok:true,id:id,produto:prod&&prod.PRODUTO||""};
   });
 }
-function listarSolicitacoesDescontoPwa_(token){
-  pwaAdmin_(token);var ats=rows_(GF_TABS.ATENDIMENTOS),ps=rows_(S.PRODUTOS);
-  return rows_(GF_TABS.SOLICITACOES).map(function(r){var a=ats.find(function(x){return x.ID_ATENDIMENTO===r.ID_ATENDIMENTO}),p=ps.find(function(x){return x.ID_PRODUTO===r.ID_PRODUTO});r.ALUNO=a&&a.NOME_ALUNO||r.ID_ALUNO||"";r.PRODUTO=p&&p.PRODUTO||r.ID_PRODUTO||"";r.RESPONSAVEL=a&&a.RESPONSAVEL||"";return r}).reverse();
+function listarSolicitacoesDescontoPwa_(token,modo){
+  pwaAdmin_(token);var ats=pwaFilterMode_(rows_(GF_TABS.ATENDIMENTOS),modo),ps=rows_(S.PRODUTOS);
+  return pwaFilterMode_(rows_(GF_TABS.SOLICITACOES),modo).map(function(r){var a=ats.find(function(x){return x.ID_ATENDIMENTO===r.ID_ATENDIMENTO}),p=ps.find(function(x){return x.ID_PRODUTO===r.ID_PRODUTO});r.ALUNO=a&&a.NOME_ALUNO||r.ID_ALUNO||"";r.PRODUTO=p&&p.PRODUTO||r.ID_PRODUTO||"";r.RESPONSAVEL=a&&a.RESPONSAVEL||"";return r}).reverse();
 }
 function decidirSolicitacaoDescontoPwa_(token,id,status,valor,obs){
   pwaAdmin_(token);if(["Autorizado","Negado"].indexOf(status)<0)throw new Error("Decisão inválida.");
@@ -368,16 +431,16 @@ function doPost(e){
       case "loginGestao":data=loginGestao(body.password||"");break;
       case "loginSecretaria":data=loginSecretaria(body.password||"");break;
       case "logout":data=logoutGestao(body.token||"");break;
-      case "bootstrapSecretaria":data=pwaBootstrapSecretaria_(body.token);break;
-      case "salvarAluno":data=pwaSalvarAluno_(body.token,body.data);break;
-      case "salvarResponsavel":data=pwaSalvarResponsavel_(body.token,body.data);break;
-      case "criarMatriculaCompleta":data=pwaCriarMatricula_(body.token,body.data);break;
+      case "bootstrapSecretaria":data=pwaBootstrapSecretaria_(body.token,body.modo);break;
+      case "salvarAluno":data=pwaSalvarAluno_(body.token,body.data,body.modo,body.sessaoTeste);break;
+      case "salvarResponsavel":data=pwaSalvarResponsavel_(body.token,body.data,body.modo,body.sessaoTeste);break;
+      case "criarMatriculaCompleta":data=pwaCriarMatricula_(body.token,body.data,body.modo,body.sessaoTeste);break;
       case "atualizarDocumento":data=pwaAtualizarDocumento_(body.token,body.id||(body.data&&body.data.ID_DOCUMENTO),body.data||{});break;
       case "listarDocumentosAluno":data=pwaListarDocumentosAluno_(body.token,body.idAluno);break;
       case "listarRecebimentosAluno":data=pwaListarRecebimentosAluno_(body.token,body.idAluno);break;
       case "listarProdutosPublicos":data=listarProdutosPublicos();break;
-      case "dashboardPublico":data=getDashboard();break;
-      case "dashboardGestao":data=getDashboardGestao(body.token);break;
+      case "dashboardPublico":data=pwaDashboardPublico_(body.modo);break;
+      case "dashboardGestao":data=pwaDashboardGestao_(body.token,body.modo);break;
       case "listarRecebimentos":data=listarRecebimentos(body.token);break;
       case "listarCaixa":data=listarCaixa(body.token);break;
       case "listarProdutosGestao":data=listarProdutosGestao(body.token);break;
@@ -390,15 +453,16 @@ function doPost(e){
       case "gerarResumoAluno":data=gerarResumoAluno(body.token,body.idAluno);break;
       case "registrarPagamento":data=pwaWithLock_(function(){return registrarPagamento(body.token,body.data||{})});break;
       case "salvarMovimentoCaixa":data=pwaWithLock_(function(){return salvarMovimentoCaixa(body.token,body.data||{})});break;
-      case "listarAtendimentos":data=listarAtendimentosPwa_(body.token);break;
+      case "listarAtendimentos":data=listarAtendimentosPwa_(body.token,body.modo);break;
       case "getAtendimento":data=getAtendimentoPwa_(body.token,body.id);break;
-      case "salvarAtendimento":data=salvarAtendimentoPwa_(body.token,body.data,body.itens);break;
-      case "solicitarDesconto":data=solicitarDescontoPwa_(body.token,body.data);break;
-      case "listarSolicitacoesDesconto":data=listarSolicitacoesDescontoPwa_(body.token);break;
+      case "salvarAtendimento":data=salvarAtendimentoPwa_(body.token,body.data,body.itens,body.modo,body.sessaoTeste);break;
+      case "solicitarDesconto":data=solicitarDescontoPwa_(body.token,body.data,body.modo,body.sessaoTeste);break;
+      case "listarSolicitacoesDesconto":data=listarSolicitacoesDescontoPwa_(body.token,body.modo);break;
       case "decidirSolicitacaoDesconto":data=decidirSolicitacaoDescontoPwa_(body.token,body.id,body.status,body.valorAutorizado,body.observacao);break;
       case "getPanfletoSerie":data=getPanfletoSeriePwa_(body.token,body.ano,body.serie);break;
       case "salvarPanfletoSerie":data=salvarPanfletoSeriePwa_(body.token,body.ano,body.serie,body.data);break;
       case "aplicarReajusteCatalogo":data=aplicarReajusteCatalogoPwa_(body.token,body.data);break;
+      case "limparDadosTeste":data=limparDadosTestePwa_(body.token);break;
       default:throw new Error("Ação não reconhecida: "+action);
     }
     return pwaJson_({ok:true,requestId:requestId,data:data});
