@@ -239,12 +239,12 @@ async function renderAtendimento(){
   $("#clearAttend").onclick=function(){state.currentAttendanceId="";state.resumeAttendance=null;state.resumeItems=[];state.attendanceItems=new Set();state.attendanceStage="Contato";gfClearAttendanceDraft();renderAtendimento()};
   $("#restoreDraft")?.addEventListener("click",function(){var d=gfLoadAttendanceDraft();if(!d)return;state.currentAttendanceId=d.ID_ATENDIMENTO||"";state.resumeAttendance=d;state.resumeItems=(d.ITENS||[]).map(function(id){return {ID_PRODUTO:id,SELECIONADO:"Sim"}});state.attendanceItems=new Set(d.ITENS||[]);state.attendanceStage=d.ETAPA||"Contato";renderAtendimento()});
   $("#discardDraft")?.addEventListener("click",function(){gfClearAttendanceDraft();$("#restoreDraft")?.closest(".draft-bar")?.remove()});
-  $("[data-resume-att]").forEach(function(btn){btn.onclick=function(){
+  $$("[data-resume-att]").forEach(function(btn){btn.onclick=function(){
     var id=btn.dataset.resumeAtt,rec=at.find(function(a){return a.ID_ATENDIMENTO===id});
     if(!rec){var lr=gfLocalAttendances().find(function(x){return x.id===id});if(lr){rec=lr.atendimento;gfCacheSavedAttendance(id,lr.atendimento,lr.itens||[])}}
     gfResumeAttendance(id,rec)
   }});
-  $("[data-sync-att]").forEach(function(btn){btn.onclick=async function(){
+  $$("[data-sync-att]").forEach(function(btn){btn.onclick=async function(){
     var row=gfLocalAttendances().find(function(x){return x.id===btn.dataset.syncAtt});if(!row)return;
     btn.disabled=true;btn.textContent="Sincronizando…";
     try{
