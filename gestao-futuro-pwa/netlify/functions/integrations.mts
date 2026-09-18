@@ -25,6 +25,7 @@ type Job = {
   warnings:string[];
   result?:any;
   error?:string;
+  processedCount?:number;
 };
 
 function json(data:unknown,status=200){
@@ -170,13 +171,18 @@ async function stageJob(input:{source:string,entity:string,mode?:string,environm
 async function commitJob(job:Job,token:string){
   const gatewayKey=Netlify.env.get("FUTURO_PWA_GATEWAY_KEY");
   if(!gatewayKey)throw new Error("Gateway da PWA não configurado.");
+  const offset=Number(job.processedCount||0),chunk=job.records.slice(offset,offset+100);
+  if(!chunk.length){
+    job.status="COMPLETED";await saveJob(job);
+    return {done:true,processed:offset,total:job.recordCount,result:job.result||{}};
+  }
   job.status="PROCESSING";await saveJob(job);
   const r=await fetch(APPS_SCRIPT_URL,{
     method:"POST",headers:{"content-type":"application/json"},redirect:"follow",
     body:JSON.stringify({
       action:"importarLoteIntegracao",token,gatewayKey,
       modo:job.environment,sessaoTeste:job.environment==="TESTE"?job.id:"",
-      data:{jobId:job.id,source:job.source,entity:job.entity,mode:job.mode,records:job.records}
+      data:{jobId:job.id,source:job.source,entity:job.entity,mode:job.mode,records:chunk}
     })
   });
   const out=await r.json() as any;
@@ -184,8 +190,18 @@ async function commitJob(job:Job,token:string){
     job.status="ERROR";job.error=out?.error||"Falha no Apps Script.";await saveJob(job);
     throw new Error(job.error);
   }
-  job.status="COMPLETED";job.result=out.data;job.error="";await saveJob(job);
-  return out.data;
+  const current=out.data||{},prev=job.result||{recebidos:0,criados:0,atualizados:0,ignorados:0,erros:[]};
+  job.result={
+    recebidos:Number(prev.recebidos||0)+Number(current.recebidos||0),
+    criados:Number(prev.criados||0)+Number(current.criados||0),
+    atualizados:Number(prev.atualizados||0)+Number(current.atualizados||0),
+    ignorados:Number(prev.ignorados||0)+Number(current.ignorados||0),
+    erros:[...(prev.erros||[]),...(current.erros||[])]
+  };
+  job.processedCount=offset+chunk.length;
+  job.status=job.processedCount>=job.recordCount?"COMPLETED":"STAGED";
+  job.error="";await saveJob(job);
+  return {done:job.status==="COMPLETED",processed:job.processedCount,total:job.recordCount,result:job.result};
 }
 
 async function handleMultipart(req:Request){
