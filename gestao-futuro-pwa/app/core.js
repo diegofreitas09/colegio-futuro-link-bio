@@ -77,6 +77,41 @@ function appAlert(kind="attention",message=""){
   }catch(e){}
   if(message) showToast(message,"ok");
 }
+function pushKeyBytes(base64String){
+  const padding="=".repeat((4-base64String.length%4)%4);
+  const base64=(base64String+padding).replace(/-/g,"+").replace(/_/g,"/");
+  const raw=atob(base64),out=new Uint8Array(raw.length);
+  for(let i=0;i<raw.length;i++)out[i]=raw.charCodeAt(i);
+  return out;
+}
+async function enableDirectorPush(){
+  if(!state.adminToken) throw new Error("Entre na Gestão para ativar as notificações do diretor.");
+  if(!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) throw new Error("Este aparelho/navegador não oferece suporte a notificações push.");
+  const perm=await Notification.requestPermission();
+  if(perm!=="granted") throw new Error("Permissão de notificações não autorizada no aparelho.");
+  const cfgRes=await fetch("/api/push",{cache:"no-store"});
+  const cfg=await cfgRes.json();
+  if(!cfgRes.ok||!cfg?.publicKey)throw new Error(cfg?.error||"Configuração de push ainda não publicada.");
+  const reg=await navigator.serviceWorker.ready;
+  let sub=await reg.pushManager.getSubscription();
+  if(!sub){
+    sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:pushKeyBytes(cfg.publicKey)});
+  }
+  const r=await fetch("/api/push",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"subscribe",token:state.adminToken,subscription:sub.toJSON(),label:"Direção"})});
+  const out=await r.json();
+  if(!r.ok||!out?.ok)throw new Error(out?.error||"Não foi possível registrar este celular.");
+  localStorage.setItem("gf_director_push","1");
+  showToast("Celular do diretor ativado para novas matrículas e descontos ✓","ok");
+  return true;
+}
+async function refreshDirectorPushButton(){
+  const b=$("#directorPushBtn");if(!b)return;
+  if(!("serviceWorker" in navigator)||!("PushManager" in window)){b.textContent="Push indisponível";b.disabled=true;return}
+  try{
+    const reg=await navigator.serviceWorker.ready,sub=await reg.pushManager.getSubscription();
+    if(sub&&Notification.permission==="granted"){b.textContent="Notificações ativas ✓";b.className="btn btn-production";}
+  }catch(e){}
+}
 
 function currentRunMode(){ return state.runMode==="TESTE" ? "TESTE" : "PRODUCAO"; }
 function ensureTestSession(){
@@ -330,6 +365,9 @@ async function renderDashboard(){
       ]);
       const cards=Object.entries(d).slice(0,8).map(([k,v])=>`<div class="card metric"><div class="label">${esc(k)}</div><div class="value" style="font-size:22px">${esc(v)}</div><div class="hint">Gestão</div></div>`).join("");
       if(cards)$("#view").insertAdjacentHTML("beforeend",`<div class="section-head"><h2>Indicadores financeiros</h2></div><div class="cards grid">${cards}</div>`);
+      $("#view").insertAdjacentHTML("beforeend",`<div class="card director-push-card"><div><b>📲 Avisos no celular do diretor</b><span>Receba notificações mesmo com a PWA fechada quando houver matrícula realizada ou solicitação de desconto.</span></div><button class="btn btn-gold" id="directorPushBtn">Ativar notificações</button></div>`);
+      $("#directorPushBtn").onclick=async function(){var b=this,old=b.textContent;b.disabled=true;b.textContent="Ativando…";try{await enableDirectorPush();b.textContent="Notificações ativas ✓";b.className="btn btn-production"}catch(e){showToast(e.message,"error");b.disabled=false;b.textContent=old}};
+      refreshDirectorPushButton();
 
       const p26=products.filter(p=>dashYear(p)===2026&&p.ATIVO!=="Não"),p27=products.filter(p=>dashYear(p)===2027&&p.ATIVO!=="Não");
       const m26=new Map(p26.map(p=>[dashKey(p),p])),m27=new Map(p27.map(p=>[dashKey(p),p]));
