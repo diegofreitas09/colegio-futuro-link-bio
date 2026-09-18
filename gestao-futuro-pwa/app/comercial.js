@@ -99,7 +99,7 @@ async function gfEnsureJsPdf(){
   await new Promise(function(resolve,reject){
     var old=document.querySelector("script[data-jspdf]");
     if(old){old.addEventListener("load",resolve,{once:true});old.addEventListener("error",reject,{once:true});return}
-    var s=document.createElement("script");s.dataset.jspdf="1";s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js";s.onload=resolve;s.onerror=function(){reject(new Error("Não foi possível carregar o gerador de PDF."))};document.head.appendChild(s);
+    var s=document.createElement("script");s.dataset.jspdf="1";s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";s.onload=resolve;s.onerror=function(){reject(new Error("Não foi possível carregar o gerador de PDF."))};document.head.appendChild(s);
   });
   if(!(window.jspdf&&window.jspdf.jsPDF))throw new Error("Gerador de PDF indisponível.");
   return window.jspdf.jsPDF;
