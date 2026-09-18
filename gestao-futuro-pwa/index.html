@@ -14,7 +14,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="brand"><div class="brand-logo official"><img id="schoolLogo" alt="Colégio Futuro"></div><div><strong>Gestão Futuro</strong><small>Secretaria • Gestão • Financeiro</small></div></div>
+    <div class="brand"><div class="brand-logo official"><img id="schoolLogo" alt="Colégio Futuro"></div><div><strong>Gestão Futuro</strong><small id="brandArea">Secretaria • Gestão • Financeiro</small></div></div>
     <nav class="nav" id="nav">
       <button data-view="dashboard" class="active">Dashboard</button>
       <button data-view="atendimento">Atendimento</button>
@@ -33,7 +33,7 @@
   </aside>
   <main class="main">
     <header class="topbar">
-      <div><h1 id="pageTitle">Dashboard</h1><div class="muted" style="font-size:12px"><span id="apiDot" class="status-dot"></span><span id="apiStatus">verificando conexão…</span></div></div>
+      <div><div class="page-heading-line"><h1 id="pageTitle">Dashboard</h1><span id="interfaceBadge" class="interface-badge public">Escolha seu acesso</span></div><div class="muted" style="font-size:12px"><span id="apiDot" class="status-dot"></span><span id="apiStatus">verificando conexão…</span></div></div>
       <div class="top-actions">
         <button id="modeBtn" class="btn btn-soft">Escolher modo</button>
         <button id="installBtn" class="btn btn-gold hidden">Instalar app</button>
