@@ -337,7 +337,11 @@ async function renderAtendimento(){
       return calc;
     }
     ["#planCount","#planDiscFirst","#planDiscRecurring"].forEach(function(sel){var el=$(sel);if(el){el.oninput=updatePlanAndTotal;el.onchange=updatePlanAndTotal}});
-    $$("[data-att-product]").forEach(function(x){x.onchange=function(){x.checked?state.attendanceItems.add(x.dataset.attProduct):state.attendanceItems.delete(x.dataset.attProduct);gfSaveAttendanceDraft();drawCatalog()}});
+    $("[data-att-product]").forEach(function(x){x.onchange=function(){
+      x.checked?state.attendanceItems.add(x.dataset.attProduct):state.attendanceItems.delete(x.dataset.attProduct);
+      var card=x.closest(".catalog-item");if(card)card.classList.toggle("selected",x.checked);
+      updatePlanAndTotal();
+    }});
     $$("[data-discount]").forEach(function(x){x.onclick=function(){openDiscountRequest(list.find(function(p){return p.ID_PRODUTO===x.dataset.discount}),{ano:y,serie:s})}});
     $("#requestPlanDiscount")?.addEventListener("click",async function(){
       var calc=updatePlanAndTotal();
