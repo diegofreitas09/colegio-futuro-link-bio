@@ -117,7 +117,17 @@ function openModeModal(){
       clearLocalTestData();state.bootstrap=null;
       setNotice("Ambiente de testes limpo: "+esc(res?.total||0)+" registro(s) removido(s).","ok");
       closeModal();await navigate(state.view);
-    }catch(e){alert(e.message);clear.disabled=false;clear.textContent="Limpar todos os testes"}
+    }catch(e){
+      clearLocalTestData();state.bootstrap=null;
+      const unsupported=/Ação não reconhecida:\\s*limparDadosTeste/i.test(String(e.message||""));
+      if(unsupported){
+        showToast("O backend publicado ainda está na versão anterior. Os testes locais foram limpos; atualize o ApiPwa.gs para ativar a limpeza online.","error");
+        clear.textContent="Backend precisa atualizar";clear.disabled=true;
+      }else{
+        showToast(e.message||"Falha ao limpar testes.","error");
+        clear.disabled=false;clear.textContent="Limpar todos os testes";
+      }
+    }
   };
 }
 async function api(action, payload={}) {
