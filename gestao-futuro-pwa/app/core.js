@@ -229,7 +229,7 @@ const API_CACHE_TTL = Object.freeze({
   dashboardPublico:15000,dashboardGestao:15000,bootstrapSecretaria:30000,
   listarProdutosPublicos:300000,listarProdutosGestao:60000,listarAtendimentos:12000,
   getPanfletoSerie:60000,listarSolicitacoesDesconto:8000,listarRecebimentos:15000,
-  listarCaixa:15000,listarCategorias:120000,getFechamento:15000
+  listarCaixa:15000,listarCategorias:120000,getFechamento:15000,listarDocumentosAluno:15000,getAtendimento:10000
 });
 function apiCacheKey(action,payload,meta){
   const safe={...payload}; if(safe.password)safe.password="***";
