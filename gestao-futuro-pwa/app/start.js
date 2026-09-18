@@ -1,3 +1,4 @@
+document.addEventListener("pointerdown",()=>{ if(typeof primeAppAlerts==="function") primeAppAlerts(); },{once:true,passive:true});
 const brandLogo=$("#schoolLogo"); if(brandLogo&&window.FUTURO_BRAND?.logo) brandLogo.src=window.FUTURO_BRAND.logo;
 // Navegação
 $$("#nav button").forEach(b=>b.onclick=()=>navigate(b.dataset.view));
