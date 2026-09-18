@@ -43,5 +43,118 @@ function decisionModal(r,status){modal("<div class='modal-head'><h3>"+(status===
 async function requestManagerNotifications(){if("Notification" in window&&Notification.permission!=="granted")await Notification.requestPermission();navigator.vibrate&&navigator.vibrate([100,60,100]);setNotice("Alertas locais ativados.","ok")}
 function triggerManagerAlert(count){var old=Number(sessionStorage.getItem("gf_pending_approvals")||0);sessionStorage.setItem("gf_pending_approvals",String(count));var b=$("#approvalBadge");if(b){b.textContent=count;b.classList.toggle("hidden",count<1)}if(count<=old||count<1)return;navigator.vibrate&&navigator.vibrate([240,120,240,120,300]);try{var C=window.AudioContext||window.webkitAudioContext,c=new C(),o=c.createOscillator(),g=c.createGain();o.frequency.value=880;g.gain.value=.05;o.connect(g);g.connect(c.destination);o.start();setTimeout(function(){o.stop();c.close()},250)}catch(e){}if("Notification" in window&&Notification.permission==="granted")new Notification("Gestão Futuro",{body:count+" pedido(s) aguardando decisão."})}
 async function pollApprovals(){if(!state.adminToken)return;try{var l=await api("listarSolicitacoesDesconto",{token:state.adminToken});triggerManagerAlert(l.filter(function(x){return x.STATUS==="Aguardando"}).length)}catch(e){}}
-async function renderPanfletos(){var b=await loadBootstrap(),products=b.produtos||[],years=[...new Set(products.map(gfYear).filter(Boolean))].sort(function(a,b){return b-a}),year=Number(state.flyerYear||years[0]||2027),serie=state.flyerSeries||"Infantil 2";$("#view").innerHTML="<div class='section-head'><div><h2>Panfleto por série</h2><span class='muted'>Informação pronta para a família.</span></div><div class='toolbar'><select id='flyerYear' class='search'>"+years.map(function(y){return "<option "+(y===year?"selected":"")+">"+y+"</option>"}).join("")+"</select><select id='flyerSerie' class='search'>"+gfOptions(serie)+"</select><button class='btn btn-primary' id='generateFlyer'>Gerar</button></div></div><div id='flyerArea'></div>";async function generate(){var y=Number($("#flyerYear").value),s=$("#flyerSerie").value;state.flyerYear=y;state.flyerSeries=s;var d={config:{},produtos:gfCatalog(products,y,s)};try{d=await api("getPanfletoSerie",{token:tokenFor("staff"),ano:y,serie:s})}catch(e){}var cfg=d.config||{},list=d.produtos||[],groups=gfGroups(list),body="";Object.keys(groups).forEach(function(cat){body+="<section><h3>"+esc(cat)+"</h3><div class='flyer-items'>"+groups[cat].map(function(p){return "<div><div><b>"+esc(p.PRODUTO)+"</b><small>"+esc(p["DESCRIÇÃO"]||p["OBSERVAÇÃO"]||"")+"</small></div><strong>"+money(p.VALOR_BASE)+"</strong></div>"}).join("")+"</div></section>"});$("#flyerArea").innerHTML="<article class='flyer' id='flyerPreview'><div class='flyer-head'>"+(window.FUTURO_BRAND&&window.FUTURO_BRAND.logo?"<img src='"+window.FUTURO_BRAND.logo+"'>":"")+"<div><span>MATRÍCULAS "+y+"</span><h2>"+esc(cfg.TITULO||("Colégio Futuro • "+s))+"</h2><p>"+esc(cfg.SUBTITULO||"Educação que prepara para o presente e impulsiona cada estudante para o futuro.")+"</p></div></div><div class='flyer-series'>"+esc(s)+"</div>"+body+"<div class='flyer-cols'><section><h3>Novatos</h3><p>"+esc(cfg.DOCUMENTOS_NOVATO||"Documentação conforme orientação da Secretaria.")+"</p></section><section><h3>Veteranos</h3><p>"+esc(cfg.DOCUMENTOS_VETERANO||"Atualização cadastral e novo contrato.")+"</p></section></div><footer><b>Colégio Futuro</b><span>Informações oficiais • Gestão Futuro</span></footer></article><div class='flyer-actions'><button class='btn btn-primary' id='printFlyer'>Imprimir / Salvar PDF</button>"+(state.adminToken?"<button class='btn btn-gold' id='editFlyer'>Editar textos</button>":"")+"</div>";$("#printFlyer").onclick=function(){var w=window.open("","_blank");w.document.write("<!doctype html><html><head><meta charset='utf-8'><link rel='stylesheet' href='/styles.css'><style>body{background:white;padding:20px}.flyer{max-width:850px;margin:auto;box-shadow:none}</style></head><body>"+$("#flyerPreview").outerHTML+"<script>setTimeout(function(){window.print()},400)<\/script></body></html>");w.document.close()};if($("#editFlyer"))$("#editFlyer").onclick=function(){editFlyerContent(y,s,cfg)}}$("#generateFlyer").onclick=generate;await generate()}
-function editFlyerContent(y,s,cfg){modal("<div class='modal-head'><h3>Conteúdo do panfleto</h3><button class='icon-btn' data-close>✕</button></div><div class='modal-body'><form id='flyerEdit' class='form-grid'><div class='field span-2'><label>Título</label><input name='TITULO' value='"+esc(cfg.TITULO||("Colégio Futuro • "+s))+"'></div><div class='field span-3'><label>Subtítulo</label><input name='SUBTITULO' value='"+esc(cfg.SUBTITULO||"")+"'></div><div class='field span-3'><label>O que oferece</label><textarea name='O_QUE_OFERECE'>"+esc(cfg.O_QUE_OFERECE||"")+"</textarea></div><div class='field span-3'><label>Novatos</label><textarea name='DOCUMENTOS_NOVATO'>"+esc(cfg.DOCUMENTOS_NOVATO||"")+"</textarea></div><div class='field span-3'><label>Veteranos</label><textarea name='DOCUMENTOS_VETERANO'>"+esc(cfg.DOCUMENTOS_VETERANO||"")+"</textarea></div><div class='field span-3'><label>Observações</label><textarea name='OBSERVACOES'>"+esc(cfg.OBSERVACOES||"")+"</textarea></div></form></div><div class='modal-foot'><button class='btn btn-soft' data-close>Cancelar</button><button class='btn btn-primary' id='saveFlyer'>Salvar</button></div>");$$("[data-close]").forEach(function(x){x.onclick=closeModal});$("#saveFlyer").onclick=async function(){try{await api("salvarPanfletoSerie",{token:state.adminToken,ano:y,serie:s,data:Object.fromEntries(new FormData($("#flyerEdit")).entries())});closeModal();renderPanfletos()}catch(e){alert(e.message)}}}
+
+function gfParseExtras(raw){
+  if(!raw) return [];
+  if(Array.isArray(raw)) return raw;
+  try{
+    var arr=JSON.parse(raw);
+    return Array.isArray(arr)?arr:[];
+  }catch(e){
+    return String(raw).split("\n").map(function(line){return line.trim()}).filter(Boolean).map(function(line){return {nome:line,descricao:"",valor:""}});
+  }
+}
+function gfExtrasJsonFromForm(){
+  return $$(".extra-row").map(function(row){
+    return {
+      nome:$("[data-extra-name]",row)?.value.trim()||"",
+      descricao:$("[data-extra-desc]",row)?.value.trim()||"",
+      valor:$("[data-extra-value]",row)?.value.trim()||""
+    };
+  }).filter(function(x){return x.nome||x.descricao||x.valor});
+}
+function gfFlyerMarkup(y,s,cfg,list){
+  var groups=gfGroups(list),body="";
+  Object.keys(groups).forEach(function(cat){
+    body+="<section class='flyer-category'><h3>"+esc(cat)+"</h3><div class='flyer-items'>"+
+      groups[cat].map(function(p){
+        return "<div class='flyer-item'><div><b>"+esc(p.PRODUTO)+"</b><small>"+esc(p["DESCRIÇÃO"]||p["OBSERVAÇÃO"]||"")+"</small></div><strong>"+money(p.VALOR_BASE)+"</strong></div>";
+      }).join("")+"</div></section>";
+  });
+  var extras=gfParseExtras(cfg.SERVICOS_ADICIONAIS);
+  var extrasHtml=extras.length?"<section class='flyer-category flyer-extras'><h3>Produtos e serviços adicionais</h3><div class='flyer-items'>"+
+    extras.map(function(x){return "<div class='flyer-item'><div><b>"+esc(x.nome||"Adicional")+"</b><small>"+esc(x.descricao||"")+"</small></div>"+(x.valor!==""&&x.valor!=null?"<strong>"+money(x.valor)+"</strong>":"")+"</div>"}).join("")+
+    "</div></section>":"";
+  var offer=cfg.O_QUE_OFERECE?"<section class='flyer-info'><h3>O que oferecemos</h3><p>"+esc(cfg.O_QUE_OFERECE)+"</p></section>":"";
+  var notes=cfg.OBSERVACOES?"<div class='flyer-note'>"+esc(cfg.OBSERVACOES)+"</div>":"";
+  return "<article class='flyer flyer-a4' id='flyerPreview'>"+
+    "<div class='flyer-head'>"+(window.FUTURO_BRAND&&window.FUTURO_BRAND.logo?"<img src='"+window.FUTURO_BRAND.logo+"' alt='Colégio Futuro'>":"")+
+    "<div><span>MATRÍCULAS "+y+"</span><h2>"+esc(cfg.TITULO||("Colégio Futuro • "+s))+"</h2><p>"+esc(cfg.SUBTITULO||"Educação que prepara para o presente e impulsiona cada estudante para o futuro.")+"</p></div></div>"+
+    "<div class='flyer-series'>"+esc(s)+"</div>"+
+    "<div class='flyer-content-grid'>"+body+extrasHtml+offer+"</div>"+
+    "<div class='flyer-cols'><section><h3>Novatos</h3><p>"+esc(cfg.DOCUMENTOS_NOVATO||"Documentação conforme orientação da Secretaria.")+"</p></section><section><h3>Veteranos</h3><p>"+esc(cfg.DOCUMENTOS_VETERANO||"Atualização cadastral e novo contrato.")+"</p></section></div>"+
+    notes+
+    "<footer><b>Colégio Futuro</b><span>Informações oficiais • Gestão Futuro</span></footer></article>";
+}
+function gfBindFlyerActions(y,s,cfg,list){
+  $("#printFlyer").onclick=function(){
+    var w=window.open("","_blank");if(!w)return alert("Permita pop-ups para gerar o PDF.");
+    w.document.write("<!doctype html><html><head><meta charset='utf-8'><title>Panfleto "+esc(s)+" "+y+"</title><link rel='stylesheet' href='/styles.css'><style>@page{size:A4 portrait;margin:5mm}html,body{margin:0!important;padding:0!important;background:#fff!important}.flyer-actions{display:none!important}.flyer-a4{width:200mm!important;max-width:200mm!important;min-height:auto!important;margin:0 auto!important;box-shadow:none!important;border:0!important;border-radius:0!important;padding:6mm!important;box-sizing:border-box!important}</style></head><body>"+$("#flyerPreview").outerHTML+"<script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script></body></html>");
+    w.document.close();
+  };
+  $("#editFlyer")?.addEventListener("click",function(){editFlyerContent(y,s,cfg)});
+}
+async function renderPanfletos(){
+  var defaultYear=Number(state.flyerYear||2027),serie=state.flyerSeries||"Infantil 2";
+  $("#view").innerHTML="<div class='section-head'><div><h2>Panfleto por série</h2><span class='muted'>Modelo vertical A4 • uma página • pronto para família.</span></div><div class='toolbar'><select id='flyerYear' class='search'><option>"+defaultYear+"</option><option>"+(defaultYear-1)+"</option></select><select id='flyerSerie' class='search'>"+gfOptions(serie)+"</select><button class='btn btn-primary' id='generateFlyer'>Atualizar</button></div></div><div id='flyerArea'><div class='card flyer-loading'><b>Carregando panfleto…</b><span class='muted'>Abrindo a visualização imediatamente e atualizando os dados em segundo plano.</span></div></div>";
+  var products=[];
+  try{
+    products=state.catalogProducts||[];
+    if(!products.length){
+      products=await loadCatalogProducts();
+    }
+  }catch(e){
+    try{var b=await loadBootstrap();products=b.produtos||[]}catch(_e){}
+  }
+  var years=[...new Set(products.map(gfYear).filter(Boolean))].sort(function(a,b){return b-a});
+  if(years.length){
+    if(!years.includes(defaultYear)) defaultYear=years[0];
+    $("#flyerYear").innerHTML=years.map(function(y){return "<option value='"+y+"' "+(y===defaultYear?"selected":"")+">"+y+"</option>"}).join("");
+  }
+  async function generate(){
+    var y=Number($("#flyerYear").value||defaultYear),s=$("#flyerSerie").value||serie;
+    state.flyerYear=y;state.flyerSeries=s;
+    var localList=gfCatalog(products,y,s),cacheKey=y+"|"+s,cached=state.flyerCache&&state.flyerCache[cacheKey],cfg=cached?.config||{};
+    $("#flyerArea").innerHTML=gfFlyerMarkup(y,s,cfg,localList)+"<div class='flyer-actions'><button class='btn btn-primary' id='printFlyer'>Imprimir / Salvar PDF</button>"+(state.adminToken?"<button class='btn btn-gold' id='editFlyer'>Editar conteúdo e adicionais</button>":"")+"</div>";
+    gfBindFlyerActions(y,s,cfg,localList);
+    try{
+      var d=await api("getPanfletoSerie",{token:tokenFor("staff"),ano:y,serie:s});
+      state.flyerCache=state.flyerCache||{};state.flyerCache[cacheKey]=d;
+      cfg=d.config||{};var list=d.produtos||localList;
+      $("#flyerArea").innerHTML=gfFlyerMarkup(y,s,cfg,list)+"<div class='flyer-actions'><button class='btn btn-primary' id='printFlyer'>Imprimir / Salvar PDF</button>"+(state.adminToken?"<button class='btn btn-gold' id='editFlyer'>Editar conteúdo e adicionais</button>":"")+"</div>";
+      gfBindFlyerActions(y,s,cfg,list);
+    }catch(e){setNotice("Panfleto exibido com os dados locais. A personalização não pôde ser atualizada agora: "+esc(e.message),"error")}
+  }
+  $("#generateFlyer").onclick=generate;$("#flyerYear").onchange=generate;$("#flyerSerie").onchange=generate;
+  await generate();
+}
+function editFlyerContent(y,s,cfg){
+  var extras=gfParseExtras(cfg.SERVICOS_ADICIONAIS);
+  modal("<div class='modal-head'><h3>Conteúdo do panfleto</h3><button class='icon-btn' data-close>✕</button></div><div class='modal-body'><form id='flyerEdit' class='form-grid'>"+
+    "<div class='field span-2'><label>Título</label><input name='TITULO' value='"+esc(cfg.TITULO||("Colégio Futuro • "+s))+"'></div>"+
+    "<div class='field span-3'><label>Subtítulo</label><input name='SUBTITULO' value='"+esc(cfg.SUBTITULO||"")+"'></div>"+
+    "<div class='field span-3'><label>O que oferece</label><textarea name='O_QUE_OFERECE'>"+esc(cfg.O_QUE_OFERECE||"")+"</textarea></div>"+
+    "<div class='field span-3'><label>Novatos</label><textarea name='DOCUMENTOS_NOVATO'>"+esc(cfg.DOCUMENTOS_NOVATO||"")+"</textarea></div>"+
+    "<div class='field span-3'><label>Veteranos</label><textarea name='DOCUMENTOS_VETERANO'>"+esc(cfg.DOCUMENTOS_VETERANO||"")+"</textarea></div>"+
+    "<div class='field span-3'><label>Observações</label><textarea name='OBSERVACOES'>"+esc(cfg.OBSERVACOES||"")+"</textarea></div>"+
+    "<div class='field span-3'><div class='section-head compact'><div><label>Produtos e serviços adicionais</label><span class='muted'>Inclua quantos forem necessários. Eles aparecem somente neste panfleto.</span></div><button type='button' class='btn btn-soft' id='addExtra'>+ Adicionar</button></div><div id='extrasList'></div></div>"+
+    "</form></div><div class='modal-foot'><button class='btn btn-soft' data-close>Cancelar</button><button class='btn btn-primary' id='saveFlyer'>Salvar</button></div>");
+  function drawExtras(){
+    var root=$("#extrasList");root.innerHTML=(extras.length?extras:[{nome:"",descricao:"",valor:""}]).map(function(x,i){
+      return "<div class='extra-row'><div class='field'><label>Produto/serviço</label><input data-extra-name value='"+esc(x.nome||"")+"' placeholder='Ex.: Integral, esporte, agenda...'></div><div class='field'><label>Descrição</label><input data-extra-desc value='"+esc(x.descricao||"")+"' placeholder='Detalhes'></div><div class='field'><label>Valor</label><input data-extra-value type='number' step='0.01' value='"+esc(x.valor||"")+"' placeholder='0,00'></div><button type='button' class='icon-btn danger' data-remove-extra='"+i+"'>Remover</button></div>";
+    }).join("");
+    $$("[data-remove-extra]").forEach(function(b){b.onclick=function(){extras.splice(Number(b.dataset.removeExtra),1);drawExtras()}});
+  }
+  drawExtras();
+  $("#addExtra").onclick=function(){extras=gfExtrasJsonFromForm();extras.push({nome:"",descricao:"",valor:""});drawExtras()};
+  $$("[data-close]").forEach(function(x){x.onclick=closeModal});
+  $("#saveFlyer").onclick=async function(){
+    try{
+      var data=Object.fromEntries(new FormData($("#flyerEdit")).entries());
+      data.SERVICOS_ADICIONAIS=JSON.stringify(gfExtrasJsonFromForm());
+      await api("salvarPanfletoSerie",{token:state.adminToken,ano:y,serie:s,data:data});
+      state.flyerCache=state.flyerCache||{};delete state.flyerCache[y+"|"+s];
+      closeModal();renderPanfletos();
+    }catch(e){alert(e.message)}
+  };
+}
