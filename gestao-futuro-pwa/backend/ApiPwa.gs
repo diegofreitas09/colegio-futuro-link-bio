@@ -64,8 +64,24 @@ function pwaUser_(fallback){return Session.getActiveUser().getEmail()||fallback|
 function pwaNum_(v){var n=Number(String(v==null?"":v).replace(",","."));return Number.isFinite(n)?n:0}
 function pwaSlug_(v){return String(v||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase().replace(/[^A-Z0-9]+/g,"-").replace(/^-+|-+$/g,"")}
 function pwaNorm_(v){return String(v||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase()}
+function pwaSpecificSeries_(p){
+  var t=pwaNorm_(String(p.PRODUTO||"")+" "+String(p["DESCRIÇÃO"]||"")),m=t.match(/infantil\s*([2-5])\b/);
+  if(m)return "infantil "+m[1];
+  if(!/\b[1-9]\s*(?:º|o)?\s*(?:ao|a)\s*[1-9]/.test(t)){
+    m=t.match(/\b([1-9])\s*(?:º|o)?\s*ano\b/);if(m)return m[1]+" ano";
+    m=t.match(/\b([1-3])\s*(?:º|o)?\s*(?:em|ensino medio)\b/);if(m)return m[1]+" em";
+  }
+  return "";
+}
+function pwaTargetSeriesKey_(serie){
+  var s=pwaNorm_(serie),m=s.match(/infantil\s*([2-5])\b/);if(m)return "infantil "+m[1];
+  m=s.match(/\b([1-9])\s*(?:º|o)?\s*ano\b/);if(m)return m[1]+" ano";
+  m=s.match(/\b([1-3])\s*(?:º|o)?\s*em\b/);if(m)return m[1]+" em";
+  return s;
+}
 function pwaProductApplies_(p,serie){
-  var s=pwaNorm_(serie),a=pwaNorm_(p["SEGMENTO_SÉRIE"]||"");
+  var s=pwaNorm_(serie),a=pwaNorm_(p["SEGMENTO_SÉRIE"]||""),specific=pwaSpecificSeries_(p),target=pwaTargetSeriesKey_(serie);
+  if(specific)return specific===target;
   if(!s||!a||a.indexOf("todos")>=0)return true;
   if(s.indexOf("infantil")>=0)return a.indexOf("infantil")>=0;
   var m=s.match(/\d+/),n=m?Number(m[0]):0;
