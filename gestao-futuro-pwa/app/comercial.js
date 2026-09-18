@@ -23,6 +23,9 @@ function gfSaveAttendanceDraft(){
 }
 function gfLoadAttendanceDraft(){try{return JSON.parse(localStorage.getItem(GF_ATT_DRAFT_KEY)||"null")}catch(e){return null}}
 function gfClearAttendanceDraft(){try{localStorage.removeItem(GF_ATT_DRAFT_KEY)}catch(e){}}
+function gfSavedAttendanceKey(id){return "gestao_futuro_atendimento_salvo_"+String(id||"")}
+function gfCacheSavedAttendance(id,rec,itens){try{localStorage.setItem(gfSavedAttendanceKey(id),JSON.stringify({atendimento:rec,itens:itens||[],cachedAt:new Date().toISOString()}))}catch(e){}}
+function gfReadCachedAttendance(id){try{return JSON.parse(localStorage.getItem(gfSavedAttendanceKey(id))||"null")}catch(e){return null}}
 function gfApplyAttendanceForm(rec){
   if(!rec)return;
   var f=$("#attForm");if(!f)return;
@@ -33,7 +36,7 @@ function gfApplyAttendanceForm(rec){
   if($("#attStudent")&&rec.ID_ALUNO)$("#attStudent").value=rec.ID_ALUNO;
 }
 async function gfResumeAttendance(id,fallback){
-  var rec=fallback||null,items=[];
+  var rec=fallback||null,items=[];var local=gfReadCachedAttendance(id);if(local){rec=local.atendimento||rec;items=local.itens||items;}
   try{
     var d=await api("getAtendimento",{token:tokenFor("staff"),id:id});
     rec=d&&d.atendimento||rec;items=d&&d.itens||[];
@@ -101,7 +104,7 @@ async function renderAtendimento(){
     var btn=$("#saveAttendance");btn.disabled=true;btn.textContent="Salvando…";
     try{
       var r=await api("salvarAtendimento",{token:tokenFor("staff"),data:data,itens:selected});
-      state.currentAttendanceId=r.id;data.ID_ATENDIMENTO=r.id;state.resumeAttendance=data;state.resumeItems=selected;gfClearAttendanceDraft();
+      state.currentAttendanceId=r.id;data.ID_ATENDIMENTO=r.id;state.resumeAttendance=data;state.resumeItems=selected;gfCacheSavedAttendance(r.id,data,selected);gfClearAttendanceDraft();
       setNotice("Atendimento "+esc(r.id)+" salvo no banco. Ele ficará disponível em “Atendimentos salvos” para continuar depois.","ok");
       await renderAtendimento();
     }catch(e){
