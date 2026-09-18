@@ -1,4 +1,4 @@
-const CACHE = "gestao-futuro-shell-v18";
+const CACHE = "gestao-futuro-shell-v19";
 const SHELL = [
   "/", "/index.html", "/styles.css", "/manifest.webmanifest", "/assets/icon.svg",
   "/app/brand.js", "/app/core.js", "/app/secretaria.js", "/app/gestao.js", "/app/comercial.js", "/app/start.js"
@@ -21,4 +21,37 @@ self.addEventListener("fetch", event => {
     caches.open(CACHE).then(cache => cache.put(event.request, copy));
     return response;
   }).catch(() => caches.match(event.request).then(hit => hit || caches.match("/index.html"))));
+});
+
+
+self.addEventListener("push", event => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch { data = {}; }
+  const title = data.title || "Gestão Futuro";
+  const options = {
+    body: data.body || "Nova atualização disponível.",
+    icon: data.icon || "/assets/icon.svg",
+    badge: data.badge || "/assets/icon.svg",
+    data: { url: data.url || "/" },
+    vibrate: [220, 100, 220, 100, 320],
+    tag: "gestao-futuro-" + (data.title || "alerta"),
+    renotify: true
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener("notificationclick", event => {
+  event.notification.close();
+  const target = event.notification?.data?.url || "/";
+  event.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then(list => {
+      for (const client of list) {
+        if ("focus" in client) {
+          client.navigate(target).catch(()=>{});
+          return client.focus();
+        }
+      }
+      return clients.openWindow ? clients.openWindow(target) : undefined;
+    })
+  );
 });
