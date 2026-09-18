@@ -10,3 +10,7 @@ if("serviceWorker" in navigator) navigator.serviceWorker.register("/service-work
 refreshSessionButton();
 checkApi();
 navigate("dashboard");
+
+// Alertas da Direção: consulta leve a cada 60 segundos quando a sessão de Gestão está ativa.
+setInterval(()=>{ if(typeof pollApprovals==="function") pollApprovals(); },60000);
+setTimeout(()=>{ if(typeof pollApprovals==="function") pollApprovals(); },2500);
