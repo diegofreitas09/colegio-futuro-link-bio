@@ -4,7 +4,36 @@ const GF_STAGES=["Contato","Perfil","Interesse","Visita","Proposta","Decisão","
 const GF_PCT={Contato:12,Perfil:28,Interesse:43,Visita:58,Proposta:72,"Decisão":88,Matriculado:100,"Não converteu":100};
 function gfYear(p){var m=(String(p&&p.ID_PRODUTO||"")+" "+String(p&&p.PRODUTO||"")).match(/20\d{2}/);return Number(p&&p.ANO_LETIVO)||Number(m&&m[0])||0}
 function gfNorm(s){return String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase()}
-function gfApplies(p,serie){var s=gfNorm(serie),a=gfNorm(p&&p["SEGMENTO_SÉRIE"]||"");if(!s||!a||a.includes("todos"))return true;if(s.includes("infantil"))return a.includes("infantil");var n=Number((s.match(/\d+/)||[0])[0]);if(s.includes("ano")&&n<=5)return a.includes("1º ao 5º")||a.includes("1o ao 5o")||a.includes("anos iniciais")||a.includes(s);if(s.includes("ano")&&n>=6)return a.includes("6º ao 9º")||a.includes("6o ao 9o")||a.includes("anos finais")||a.includes(s);if(s.includes("em"))return a.includes("medio")||a.includes("ensino medio")||a.includes(s);return a.includes(s)}
+function gfSpecificSeries(p){
+  var t=gfNorm((p&&p.PRODUTO||"")+" "+(p&&p["DESCRIÇÃO"]||""));
+  var m=t.match(/infantil\s*([2-5])\b/);
+  if(m)return "infantil "+m[1];
+  if(!/\b[1-9]\s*(?:º|o)?\s*(?:ao|a)\s*[1-9]/.test(t)){
+    m=t.match(/\b([1-9])\s*(?:º|o)?\s*ano\b/);
+    if(m)return m[1]+" ano";
+    m=t.match(/\b([1-3])\s*(?:º|o)?\s*(?:em|ensino medio)\b/);
+    if(m)return m[1]+" em";
+  }
+  return "";
+}
+function gfTargetSeriesKey(serie){
+  var s=gfNorm(serie),m;
+  m=s.match(/infantil\s*([2-5])\b/);if(m)return "infantil "+m[1];
+  m=s.match(/\b([1-9])\s*(?:º|o)?\s*ano\b/);if(m)return m[1]+" ano";
+  m=s.match(/\b([1-3])\s*(?:º|o)?\s*em\b/);if(m)return m[1]+" em";
+  return s;
+}
+function gfApplies(p,serie){
+  var s=gfNorm(serie),a=gfNorm(p&&p["SEGMENTO_SÉRIE"]||""),specific=gfSpecificSeries(p),target=gfTargetSeriesKey(serie);
+  if(specific)return specific===target;
+  if(!s||!a||a.includes("todos"))return true;
+  if(s.includes("infantil"))return a.includes("infantil");
+  var n=Number((s.match(/\d+/)||[0])[0]);
+  if(s.includes("ano")&&n<=5)return a.includes("1º ao 5º")||a.includes("1o ao 5o")||a.includes("anos iniciais")||a.includes(s);
+  if(s.includes("ano")&&n>=6)return a.includes("6º ao 9º")||a.includes("6o ao 9o")||a.includes("anos finais")||a.includes(s);
+  if(s.includes("em"))return a.includes("medio")||a.includes("ensino medio")||a.includes(s);
+  return a.includes(s)
+}
 function gfCatalog(ps,y,s){return (ps||[]).filter(function(p){var pub=gfNorm(p.PUBLICADO_ATENDIMENTO);return p.ATIVO==="Sim"&&gfYear(p)===Number(y)&&pub!=="nao"&&pub!=="não"&&gfApplies(p,s)})}
 function gfGroups(list){var m={};list.forEach(function(p){var k=p.CATEGORIA||"Outros";(m[k]||(m[k]=[])).push(p)});return m}
 function gfOptions(sel){return GF_SERIES.map(function(s){return "<option "+(s===sel?"selected":"")+">"+esc(s)+"</option>"}).join("")}
