@@ -38,7 +38,7 @@ const tokenFor = role => role === "admin" ? state.adminToken : (state.role==="st
 function isViewAllowed(view){return allowedViewsFor(activeInterfaceRole()).includes(view)}
 function applyRoleInterface(){
   const role=activeInterfaceRole(),allowed=new Set(allowedViewsFor(role));
-  $("#nav button").forEach(btn=>{
+  $$(" #nav button".trim()).forEach(btn=>{
     const show=allowed.has(btn.dataset.view);
     btn.hidden=!show;
     btn.setAttribute("aria-hidden",show?"false":"true");
@@ -384,7 +384,7 @@ async function navigate(view){
   if(!isViewAllowed(view)) view="dashboard";
   const seq=++state.navSeq;
   state.view=view;
-  $$("#nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===view));
+  $$$(" #nav button".trim()).forEach(b=>b.classList.toggle("active",b.dataset.view===view));
   $("#pageTitle").textContent=titles[view]||"Gestão Futuro";
   setNotice("");
   const target=$("#view");
