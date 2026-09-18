@@ -38,7 +38,7 @@ const tokenFor = role => role === "admin" ? state.adminToken : (state.role==="st
 function isViewAllowed(view){return allowedViewsFor(activeInterfaceRole()).includes(view)}
 function applyRoleInterface(){
   const role=activeInterfaceRole(),allowed=new Set(allowedViewsFor(role));
-  $$(" #nav button".trim()).forEach(btn=>{
+  $("#nav button").forEach(btn=>{
     const show=allowed.has(btn.dataset.view);
     btn.hidden=!show;
     btn.setAttribute("aria-hidden",show?"false":"true");
