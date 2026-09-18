@@ -144,3 +144,7 @@ button,input,select,textarea{font:inherit}.hidden{display:none!important}.muted{
   .pdf-actions{width:100%;display:grid;grid-template-columns:1fr 1fr}
   .pdf-actions .btn{width:100%}
 }
+
+.director-push-card{margin-top:14px;display:flex;align-items:center;justify-content:space-between;gap:14px;border:1px solid #cfe1f8;background:linear-gradient(135deg,#f8fbff,#eef5ff)}
+.director-push-card>div{display:grid;gap:4px}.director-push-card b{color:#123b76;font-size:15px}.director-push-card span{color:#687386;font-size:11px;line-height:1.4}
+@media(max-width:760px){.director-push-card{align-items:flex-start;flex-direction:column}.director-push-card .btn{width:100%}}
