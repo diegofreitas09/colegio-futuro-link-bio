@@ -2,6 +2,8 @@ const brandLogo=$("#schoolLogo"); if(brandLogo&&window.FUTURO_BRAND?.logo) brand
 // Navegação
 $$("#nav button").forEach(b=>b.onclick=()=>navigate(b.dataset.view));
 $("#sessionBtn").onclick=()=>authModal(state.adminToken?"admin":"staff");
+$("#modeBtn").onclick=openModeModal;
+refreshModeButton();
 
 // PWA
 window.addEventListener("beforeinstallprompt", e=>{e.preventDefault();state.deferredInstall=e;$("#installBtn").classList.remove("hidden");});
@@ -18,3 +20,13 @@ setTimeout(()=>{ if(typeof pollApprovals==="function") pollApprovals(); },2500);
 
 // Pré-carrega o catálogo em segundo plano para reduzir o atraso ao abrir Atendimento/Panfletos.
 setTimeout(()=>{ if(typeof loadCatalogProducts==="function") loadCatalogProducts().catch(()=>{}); },700);
+
+// Limpeza única dos rascunhos locais antigos usados durante a implantação.
+try{
+  if(!localStorage.getItem("gf_test_reset_20260917")){
+    localStorage.removeItem("gestao_futuro_atendimentos_locais_v1");
+    localStorage.removeItem("gestao_futuro_atendimento_rascunho_v1");
+    localStorage.setItem("gf_test_reset_20260917","1");
+  }
+}catch(e){}
+setTimeout(()=>{ if((state.staffToken||state.adminToken)&&!state.runMode) openModeModal(); },900);
