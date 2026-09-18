@@ -111,6 +111,8 @@ function openModeModal(){
   };
 }
 async function api(action, payload={}) {
+  const writeActions=["salvarAluno","salvarResponsavel","criarMatriculaCompleta","atualizarDocumento","registrarPagamento","salvarMovimentoCaixa","salvarAtendimento","solicitarDesconto","decidirSolicitacaoDesconto","salvarPanfletoSerie","atualizarProduto","criarProdutoServico","aplicarReajusteIndividual","aplicarReajusteCatalogo"];
+  if(writeActions.includes(action)&&!state.runMode){ openModeModal(); throw new Error("Escolha Produção ou Teste/Simulação antes de salvar."); }
   const meta={modo:currentRunMode(),sessaoTeste:state.runMode==="TESTE"?ensureTestSession():""};
   const r = await fetch(API, {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({action,...meta,...payload})});
   let out;
