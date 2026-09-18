@@ -148,3 +148,22 @@ button,input,select,textarea{font:inherit}.hidden{display:none!important}.muted{
 .director-push-card{margin-top:14px;display:flex;align-items:center;justify-content:space-between;gap:14px;border:1px solid #cfe1f8;background:linear-gradient(135deg,#f8fbff,#eef5ff)}
 .director-push-card>div{display:grid;gap:4px}.director-push-card b{color:#123b76;font-size:15px}.director-push-card span{color:#687386;font-size:11px;line-height:1.4}
 @media(max-width:760px){.director-push-card{align-items:flex-start;flex-direction:column}.director-push-card .btn{width:100%}}
+
+/* Interfaces separadas: Secretaria x Gestão */
+.page-heading-line{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.interface-badge{display:inline-flex;align-items:center;padding:4px 9px;border-radius:999px;font-size:9px;font-weight:900;letter-spacing:.02em;border:1px solid #d8e1ee;background:#f5f7fb;color:#506178}
+.interface-badge.staff{background:#eaf3ff;border-color:#bcd3f2;color:#174b8f}
+.interface-badge.admin{background:#fff3cf;border-color:#e8c766;color:#765500}
+.interface-badge.public{background:#f5f7fb;color:#687386}
+body.interface-staff .sidebar{background:linear-gradient(180deg,#174b8f 0%,#123b76 100%)}
+body.interface-admin .sidebar{background:linear-gradient(180deg,#0f315f 0%,#0b274d 100%)}
+body.interface-admin .nav button.active{box-shadow:inset 3px 0 0 #f7b500}
+body.interface-staff .nav button.active{box-shadow:inset 3px 0 0 #79b5ff}
+.role-shortcuts{grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+.role-shortcuts .card{text-align:left}
+.access-choice{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:16px}
+@media(max-width:760px){
+  .interface-badge{font-size:8px}
+  .access-choice{align-items:flex-start;flex-direction:column}
+  .access-choice .btn{width:100%}
+}
