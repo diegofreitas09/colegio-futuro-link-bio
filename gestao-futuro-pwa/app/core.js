@@ -9,7 +9,10 @@ const state = {
   role: sessionStorage.getItem("gf_role") || "",
   bootstrap: null,
   deferredInstall: null,
-  studentsFilter: ""
+  studentsFilter: "",
+  catalogProducts: null,
+  catalogPromise: null,
+  flyerCache: {}
 };
 
 const titles = {
@@ -124,6 +127,13 @@ async function requireRole(view){
   if(role==="admin" && state.adminToken) return true;
   authModal(role);
   return false;
+}
+
+async function loadCatalogProducts(){
+  if(state.catalogProducts) return state.catalogProducts;
+  if(state.catalogPromise) return state.catalogPromise;
+  state.catalogPromise=api("listarProdutosPublicos").then(function(rows){state.catalogProducts=rows||[];return state.catalogProducts}).finally(function(){state.catalogPromise=null});
+  return state.catalogPromise;
 }
 
 async function loadBootstrap(){
