@@ -62,6 +62,7 @@ function pwaAdmin_(token){admin_(token);return "admin"}
 function pwaWithLock_(fn){var lock=LockService.getScriptLock();lock.waitLock(30000);try{return fn()}finally{lock.releaseLock()}}
 function pwaUser_(fallback){return Session.getActiveUser().getEmail()||fallback||"PWA"}
 function pwaNum_(v){var n=Number(String(v==null?"":v).replace(",","."));return Number.isFinite(n)?n:0}
+function gfRoundMoneyPwa_(v){return Math.round((Number(v||0)+Number.EPSILON)*100)/100}
 function pwaSlug_(v){return String(v||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase().replace(/[^A-Z0-9]+/g,"-").replace(/^-+|-+$/g,"")}
 function pwaNorm_(v){return String(v||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase()}
 function pwaSpecificSeries_(p){
@@ -114,7 +115,9 @@ function salvarAtendimentoPwa_(token,data,itens){
   pwaStaff_(token);data=data||{};itens=Array.isArray(itens)?itens:[];
   if(!data.NOME_ALUNO||!data.ANO_LETIVO||!data.SERIE_PRETENDIDA)throw new Error("Aluno, ano letivo e série são obrigatórios.");
   return pwaWithLock_(function(){
-    var id=String(data.ID_ATENDIMENTO||"").trim(),old=id?findById_(GF_TABS.ATENDIMENTOS,"ID_ATENDIMENTO",id):null,now=new Date(),total=itens.reduce(function(s,x){return s+pwaNum_(x.VALOR_APRESENTADO||x.VALOR_TABELA)*Math.max(1,pwaNum_(x.QTD)||1)},0);
+    var id=String(data.ID_ATENDIMENTO||"").trim(),old=id?findById_(GF_TABS.ATENDIMENTOS,"ID_ATENDIMENTO",id):null,now=new Date();
+    var extrasTotal=itens.filter(function(x){return x.CATEGORIA!=="Mensalidade"}).reduce(function(s,x){return s+pwaNum_(x.VALOR_APRESENTADO||x.VALOR_TABELA)*Math.max(1,pwaNum_(x.QTD)||1)},0);
+    var planTotal=pwaNum_(data.TOTAL_PLANO),total=planTotal>0?planTotal+extrasTotal:itens.reduce(function(s,x){return s+pwaNum_(x.VALOR_APRESENTADO||x.VALOR_TABELA)*Math.max(1,pwaNum_(x.QTD)||1)},0);
     if(!id)id=nextId_("ATE-",GF_TABS.ATENDIMENTOS,"ID_ATENDIMENTO");
     var rec={
       ID_ATENDIMENTO:id,
@@ -141,24 +144,34 @@ function salvarAtendimentoPwa_(token,data,itens){
       OBSERVACAO:data.OBSERVACAO||"",
       PROXIMO_CONTATO:data.PROXIMO_CONTATO||"",
       ATENDENTE:pwaUser_("Atendimento"),
-      TOTAL_PROPOSTA:total,
+      TOTAL_PROPOSTA:gfRoundMoneyPwa_(total),
       PEDIDO_DESCONTO_PENDENTE:old&&old.PEDIDO_DESCONTO_PENDENTE||"Não",
       CRIADO_POR:old&&old.CRIADO_POR||pwaUser_("Atendimento"),
       CRIADO_EM:old&&old.CRIADO_EM||now,
       ATUALIZADO_POR:pwaUser_("Atendimento"),
-      ATUALIZADO_EM:now
+      ATUALIZADO_EM:now,
+      PLANO_PARCELAS:Number(data.PLANO_PARCELAS||0),
+      VALOR_ANUIDADE:pwaNum_(data.VALOR_ANUIDADE),
+      VALOR_PRIMEIRA_BASE:pwaNum_(data.VALOR_PRIMEIRA_BASE),
+      "DESCONTO_PRIMEIRA_%":pwaNum_(data["DESCONTO_PRIMEIRA_%"]),
+      VALOR_PRIMEIRA_FINAL:pwaNum_(data.VALOR_PRIMEIRA_FINAL),
+      VALOR_PARCELA_BASE:pwaNum_(data.VALOR_PARCELA_BASE),
+      "DESCONTO_PARCELAS_%":pwaNum_(data["DESCONTO_PARCELAS_%"]),
+      VALOR_PARCELA_FINAL:pwaNum_(data.VALOR_PARCELA_FINAL),
+      TOTAL_PLANO:planTotal,
+      ECONOMIA_PLANO:pwaNum_(data.ECONOMIA_PLANO)
     };
     if(old)updateById_(GF_TABS.ATENDIMENTOS,"ID_ATENDIMENTO",id,rec);else append_(GF_TABS.ATENDIMENTOS,rec);
     var existentes=rows_(GF_TABS.ITENS_ATENDIMENTO).filter(function(x){return x.ID_ATENDIMENTO===id});
     existentes.forEach(function(x){updateById_(GF_TABS.ITENS_ATENDIMENTO,"ID_ITEM_ATENDIMENTO",x.ID_ITEM_ATENDIMENTO,{SELECIONADO:"Não",ATUALIZADO_EM:now})});
     itens.forEach(function(x){
       var ex=existentes.find(function(e){return e.ID_PRODUTO===x.ID_PRODUTO}),iid=ex&&ex.ID_ITEM_ATENDIMENTO||nextId_("ATI-",GF_TABS.ITENS_ATENDIMENTO,"ID_ITEM_ATENDIMENTO"),item={
-        ID_ITEM_ATENDIMENTO:iid,ID_ATENDIMENTO:id,ID_PRODUTO:x.ID_PRODUTO||"",ANO_LETIVO:Number(data.ANO_LETIVO),PRODUTO:x.PRODUTO||"",CATEGORIA:x.CATEGORIA||"",SERIE:data.SERIE_PRETENDIDA||"",QTD:Number(x.QTD||1),VALOR_TABELA:pwaNum_(x.VALOR_TABELA), "DESCONTO_%":pwaNum_(x.DESCONTO),VALOR_APRESENTADO:pwaNum_(x.VALOR_APRESENTADO||x.VALOR_TABELA),OBRIGATORIO:x.OBRIGATORIO||"Não",SELECIONADO:"Sim",OBSERVACAO:x.OBSERVACAO||"",CRIADO_EM:ex&&ex.CRIADO_EM||now,ATUALIZADO_EM:now
+        ID_ITEM_ATENDIMENTO:iid,ID_ATENDIMENTO:id,ID_PRODUTO:x.ID_PRODUTO||"",ANO_LETIVO:Number(data.ANO_LETIVO),PRODUTO:x.PRODUTO||"",CATEGORIA:x.CATEGORIA||"",SERIE:data.SERIE_PRETENDIDA||"",QTD:Number(x.QTD||1),VALOR_TABELA:pwaNum_(x.VALOR_TABELA),"DESCONTO_%":pwaNum_(x.DESCONTO),VALOR_APRESENTADO:pwaNum_(x.VALOR_APRESENTADO||x.VALOR_TABELA),OBRIGATORIO:x.OBRIGATORIO||"Não",SELECIONADO:"Sim",OBSERVACAO:x.OBSERVACAO||"",CRIADO_EM:ex&&ex.CRIADO_EM||now,ATUALIZADO_EM:now
       };
       if(ex)updateById_(GF_TABS.ITENS_ATENDIMENTO,"ID_ITEM_ATENDIMENTO",iid,item);else append_(GF_TABS.ITENS_ATENDIMENTO,item);
     });
     audit_("Atendimento",old?"EDITAR":"CRIAR","Atendimento",id,old?JSON.stringify(old):"",JSON.stringify(rec));
-    SpreadsheetApp.flush();return {ok:true,id:id,total:total};
+    SpreadsheetApp.flush();return {ok:true,id:id,total:rec.TOTAL_PROPOSTA};
   });
 }
 
