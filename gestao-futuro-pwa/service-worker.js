@@ -1,7 +1,7 @@
-const CACHE = "gestao-futuro-shell-v2";
+const CACHE = "gestao-futuro-shell-v3";
 const SHELL = [
   "/", "/index.html", "/styles.css", "/manifest.webmanifest", "/assets/icon.svg",
-  "/app/core.js", "/app/secretaria.js", "/app/gestao.js", "/app/start.js"
+  "/app/brand.js", "/app/core.js", "/app/secretaria.js", "/app/gestao.js", "/app/comercial.js", "/app/start.js"
 ];
 
 self.addEventListener("install", event => {
