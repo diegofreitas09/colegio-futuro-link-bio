@@ -76,7 +76,7 @@ function openMatForm(b){
     $("#matPlano").innerHTML=`<option value="">Definir manualmente</option>${filtered.map(p=>`<option value="${esc(p.ID_PRODUTO)}">${esc(p.PRODUTO)} — ${esc(p.SUBCATEGORIA||p.QTD_PARCELAS+" parcela(s)")} — ${money(p.VALOR_BASE)}</option>`).join("")}`;
     const services=available.filter(p=>p.CATEGORIA!=="Mensalidade"&&p.DISPONIVEL_MATRICULA!=="Não");
     $("#matServices").innerHTML=services.length?services.map(p=>`<label class="service-option"><input type="checkbox" data-mat-service="${esc(p.ID_PRODUTO)}"><span><b>${esc(p.PRODUTO)}</b><small>${esc(p.CATEGORIA||"")} • ${esc(p["DESCRIÇÃO"]||p["OBSERVAÇÃO"]||"")}</small></span><strong>${money(p.VALOR_BASE)}</strong></label>`).join(""):`<span class="muted">Nenhum produto ou serviço adicional disponível para esta série.</span>`;
-    $("[data-mat-service]").forEach(x=>x.onchange=refreshServiceTotal);
+    $$("[data-mat-service]").forEach(x=>x.onchange=refreshServiceTotal);
     refreshServiceTotal();
   };
   const refreshServiceTotal=()=>{
