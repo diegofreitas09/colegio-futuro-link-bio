@@ -57,7 +57,13 @@ function pwaRole_(token){
   if(role!=="secretaria"&&role!=="admin")throw new Error("Sessão expirada ou inválida.");
   return role;
 }
-function pwaStaff_(token){return pwaRole_(token)}
+function pwaStaff_(token){
+  try{return pwaRole_(token)}
+  catch(staffErr){
+    try{admin_(token);return "admin"}
+    catch(adminErr){throw staffErr}
+  }
+}
 function pwaAdmin_(token){admin_(token);return "admin"}
 function pwaWithLock_(fn){var lock=LockService.getScriptLock();lock.waitLock(30000);try{return fn()}finally{lock.releaseLock()}}
 function pwaUser_(fallback){return Session.getActiveUser().getEmail()||fallback||"PWA"}
