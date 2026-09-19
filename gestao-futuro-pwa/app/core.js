@@ -563,7 +563,13 @@ function dashBarRows(rows,maxValue,formatter){
   }).join("");
 }
 async function renderDashboard(){
-  $("#view").innerHTML=`<div class="cards grid">${["Alunos ativos","Matrículas ativas","Documentos pendentes","Status"].map(x=>`<div class="card metric"><div class="label">${x}</div><div class="value">…</div><div class="hint">atualizando</div></div>`).join("")}</div>`;
+  const roleNow=activeInterfaceRole();
+  const heroLabel=roleNow==="admin"?"Gestão • Financeiro • Autorizações":roleNow==="staff"?"Secretaria • Atendimento • Matrículas":"Gestão escolar integrada";
+  $("#view").innerHTML=`<section class="dashboard-brand-hero">
+    <img src="${window.FUTURO_BRAND?.hero||"/assets/hero-futuro.webp"}" alt="Gestão Futuro • Colégio Futuro">
+    <div class="dashboard-brand-caption"><span>${heroLabel}</span></div>
+  </section>
+  <div class="cards grid">${["Alunos ativos","Matrículas ativas","Documentos pendentes","Status"].map(x=>`<div class="card metric"><div class="label">${x}</div><div class="value">…</div><div class="hint">atualizando</div></div>`).join("")}</div>`;
   let publicData={};
   try{ publicData=await api("dashboardPublico"); }catch(e){ setNotice(`Conexão da PWA pendente: ${esc(e.message)}`,"error"); }
   const vals=[publicData?.["Alunos ativos"]??0, publicData?.["Matrículas ativas"]??0, publicData?.["Documentos pendentes"]??0, "Online"];
