@@ -1,11 +1,45 @@
 {
-  "name":"Gestão Futuro",
-  "short_name":"Gestão Futuro",
-  "description":"Gestão escolar integrada do Colégio Futuro",
-  "start_url":"/",
-  "scope":"/",
-  "display":"standalone",
-  "background_color":"#f5f7fb",
-  "theme_color":"#123b76",
-  "icons":[{"src":"/assets/icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+  "id": "/",
+  "name": "Gestão Futuro • Colégio Futuro",
+  "short_name": "Gestão Futuro",
+  "description": "Gestão escolar integrada do Colégio Futuro — Secretaria, Gestão, Financeiro e Matrículas.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui"
+  ],
+  "orientation": "any",
+  "background_color": "#06224b",
+  "theme_color": "#123b76",
+  "categories": [
+    "education",
+    "business",
+    "productivity"
+  ],
+  "icons": [
+    {
+      "src": "/assets/app-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/app-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/assets/hero-futuro.webp",
+      "sizes": "1440x810",
+      "type": "image/webp",
+      "form_factor": "wide",
+      "label": "Gestão Futuro • Colégio Futuro"
+    }
+  ]
 }
