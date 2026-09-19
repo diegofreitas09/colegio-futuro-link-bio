@@ -316,7 +316,7 @@ function switchInterfaceModal(targetRole){
       <div class="notice warn">A troca só acontece depois da senha ser validada. Se a senha estiver incorreta, você permanece na interface atual.</div>
     </div>
     <div class="modal-foot"><button class="btn btn-soft" data-close>Cancelar</button><button class="btn ${toAdmin?"btn-gold":"btn-primary"}" id="confirmRoleSwitch">${title}</button></div>`);
-  $("[data-close]").forEach(x=>x.onclick=closeModal);
+  $$("[data-close]").forEach(x=>x.onclick=closeModal);
   $("#confirmRoleSwitch").onclick=async function(){
     const password=$("#switchRolePass").value;
     if(!password){$("#switchRolePass").focus();return}
