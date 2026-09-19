@@ -1,3 +1,11 @@
+function finishAppSplash(){
+  const s=$("#appSplash");if(!s)return;
+  s.classList.add("done");
+  setTimeout(()=>s.remove(),520);
+}
+window.addEventListener("load",()=>setTimeout(finishAppSplash,700),{once:true});
+setTimeout(finishAppSplash,1900);
+
 document.addEventListener("pointerdown",()=>{ if(typeof primeAppAlerts==="function") primeAppAlerts(); },{once:true,passive:true});
 const brandLogo=$("#schoolLogo"); if(brandLogo&&window.FUTURO_BRAND?.logo) brandLogo.src=window.FUTURO_BRAND.logo;
 // Navegação
