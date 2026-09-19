@@ -85,8 +85,8 @@ export default async (req: Request, _context: Context) => {
     const test = await sendToAll({
       title: "Gestão Futuro",
       body: "Notificações do diretor ativadas com sucesso.",
-      icon: "/assets/icon.svg",
-      badge: "/assets/icon.svg",
+      icon: "/assets/app-icon-192.png",
+      badge: "/assets/app-icon-192.png",
       url: "/"
     });
     return json({ ok:true, subscribed:true, test });
@@ -103,8 +103,8 @@ export default async (req: Request, _context: Context) => {
     const result = await sendToAll({
       title: "🔔 Teste de notificação",
       body: "Gestão Futuro pronta para avisar novas matrículas e descontos.",
-      icon: "/assets/icon.svg",
-      badge: "/assets/icon.svg",
+      icon: "/assets/app-icon-192.png",
+      badge: "/assets/app-icon-192.png",
       url: "/"
     });
     return json({ ok:true, ...result });
