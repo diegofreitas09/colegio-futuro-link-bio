@@ -42,8 +42,8 @@ function enrollmentPush(body: Record<string, unknown>) {
   return {
     title: mode === "TESTE" ? "🧪 Matrícula de teste realizada" : "🎓 Nova matrícula realizada",
     body: [aluno, serie, ano].filter(Boolean).join(" • "),
-    icon: "/assets/icon.svg",
-    badge: "/assets/icon.svg",
+    icon: "/assets/app-icon-192.png",
+    badge: "/assets/app-icon-192.png",
     url: "/"
   };
 }
@@ -56,8 +56,8 @@ function discountPush(body: Record<string, unknown>) {
   return {
     title: mode === "TESTE" ? "🧪 Desconto de teste solicitado" : "💰 Nova solicitação de desconto",
     body: [serie, valor ? "R$ " + valor.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) : ""].filter(Boolean).join(" • "),
-    icon: "/assets/icon.svg",
-    badge: "/assets/icon.svg",
+    icon: "/assets/app-icon-192.png",
+    badge: "/assets/app-icon-192.png",
     url: "/"
   };
 }
