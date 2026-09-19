@@ -173,6 +173,118 @@ function setRunMode(mode){
   state.bootstrap=null;
   refreshModeButton();
 }
+function resetRunModeForEntry(){
+  state.runMode="";
+  state.testSession="";
+  sessionStorage.removeItem("gf_run_mode");
+  sessionStorage.removeItem("gf_test_session");
+  refreshModeButton();
+}
+function notificationStateLabel(){
+  if(!("Notification" in window))return {label:"Não disponível",cls:"off"};
+  if(Notification.permission==="granted")return {label:"Ativas",cls:"ok"};
+  if(Notification.permission==="denied")return {label:"Bloqueadas no navegador",cls:"off"};
+  return {label:"Aguardando autorização",cls:"warn"};
+}
+async function ensureEntryNotifications(){
+  if(!("Notification" in window))return {permission:"unsupported",push:false};
+  let permission=Notification.permission;
+  if(permission==="default"){
+    try{permission=await Notification.requestPermission()}catch(e){}
+  }
+  let push=false;
+  if(permission==="granted"){
+    localStorage.setItem("gf_notifications_enabled","1");
+    try{
+      if(state.adminToken&&typeof enableDirectorPush==="function"){
+        await enableDirectorPush();push=true;
+      }
+    }catch(e){}
+  }
+  return {permission,push};
+}
+function closeModeGate(){
+  const root=$("#modeGateRoot");if(root)root.innerHTML="";
+  document.body.classList.remove("mode-gated");
+}
+async function selectEntryMode(mode,button){
+  const old=button?.innerHTML||"";
+  if(button){button.disabled=true;button.innerHTML="<strong>Preparando…</strong><small>Ativando ambiente e notificações</small>"}
+  setRunMode(mode);
+  const notif=await ensureEntryNotifications();
+  closeModeGate();
+  if(notif.permission==="denied"){
+    showToast("Modo escolhido. As notificações estão bloqueadas no navegador; você pode liberá-las nas permissões do site.","error");
+  }else if(notif.permission==="granted"){
+    showToast((mode==="TESTE"?"Simulação":"Produção")+" ativa • notificações liberadas ✓","ok");
+  }else{
+    showToast((mode==="TESTE"?"Simulação":"Produção")+" ativa ✓","ok");
+  }
+  await navigate("dashboard");
+  if(button){button.disabled=false;button.innerHTML=old}
+}
+function openModeGate(){
+  if(!(state.staffToken||state.adminToken))return;
+  const root=$("#modeGateRoot");if(!root)return;
+  const role=activeInterfaceRole();
+  const notif=notificationStateLabel();
+  document.body.classList.add("mode-gated");
+  root.innerHTML=`
+    <section class="mode-gate" aria-modal="true" role="dialog">
+      <div class="mode-gate-bg"></div>
+      <div class="mode-gate-card">
+        <div class="mode-gate-brand">
+          ${window.FUTURO_BRAND?.logo?`<img src="${window.FUTURO_BRAND.logo}" alt="Colégio Futuro">`:""}
+          <div><span>GESTÃO FUTURO</span><b>${role==="admin"?"Interface Gestão":"Interface Secretaria"}</b></div>
+        </div>
+        <div class="mode-gate-copy">
+          <span class="mode-gate-kicker">ANTES DE CONTINUAR</span>
+          <h1>Como você vai usar a plataforma agora?</h1>
+          <p>Escolha uma opção para liberar o sistema. Enquanto você não escolher, nenhum menu ou comando ficará disponível.</p>
+        </div>
+        <div class="mode-gate-options">
+          <button class="mode-gate-option production" id="gateProduction">
+            <span class="mode-gate-icon">✓</span>
+            <div><strong>Produção</strong><small>Dados oficiais: alunos, matrículas, atendimentos, financeiro e autorizações entram no fluxo real.</small></div>
+            <i>Entrar</i>
+          </button>
+          <button class="mode-gate-option test" id="gateTest">
+            <span class="mode-gate-icon">🧪</span>
+            <div><strong>Teste / Simulação</strong><small>Use para treinamento e conferência. Os registros ficam separados e podem ser apagados depois.</small></div>
+            <i>Simular</i>
+          </button>
+        </div>
+        <div class="mode-gate-notification">
+          <div><span class="notify-dot ${notif.cls}"></span><div><b>Notificações</b><small id="gateNotifyText">${notif.label}. Ao escolher o ambiente, vamos solicitar/liberar as notificações neste aparelho.</small></div></div>
+          <span class="mode-gate-device">${/Mobi|Android/i.test(navigator.userAgent)?"Celular":"Desktop"}</span>
+        </div>
+        ${role==="admin"?`<div class="mode-gate-clean"><div><b>🧹 Limpeza de simulação</b><small>Apaga somente dados marcados como TESTE, inclusive autorizações, sem tocar na produção.</small></div><button class="btn btn-danger" id="gateClearTests">Limpar simulação</button></div>`:""}
+        <div class="mode-gate-foot"><span>Escolha obrigatória para proteger os dados oficiais.</span><button class="link-btn" id="gateLogout">Sair do acesso</button></div>
+      </div>
+    </section>`;
+  $("#gateProduction").onclick=function(){selectEntryMode("PRODUCAO",this)};
+  $("#gateTest").onclick=function(){selectEntryMode("TESTE",this)};
+  const clear=$("#gateClearTests");
+  if(clear)clear.onclick=async function(){
+    if(!confirm("Apagar todos os registros de Teste/Simulação? Os dados de Produção serão preservados."))return;
+    const old=this.textContent;this.disabled=true;this.textContent="Limpando…";
+    try{
+      // cleanup is administrative; temporarily use TESTE metadata without releasing the gate
+      state.runMode="TESTE";ensureTestSession();
+      const res=await api("limparDadosTeste",{token:state.adminToken});
+      resetRunModeForEntry();clearLocalTestData();clearApiCache();
+      sessionStorage.setItem("gf_pending_approvals","0");
+      const badge=$("#approvalBadge");if(badge){badge.textContent="0";badge.classList.add("hidden")}
+      showToast("Simulação limpa: "+(res?.total||0)+" registro(s) removido(s) ✓","ok");
+      this.disabled=false;this.textContent=old;
+    }catch(e){
+      resetRunModeForEntry();
+      showToast(e.message||"Não foi possível limpar a simulação.","error");
+      this.disabled=false;this.textContent=old;
+    }
+  };
+  $("#gateLogout").onclick=logoutAll;
+}
 function clearLocalTestData(){
   try{
     const key="gestao_futuro_atendimentos_locais_v1";
@@ -184,49 +296,8 @@ function clearLocalTestData(){
     if(d?.MODO_REGISTRO==="TESTE") localStorage.removeItem("gestao_futuro_atendimento_rascunho_v1");
   }catch(e){}
 }
-function openModeModal(){
-  modal(`
-    <div class="modal-head"><h3>Como você quer usar a plataforma agora?</h3><button class="icon-btn" data-close>✕</button></div>
-    <div class="modal-body">
-      <div class="mode-grid">
-        <button class="mode-card production" id="chooseProduction">
-          <span class="mode-icon">✓</span><strong>Produção</strong>
-          <small>Alunos, atendimentos, matrículas e financeiro entram nos registros oficiais.</small>
-        </button>
-        <button class="mode-card test" id="chooseTest">
-          <span class="mode-icon">🧪</span><strong>Teste / Simulação</strong>
-          <small>Registros ficam identificados como teste, fora dos indicadores oficiais e podem ser apagados depois.</small>
-        </button>
-      </div>
-      ${state.adminToken?`<div class="test-cleanup"><div><b>Ambiente de testes</b><span>Apaga somente registros marcados como TESTE. Catálogo oficial e dados de produção são preservados.</span></div><button class="btn btn-danger" id="clearTestData">Limpar todos os testes</button></div>`:""}
-    </div>`);
-  $("#chooseProduction").onclick=()=>{setRunMode("PRODUCAO");closeModal();navigate(state.view)};
-  $("#chooseTest").onclick=()=>{setRunMode("TESTE");closeModal();navigate(state.view)};
-  $("[data-close]").onclick=closeModal;
-  const clear=$("#clearTestData");
-  if(clear) clear.onclick=async()=>{
-    if(!confirm("Apagar TODOS os registros marcados como TESTE/Simulação? Os dados oficiais de produção serão preservados.")) return;
-    clear.disabled=true;clear.textContent="Limpando…";
-    try{
-      const res=await api("limparDadosTeste",{token:state.adminToken});
-      clearLocalTestData();state.bootstrap=null;clearApiCache();
-      sessionStorage.setItem("gf_pending_approvals","0");
-      const badge=$("#approvalBadge");if(badge){badge.textContent="0";badge.classList.add("hidden")}
-      setNotice("Ambiente de testes limpo: "+esc(res?.total||0)+" registro(s) removido(s), incluindo autorizações de teste.","ok");
-      closeModal();await navigate(state.view);
-    }catch(e){
-      clearLocalTestData();state.bootstrap=null;
-      const unsupported=/Ação não reconhecida:\\s*limparDadosTeste/i.test(String(e.message||""));
-      if(unsupported){
-        showToast("O backend publicado ainda está na versão anterior. Os testes locais foram limpos; atualize o ApiPwa.gs para ativar a limpeza online.","error");
-        clear.textContent="Backend precisa atualizar";clear.disabled=true;
-      }else{
-        showToast(e.message||"Falha ao limpar testes.","error");
-        clear.disabled=false;clear.textContent="Limpar todos os testes";
-      }
-    }
-  };
-}
+function openModeModal(){ openModeGate(); }
+
 const API_CACHE_TTL = Object.freeze({
   dashboardPublico:15000,dashboardGestao:15000,bootstrapSecretaria:30000,
   listarProdutosPublicos:300000,listarProdutosGestao:60000,listarAtendimentos:12000,
@@ -240,7 +311,7 @@ function apiCacheKey(action,payload,meta){
 function clearApiCache(){state.apiCache.clear();state.bootstrap=null}
 async function api(action, payload={}) {
   const writeActions=["salvarAluno","salvarResponsavel","criarMatriculaCompleta","atualizarDocumento","registrarPagamento","salvarMovimentoCaixa","salvarAtendimento","solicitarDesconto","decidirSolicitacaoDesconto","salvarPanfletoSerie","atualizarProduto","criarProdutoServico","aplicarReajusteIndividual","aplicarReajusteCatalogo","limparDadosTeste","limparAutorizacoesTeste"];
-  if(writeActions.includes(action)&&!state.runMode){openModeModal();throw new Error("Escolha Produção ou Teste/Simulação antes de salvar.")}
+  if(writeActions.includes(action)&&!state.runMode){openModeGate();throw new Error("Escolha Produção ou Teste/Simulação antes de salvar.")}
   const meta={modo:currentRunMode(),sessaoTeste:state.runMode==="TESTE"?ensureTestSession():""};
   const ttl=API_CACHE_TTL[action]||0,key=ttl?apiCacheKey(action,payload,meta):"";
   if(ttl){
@@ -337,11 +408,11 @@ function switchInterfaceModal(targetRole){
         sessionStorage.setItem("gf_staff_token",res.token);sessionStorage.removeItem("gf_admin_token");sessionStorage.setItem("gf_role","staff");
         if(oldAdmin){try{await api("logout",{token:oldAdmin})}catch{}}
       }
-      clearApiCache();state.bootstrap=null;
+      clearApiCache();state.bootstrap=null;resetRunModeForEntry();
       applyRoleInterface();refreshSessionButton();closeModal();
       showToast("Interface alterada para "+(toAdmin?"Gestão":"Secretaria")+" ✓","ok");
       if(toAdmin&&typeof pollApprovals==="function")pollApprovals();
-      await navigate("dashboard");
+      await navigate("dashboard");openModeGate();
     }catch(e){
       showToast(e.message||"Senha inválida.","error");
       btn.disabled=false;btn.textContent=old;$("#switchRolePass").focus();
@@ -382,7 +453,7 @@ function authModal(targetRole="staff") {
       state.adminToken="";sessionStorage.removeItem("gf_admin_token");
       state.staffToken=res.token; state.role="staff";
       sessionStorage.setItem("gf_staff_token",res.token); sessionStorage.setItem("gf_role","staff");
-      state.bootstrap=null;applyRoleInterface();refreshSessionButton(); closeModal(); await navigate("dashboard");
+      state.bootstrap=null;resetRunModeForEntry();applyRoleInterface();refreshSessionButton(); closeModal(); await navigate("dashboard");openModeGate();
     }catch(e){ alert(e.message); btn.disabled=false; btn.textContent="Entrar na Secretaria"; }
   };
   $("#adminLogin").onclick=async()=>{
@@ -396,7 +467,7 @@ function authModal(targetRole="staff") {
       state.staffToken="";sessionStorage.removeItem("gf_staff_token");
       state.adminToken=res.token; state.role="admin";
       sessionStorage.setItem("gf_admin_token",res.token); sessionStorage.setItem("gf_role","admin");
-      state.bootstrap=null;applyRoleInterface();refreshSessionButton(); closeModal(); if(typeof pollApprovals==="function") pollApprovals(); await navigate("dashboard");
+      state.bootstrap=null;resetRunModeForEntry();applyRoleInterface();refreshSessionButton(); closeModal(); if(typeof pollApprovals==="function") pollApprovals(); await navigate("dashboard");openModeGate();
     }catch(e){ alert(e.message); btn.disabled=false; btn.textContent="Entrar na Gestão"; }
   };
   const lo=$("#logoutBtn"); if(lo) lo.onclick=logoutAll;
@@ -408,7 +479,7 @@ async function logoutAll(){
   try{ if(state.staffToken && state.staffToken!==state.adminToken) await api("logout",{token:state.staffToken}); }catch{}
   state.staffToken=""; state.adminToken=""; state.role=""; state.bootstrap=null;
   sessionStorage.removeItem("gf_staff_token");sessionStorage.removeItem("gf_admin_token");sessionStorage.removeItem("gf_role");
-  applyRoleInterface();refreshSessionButton();closeModal();navigate("dashboard");
+  resetRunModeForEntry();closeModeGate();applyRoleInterface();refreshSessionButton();closeModal();navigate("dashboard");
 }
 
 async function requireRole(view){
