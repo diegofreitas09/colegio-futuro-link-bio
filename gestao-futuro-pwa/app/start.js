@@ -14,7 +14,9 @@ if("serviceWorker" in navigator) navigator.serviceWorker.register("/service-work
 
 applyRoleInterface();
 refreshSessionButton();
-navigate("dashboard");
+// Em cada nova abertura autenticada, o ambiente precisa ser escolhido novamente.
+if(state.staffToken||state.adminToken) resetRunModeForEntry();
+navigate("dashboard").then(()=>{ if(state.staffToken||state.adminToken) openModeGate(); });
 
 // Evita várias chamadas concorrentes logo na abertura. Primeiro mostra a interface; depois aquece os dados.
 const runIdle=cb=>("requestIdleCallback" in window?requestIdleCallback(cb,{timeout:2500}):setTimeout(cb,1200));
@@ -35,4 +37,4 @@ try{
     localStorage.setItem("gf_test_reset_20260917","1");
   }
 }catch(e){}
-setTimeout(()=>{ if((state.staffToken||state.adminToken)&&!state.runMode) openModeModal(); },900);
+
