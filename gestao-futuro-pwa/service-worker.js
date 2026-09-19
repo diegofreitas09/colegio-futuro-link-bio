@@ -1,6 +1,7 @@
-const CACHE = "gestao-futuro-shell-v30";
+const CACHE = "gestao-futuro-shell-v31";
 const SHELL = [
-  "/", "/index.html", "/styles.css", "/manifest.webmanifest", "/assets/icon.svg",
+  "/", "/index.html", "/styles.css", "/manifest.webmanifest",
+  "/assets/app-icon-192.png", "/assets/app-icon-512.png", "/assets/logo-futuro.png", "/assets/hero-futuro.webp",
   "/app/brand.js", "/app/core.js", "/app/secretaria.js", "/app/gestao.js", "/app/comercial.js", "/app/integracoes.js", "/app/start.js"
 ];
 
@@ -30,8 +31,8 @@ self.addEventListener("push", event => {
   const title = data.title || "Gestão Futuro";
   const options = {
     body: data.body || "Nova atualização disponível.",
-    icon: data.icon || "/assets/icon.svg",
-    badge: data.badge || "/assets/icon.svg",
+    icon: data.icon || "/assets/app-icon-192.png",
+    badge: data.badge || "/assets/app-icon-192.png",
     data: { url: data.url || "/" },
     vibrate: [220, 100, 220, 100, 320],
     tag: "gestao-futuro-" + (data.title || "alerta"),
