@@ -96,6 +96,29 @@ function pwaDeleteTestRows_(sheetName){
   for(var i=rows.length-1;i>=0;i--)sh.deleteRow(rows[i]);
   return rows.length;
 }
+function limparAutorizacoesTestePwa_(token){
+  pwaAdmin_(token);
+  var removidas=0,atualizados=0;
+  pwaWithLock_(function(){
+    removidas=pwaDeleteTestRows_(GF_TABS.SOLICITACOES);
+    var sh=SpreadsheetApp.getActive().getSheetByName(GF_TABS.ATENDIMENTOS);
+    if(sh&&sh.getLastRow()>=5){
+      var lastCol=sh.getLastColumn(),headers=sh.getRange(4,1,1,lastCol).getDisplayValues()[0];
+      var modeCol=headers.indexOf("MODO_REGISTRO")+1,pendingCol=headers.indexOf("PEDIDO_DESCONTO_PENDENTE")+1;
+      if(modeCol&&pendingCol){
+        var vals=sh.getRange(5,1,sh.getLastRow()-4,lastCol).getDisplayValues();
+        vals.forEach(function(row,idx){
+          if(String(row[modeCol-1]||"").toUpperCase()==="TESTE"){
+            sh.getRange(idx+5,pendingCol).setValue("Não");atualizados++;
+          }
+        });
+      }
+    }
+    SpreadsheetApp.flush();
+  });
+  audit_("Gestão","LIMPAR_AUTORIZACOES_TESTE","Solicitações","TESTES","",JSON.stringify({removidas:removidas,atendimentosAtualizados:atualizados}));
+  return {ok:true,removidas:removidas,atendimentosAtualizados:atualizados};
+}
 function limparDadosTestePwa_(token){
   pwaAdmin_(token);
   var tabs=["SOLICITACOES_DESCONTO","ATENDIMENTO_ITENS","ATENDIMENTOS","ITENS_CONTRATO","DOCUMENTOS_ALUNO","RECEBIMENTOS","CAIXA","MATRICULAS","RESPONSAVEIS","ALUNOS"];
@@ -519,6 +542,7 @@ function doPost(e){
       case "salvarPanfletoSerie":data=salvarPanfletoSeriePwa_(body.token,body.ano,body.serie,body.data);break;
       case "aplicarReajusteCatalogo":data=aplicarReajusteCatalogoPwa_(body.token,body.data);break;
       case "importarLoteIntegracao":data=importarLoteIntegracaoPwa_(body.token,body.data,body.modo,body.sessaoTeste);break;
+      case "limparAutorizacoesTeste":data=limparAutorizacoesTestePwa_(body.token);break;
       case "limparDadosTeste":data=limparDadosTestePwa_(body.token);break;
       default:throw new Error("Ação não reconhecida: "+action);
     }
