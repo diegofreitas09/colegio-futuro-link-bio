@@ -206,3 +206,6 @@ body.interface-admin .btn-switch{background:#eaf3ff;border-color:#b9d3f3;color:#
   .btn-switch{order:-1;white-space:nowrap}
   .top-actions .btn{min-height:40px;padding:8px 10px;font-size:10px}
 }
+
+.approval-hero-actions{display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
+@media(max-width:760px){.approval-hero-actions{width:100%;display:grid;grid-template-columns:1fr}.approval-hero-actions .btn{width:100%}}
