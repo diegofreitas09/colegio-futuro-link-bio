@@ -3,6 +3,7 @@ const brandLogo=$("#schoolLogo"); if(brandLogo&&window.FUTURO_BRAND?.logo) brand
 // Navegação
 $$("#nav button").forEach(b=>b.onclick=()=>navigate(b.dataset.view));
 $("#sessionBtn").onclick=()=>authModal(state.adminToken?"admin":"staff");
+$("#interfaceSwitchBtn").onclick=()=>{const target=$("#interfaceSwitchBtn").dataset.targetRole;if(target)switchInterfaceModal(target)};
 $("#modeBtn").onclick=openModeModal;
 refreshModeButton();
 
