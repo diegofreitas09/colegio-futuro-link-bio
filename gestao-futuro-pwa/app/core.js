@@ -281,10 +281,73 @@ function sessionLabel() {
   if (state.staffToken) return "Secretaria ativa";
   return "Acessar";
 }
-function refreshSessionButton() { $("#sessionBtn").textContent=sessionLabel(); }
+function refreshInterfaceSwitch(){
+  const b=$("#interfaceSwitchBtn"); if(!b) return;
+  const role=activeInterfaceRole();
+  if(role==="staff"){
+    b.classList.remove("hidden"); b.textContent="⇄ Gestão"; b.dataset.targetRole="admin"; b.title="Trocar para a interface da Gestão";
+  }else if(role==="admin"){
+    b.classList.remove("hidden"); b.textContent="⇄ Secretaria"; b.dataset.targetRole="staff"; b.title="Trocar para a interface da Secretaria";
+  }else{
+    b.classList.add("hidden"); b.dataset.targetRole="";
+  }
+}
+function refreshSessionButton() {
+  $("#sessionBtn").textContent=sessionLabel();
+  refreshInterfaceSwitch();
+}
 
 function modal(html) { $("#modalRoot").innerHTML=`<div class="modal-backdrop"><div class="modal">${html}</div></div>`; }
 function closeModal() { $("#modalRoot").innerHTML=""; }
+function switchInterfaceModal(targetRole){
+  const toAdmin=targetRole==="admin";
+  const title=toAdmin?"Trocar para Gestão":"Trocar para Secretaria";
+  const subtitle=toAdmin
+    ?"Informe a senha da Gestão para abrir a área administrativa e financeira."
+    :"Informe a senha da Secretaria para abrir a área operacional.";
+  modal(`
+    <div class="modal-head"><h3>${title}</h3><button class="icon-btn" data-close>✕</button></div>
+    <div class="modal-body">
+      <div class="switch-login-card ${toAdmin?"admin":"staff"}">
+        <div class="switch-login-icon">${toAdmin?"🔐":"🗂️"}</div>
+        <div><b>${toAdmin?"Interface Gestão":"Interface Secretaria"}</b><p class="muted">${subtitle}</p></div>
+      </div>
+      <div class="field"><label>${toAdmin?"Senha da Gestão":"Senha da Secretaria"}</label><input id="switchRolePass" type="password" autocomplete="current-password" placeholder="••••••••"></div>
+      <div class="notice warn">A troca só acontece depois da senha ser validada. Se a senha estiver incorreta, você permanece na interface atual.</div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-soft" data-close>Cancelar</button><button class="btn ${toAdmin?"btn-gold":"btn-primary"}" id="confirmRoleSwitch">${title}</button></div>`);
+  $("[data-close]").forEach(x=>x.onclick=closeModal);
+  $("#confirmRoleSwitch").onclick=async function(){
+    const password=$("#switchRolePass").value;
+    if(!password){$("#switchRolePass").focus();return}
+    const btn=this,old=btn.textContent;btn.disabled=true;btn.textContent="Validando…";
+    try{
+      const action=toAdmin?"loginGestao":"loginSecretaria";
+      const res=await api(action,{password});
+      if(!res?.ok)throw new Error(res?.message||"Senha inválida.");
+      const oldStaff=state.staffToken,oldAdmin=state.adminToken;
+      if(toAdmin){
+        state.adminToken=res.token;state.staffToken="";state.role="admin";
+        sessionStorage.setItem("gf_admin_token",res.token);sessionStorage.removeItem("gf_staff_token");sessionStorage.setItem("gf_role","admin");
+        if(oldStaff){try{await api("logout",{token:oldStaff})}catch{}}
+      }else{
+        state.staffToken=res.token;state.adminToken="";state.role="staff";
+        sessionStorage.setItem("gf_staff_token",res.token);sessionStorage.removeItem("gf_admin_token");sessionStorage.setItem("gf_role","staff");
+        if(oldAdmin){try{await api("logout",{token:oldAdmin})}catch{}}
+      }
+      clearApiCache();state.bootstrap=null;
+      applyRoleInterface();refreshSessionButton();closeModal();
+      showToast("Interface alterada para "+(toAdmin?"Gestão":"Secretaria")+" ✓","ok");
+      if(toAdmin&&typeof pollApprovals==="function")pollApprovals();
+      await navigate("dashboard");
+    }catch(e){
+      showToast(e.message||"Senha inválida.","error");
+      btn.disabled=false;btn.textContent=old;$("#switchRolePass").focus();
+    }
+  };
+  $("#switchRolePass").addEventListener("keydown",e=>{if(e.key==="Enter")$("#confirmRoleSwitch").click()});
+  setTimeout(()=>$("#switchRolePass")?.focus(),50);
+}
 
 function authModal(targetRole="staff") {
   modal(`
