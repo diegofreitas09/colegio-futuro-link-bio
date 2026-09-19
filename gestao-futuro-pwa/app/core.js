@@ -237,7 +237,7 @@ function apiCacheKey(action,payload,meta){
 }
 function clearApiCache(){state.apiCache.clear();state.bootstrap=null}
 async function api(action, payload={}) {
-  const writeActions=["salvarAluno","salvarResponsavel","criarMatriculaCompleta","atualizarDocumento","registrarPagamento","salvarMovimentoCaixa","salvarAtendimento","solicitarDesconto","decidirSolicitacaoDesconto","salvarPanfletoSerie","atualizarProduto","criarProdutoServico","aplicarReajusteIndividual","aplicarReajusteCatalogo","limparDadosTeste"];
+  const writeActions=["salvarAluno","salvarResponsavel","criarMatriculaCompleta","atualizarDocumento","registrarPagamento","salvarMovimentoCaixa","salvarAtendimento","solicitarDesconto","decidirSolicitacaoDesconto","salvarPanfletoSerie","atualizarProduto","criarProdutoServico","aplicarReajusteIndividual","aplicarReajusteCatalogo","limparDadosTeste","limparAutorizacoesTeste"];
   if(writeActions.includes(action)&&!state.runMode){openModeModal();throw new Error("Escolha Produção ou Teste/Simulação antes de salvar.")}
   const meta={modo:currentRunMode(),sessaoTeste:state.runMode==="TESTE"?ensureTestSession():""};
   const ttl=API_CACHE_TTL[action]||0,key=ttl?apiCacheKey(action,payload,meta):"";
