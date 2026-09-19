@@ -209,8 +209,10 @@ function openModeModal(){
     clear.disabled=true;clear.textContent="Limpando…";
     try{
       const res=await api("limparDadosTeste",{token:state.adminToken});
-      clearLocalTestData();state.bootstrap=null;
-      setNotice("Ambiente de testes limpo: "+esc(res?.total||0)+" registro(s) removido(s).","ok");
+      clearLocalTestData();state.bootstrap=null;clearApiCache();
+      sessionStorage.setItem("gf_pending_approvals","0");
+      const badge=$("#approvalBadge");if(badge){badge.textContent="0";badge.classList.add("hidden")}
+      setNotice("Ambiente de testes limpo: "+esc(res?.total||0)+" registro(s) removido(s), incluindo autorizações de teste.","ok");
       closeModal();await navigate(state.view);
     }catch(e){
       clearLocalTestData();state.bootstrap=null;
