@@ -316,3 +316,42 @@ body.home-active .shell{filter:blur(2px) saturate(.8);pointer-events:none;user-s
   .home-role-btn small{font-size:9px}
   .home-status{margin-top:14px}
 }
+
+
+/* Central de acessos da escola */
+.school-access-hero{
+  display:flex;align-items:center;justify-content:space-between;gap:24px;
+  margin-bottom:18px;padding:26px 28px;border-radius:22px;
+  background:linear-gradient(120deg,#0e4f9e 0%,#0b3475 58%,#082557 100%);
+  color:#fff;box-shadow:0 16px 38px rgba(9,39,84,.14)
+}
+.school-access-hero span{font-size:10px;letter-spacing:.17em;font-weight:900;color:#a9d2ff}
+.school-access-hero h2{margin:5px 0 7px;font-size:32px;letter-spacing:-.03em}
+.school-access-hero p{margin:0;max-width:660px;color:#dbeaff;font-size:14px;line-height:1.5}
+.school-access-count{min-width:92px;height:92px;border-radius:22px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.18);display:grid;place-items:center;font-size:34px;font-weight:900;line-height:1}
+.school-access-count small{display:block;margin-top:-20px;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#cfe2ff}
+.school-access-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.school-access-card{
+  position:relative;display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;
+  min-height:118px;padding:18px;border-radius:20px;background:#fff;border:1px solid #dce5f1;
+  text-decoration:none;color:#123b76;box-shadow:0 10px 28px rgba(19,48,88,.08);transition:.18s ease
+}
+.school-access-card:hover{transform:translateY(-2px);box-shadow:0 16px 34px rgba(19,48,88,.13);border-color:#bcd0e8}
+.school-access-card.featured{border-color:#9fc7f5;background:linear-gradient(145deg,#ffffff 0%,#f4f9ff 100%)}
+.school-access-icon{width:64px;height:64px;border-radius:17px;background:#f5f9ff;border:1px solid #dce8f6;display:grid;place-items:center;overflow:hidden;flex:0 0 auto}
+.school-access-icon img{width:42px;height:42px;object-fit:contain}
+.school-access-icon b{width:100%;height:100%;place-items:center;font-size:24px;color:#1764b6}
+.school-access-copy{min-width:0;display:flex;flex-direction:column;gap:4px}
+.school-access-copy strong{font-size:16px;line-height:1.2}
+.school-access-copy span{font-size:12px;line-height:1.4;color:#66778d}
+.school-access-copy small{margin-top:3px;font-size:9px;color:#8d9aac}
+.school-access-card>i{font-style:normal;font-size:22px;color:#7b94b3}
+.school-access-note{margin-top:14px;padding:16px 18px;border-radius:16px;background:#f4f7fb;border:1px dashed #c9d6e6;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.school-access-note b{color:#123b76}.school-access-note span{color:#6d7b8f;font-size:12px}
+@media(max-width:900px){.school-access-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:640px){
+  .school-access-hero{padding:20px;align-items:flex-start}.school-access-count{width:72px;height:72px;min-width:72px;font-size:28px}
+  .school-access-hero h2{font-size:27px}.school-access-hero p{font-size:12px}
+  .school-access-grid{grid-template-columns:1fr}.school-access-card{min-height:102px;padding:14px}
+  .school-access-icon{width:56px;height:56px}.school-access-icon img{width:36px;height:36px}
+}
