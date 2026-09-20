@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="t d">
+<title id="t">Gestor Escolar</title><desc id="d">Ícone com quatro peças coloridas de quebra-cabeça.</desc>
+<rect x="8" y="8" width="496" height="496" rx="30" fill="#fff" stroke="#d7d7d7" stroke-width="8"/>
+<rect x="28" y="28" width="216" height="216" rx="18" fill="#ffef00"/>
+<rect x="268" y="28" width="216" height="216" rx="18" fill="#e62420"/>
+<rect x="28" y="268" width="216" height="216" rx="18" fill="#0b88c9"/>
+<rect x="268" y="268" width="216" height="216" rx="18" fill="#86c91b"/>
+<path d="M256 52
+  c-18 0-34 15-34 34v45
+  c0 14-16 22-27 14l-24-18
+  c-24-18-58-13-76 11
+  c-18 24-13 58 11 76l39 29
+  c10 7 10 22 0 29l-39 29
+  c-24 18-29 52-11 76
+  c18 24 52 29 76 11l24-18
+  c11-8 27 0 27 14v45
+  c0 19 16 34 34 34
+  c18 0 34-15 34-34v-45
+  c0-14 16-22 27-14l24 18
+  c24 18 58 13 76-11
+  c18-24 13-58-11-76l-39-29
+  c-10-7-10-22 0-29l39-29
+  c24-18 29-52 11-76
+  c-18-24-52-29-76-11l-24 18
+  c-11 8-27 0-27-14V86
+  c0-19-16-34-34-34z"
+  fill="#fff" stroke="#8c8c8c" stroke-width="10" stroke-linejoin="round"/>
+</svg>
