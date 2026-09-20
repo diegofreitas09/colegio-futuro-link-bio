@@ -554,7 +554,7 @@ async function renderDashboard(){
   $("#view").innerHTML=`<section class="dashboard-brand-hero">
     <div class="dashboard-brand-visual">
       <img class="dashboard-hero-logo" src="${window.FUTURO_BRAND?.icon||"/assets/app-icon-512.png"}" alt="Colégio Futuro">
-      <div class="dashboard-hero-copy"><small>COLÉGIO FUTURO</small><strong>Gestão Futuro</strong><p>Secretaria • Atendimento • Matrículas • Gestão</p></div>
+      <div class="dashboard-hero-copy"><small>COLÉGIO FUTURO</small><strong>Gestão Futuro</strong><p>Secretaria • Atendimento • Matrículas • Gestão • Financeiro</p></div>
     </div>
     <div class="dashboard-brand-caption"><span>${heroLabel}</span></div>
   </section>
