@@ -26,15 +26,15 @@ const state = {
 const titles = {
   dashboard:"Dashboard", atendimento:"Atendimento de matrículas", panfletos:"Panfletos por série", alunos:"Alunos", responsaveis:"Responsáveis", matriculas:"Matrículas",
   documentos:"Documentos", produtos:"Valores e reajustes", autorizacoes:"Autorizações da Gestão", recebimentos:"Recebimentos",
-  caixa:"Fluxo de caixa", fechamento:"Fechamento financeiro", integracoes:"Central de integrações", acessos:"Acessos da escola"
+  caixa:"Fluxo de caixa", fechamento:"Fechamento financeiro", integracoes:"Central de integrações", acessos:"Acessos da escola", relatorios:"Central de relatórios"
 };
 
 const INTERFACE_VIEWS = Object.freeze({
-  staff:["dashboard","atendimento","panfletos","alunos","responsaveis","matriculas","documentos","acessos"],
-  admin:["dashboard","panfletos","produtos","autorizacoes","recebimentos","caixa","fechamento","integracoes","acessos"],
+  staff:["dashboard","atendimento","panfletos","alunos","responsaveis","matriculas","documentos","relatorios","acessos"],
+  admin:["dashboard","panfletos","produtos","autorizacoes","recebimentos","caixa","fechamento","relatorios","integracoes","acessos"],
   public:["dashboard"]
 });
-const roleForView = view => ["produtos","autorizacoes","recebimentos","caixa","fechamento","integracoes"].includes(view) ? "admin" : ["atendimento","alunos","responsaveis","matriculas","documentos"].includes(view) ? "staff" : ["panfletos","acessos"].includes(view) ? "shared" : "public";
+const roleForView = view => ["produtos","autorizacoes","recebimentos","caixa","fechamento","integracoes"].includes(view) ? "admin" : ["atendimento","alunos","responsaveis","matriculas","documentos"].includes(view) ? "staff" : ["panfletos","acessos","relatorios"].includes(view) ? "shared" : "public";
 const activeInterfaceRole = () => state.role==="admin" && state.adminToken ? "admin" : state.role==="staff" && state.staffToken ? "staff" : "public";
 const allowedViewsFor = role => INTERFACE_VIEWS[role] || INTERFACE_VIEWS.public;
 const tokenFor = role => role === "admin" ? state.adminToken : (state.role==="staff" ? state.staffToken : state.adminToken);
@@ -607,6 +607,7 @@ async function navigate(view){
     if(view==="fechamento") await renderFechamento();
     if(view==="integracoes") await renderIntegracoes();
     if(view==="acessos") await renderAcessos();
+    if(view==="relatorios") await renderRelatorios();
   }catch(e){
     if(/Sessão.*expirada|Sessão.*inválida/i.test(e.message)){ await logoutAll(); authModal(roleForView(view)); }
     $("#view").innerHTML=`<div class="card"><div class="empty">${esc(e.message)}</div></div>`;
