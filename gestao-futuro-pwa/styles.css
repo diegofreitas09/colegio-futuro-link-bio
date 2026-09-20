@@ -364,3 +364,13 @@ body.home-active .shell{filter:blur(2px) saturate(.8);pointer-events:none;user-s
 @media(max-width:760px){
   #clearTestBtn{min-height:42px;padding:9px 12px;font-size:11px}
 }
+
+
+/* Caixa seguro */
+.btn.is-saving{cursor:wait;opacity:.82}
+.btn.is-saving::before{content:"";display:inline-block;width:12px;height:12px;margin-right:8px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;vertical-align:-2px;animation:gfSpin .7s linear infinite}
+@keyframes gfSpin{to{transform:rotate(360deg)}}
+.action-col{text-align:center;white-space:nowrap;width:66px}
+.trash-btn{width:36px;height:36px;border:1px solid #efc1c5;border-radius:10px;background:#fff4f5;color:#b4232d;display:inline-grid;place-items:center;cursor:pointer;font-size:16px;transition:.16s ease}
+.trash-btn:hover{background:#ffe7e9;border-color:#df969e;transform:translateY(-1px)}
+.trash-btn:disabled{opacity:.55;cursor:wait;transform:none}
