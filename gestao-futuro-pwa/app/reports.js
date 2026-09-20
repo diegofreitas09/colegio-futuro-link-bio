@@ -210,10 +210,70 @@ function openReceivablesReport(list=[]){
   };
 }
 
+
+function openAttendanceReport(list=[]){
+  const years=gfReportYears(list),series=[...new Set(list.map(x=>String(x.SERIE_PRETENDIDA||"").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"pt-BR",{numeric:true}));
+  modal(`<div class="modal-head"><h3>Relatório de atendimentos</h3><button class="icon-btn" data-close>✕</button></div>
+  <div class="modal-body"><form id="attReportForm" class="form-grid">
+    <div class="field"><label>Ano letivo</label><select name="ANO"><option value="">Todos</option>${years.map(y=>`<option>${esc(y)}</option>`).join("")}</select></div>
+    <div class="field"><label>Série pretendida</label><select name="SERIE"><option value="">Todas</option>${series.map(x=>`<option>${esc(x)}</option>`).join("")}</select></div>
+    <div class="field"><label>Status</label><select name="STATUS"><option value="">Todos</option><option>Em andamento</option><option>Concluído</option><option>Cancelado</option></select></div>
+    <div class="field"><label>Formato</label><select name="FORMAT">${gfReportFormatOptions()}</select></div>
+  </form></div><div class="modal-foot"><button class="btn btn-soft" data-close>Cancelar</button><button class="btn btn-primary report-download-btn" id="generateAttReport">📄 Gerar relatório</button></div>`);
+  $$("[data-close]").forEach(x=>x.onclick=closeModal);
+  $("#generateAttReport").onclick=async()=>{
+    const d=Object.fromEntries(new FormData($("#attReportForm")).entries());
+    const rows=list.filter(a=>(!d.ANO||String(a.ANO_LETIVO||"")===d.ANO)&&(!d.SERIE||String(a.SERIE_PRETENDIDA||"")===d.SERIE)&&(!d.STATUS||String(a.STATUS||"")===d.STATUS));
+    const n=v=>Number(String(v??0).replace(",", "."))||0,total=rows.reduce((x,a)=>x+n(a.TOTAL_PROPOSTA),0);
+    await gfDownloadReport({
+      format:d.FORMAT,title:"Relatório de Atendimentos",subtitle:[d.ANO&&("Ano "+d.ANO),d.SERIE,d.STATUS].filter(Boolean).join(" • ")||"Visão geral",
+      filename:gfReportFile("atendimentos",[d.ANO,d.SERIE,d.STATUS]),orientation:"landscape",
+      meta:gfReportMeta([{label:"Ano",value:d.ANO||"Todos"},{label:"Série",value:d.SERIE||"Todas"},{label:"Status",value:d.STATUS||"Todos"}]),
+      summary:[{label:"Atendimentos",value:String(rows.length)},{label:"Valor apresentado",value:money(total)}],
+      columns:[{key:"aluno",label:"Aluno",width:1.8},{key:"resp",label:"Responsável",width:1.6},{key:"ano",label:"Ano",width:.55},{key:"serie",label:"Série",width:.9},{key:"etapa",label:"Etapa",width:.9},{key:"status",label:"Status",width:1},{key:"total",label:"Total",width:1.05,align:"right"}],
+      rows:rows.map(a=>({aluno:a.NOME_ALUNO||a.ID_ALUNO||"",resp:a.RESPONSAVEL||"",ano:a.ANO_LETIVO||"",serie:a.SERIE_PRETENDIDA||"",etapa:a.ETAPA||"",status:a.STATUS||"",total:money(a.TOTAL_PROPOSTA)}))
+    },$("#generateAttReport"));
+  };
+}
+
+function openDocumentsReport(student={},docs=[]){
+  modal(`<div class="modal-head"><h3>Relatório de documentos</h3><button class="icon-btn" data-close>✕</button></div>
+  <div class="modal-body"><div class="report-intro"><b>${esc(student.NOME_COMPLETO||"Aluno")}</b><span>${esc(student["SÉRIE"]||"")} ${student.TURMA?"• "+esc(student.TURMA):""}</span></div>
+  <div class="field"><label>Formato</label><select id="docsReportFormat">${gfReportFormatOptions()}</select></div></div>
+  <div class="modal-foot"><button class="btn btn-soft" data-close>Cancelar</button><button class="btn btn-primary report-download-btn" id="generateDocsReport">📄 Gerar relatório</button></div>`);
+  $$("[data-close]").forEach(x=>x.onclick=closeModal);
+  $("#generateDocsReport").onclick=async()=>{
+    const fmt=$("#docsReportFormat").value,delivered=docs.filter(d=>String(d.STATUS)==="Entregue").length;
+    await gfDownloadReport({
+      format:fmt,title:"Checklist de Documentos",subtitle:student.NOME_COMPLETO||"",
+      filename:gfReportFile("documentos",[student.NOME_COMPLETO||student.ID_ALUNO]),orientation:"portrait",
+      meta:gfReportMeta([{label:"Aluno",value:student.NOME_COMPLETO||""},{label:"Série",value:[student["SÉRIE"],student.TURMA].filter(Boolean).join(" / ")}]),
+      summary:[{label:"Documentos",value:String(docs.length)},{label:"Entregues",value:String(delivered)},{label:"Pendentes",value:String(Math.max(0,docs.length-delivered))}],
+      columns:[{key:"doc",label:"Documento",width:2.5},{key:"ob",label:"Obrigatório",width:1},{key:"status",label:"Status",width:1.1},{key:"entrega",label:"Data de entrega",width:1.25}],
+      rows:docs.map(d=>({doc:d.DOCUMENTO||"",ob:d.OBRIGATORIO||"",status:d.STATUS||"Pendente",entrega:d.DATA_ENTREGA||""}))
+    },$("#generateDocsReport"));
+  };
+}
+
+function openClosingReport(f={}){
+  const headers=f.headers||[],row=f.atual||[];
+  const items=headers.map((h,i)=>({campo:h,valor:row[i]||"—"}));
+  modal(`<div class="modal-head"><h3>Relatório de fechamento</h3><button class="icon-btn" data-close>✕</button></div><div class="modal-body"><div class="field"><label>Formato</label><select id="closeReportFormat">${gfReportFormatOptions()}</select></div></div><div class="modal-foot"><button class="btn btn-soft" data-close>Cancelar</button><button class="btn btn-primary report-download-btn" id="generateCloseReport">📄 Gerar relatório</button></div>`);
+  $$("[data-close]").forEach(x=>x.onclick=closeModal);
+  $("#generateCloseReport").onclick=async()=>{
+    await gfDownloadReport({
+      format:$("#closeReportFormat").value,title:"Fechamento Financeiro",subtitle:state.runMode==="TESTE"?"Ambiente de Teste / Simulação":"Ambiente de Produção",
+      filename:gfReportFile("fechamento",[new Date().toISOString().slice(0,10)]),orientation:"portrait",
+      meta:gfReportMeta(),
+      columns:[{key:"campo",label:"Indicador",width:2},{key:"valor",label:"Valor",width:2,align:"right"}],rows:items
+    },$("#generateCloseReport"));
+  };
+}
+
 async function renderRelatorios(){
   const role=activeInterfaceRole();
   if(role==="staff"){
-    const b=await loadBootstrap(),alunos=b.alunos||[],rs=b.responsaveis||[],mats=b.matriculas||[];
+    const b=await loadBootstrap(),alunos=b.alunos||[],rs=b.responsaveis||[],mats=b.matriculas||[];let ats=[];try{ats=await api("listarAtendimentos",{token:tokenFor("staff")})||[]}catch(e){}
     $("#view").innerHTML=`<section class="report-hub-hero"><div><span>CENTRAL DE RELATÓRIOS</span><h2>Secretaria • Relatórios</h2><p>Relações, listas de assinatura e documentos organizados por série, prontos para PDF ou Excel.</p></div><b>PDF<br><small>+ Excel</small></b></section>
     <div class="report-hub-grid">
       <button class="report-hub-card" id="hubStudents"><i>👩‍🎓</i><strong>Alunos por série</strong><span>Relação cadastral em PDF ou Excel.</span></button>
@@ -221,12 +281,14 @@ async function renderRelatorios(){
       <button class="report-hub-card" id="hubParents"><i>👨‍👩‍👧</i><strong>Responsáveis por série</strong><span>Contatos e vínculo com o aluno.</span></button>
       <button class="report-hub-card" id="hubParentSign"><i>🖊️</i><strong>Assinatura de responsáveis</strong><span>Lista por série para reuniões e eventos.</span></button>
       <button class="report-hub-card" id="hubMats"><i>🗂️</i><strong>Matrículas</strong><span>Filtre por ano, série e status.</span></button>
+      <button class="report-hub-card" id="hubAtt"><i>🤝</i><strong>Atendimentos</strong><span>Funil de atendimento por ano, série e status.</span></button>
     </div>`;
     $("#hubStudents").onclick=()=>openStudentReport(alunos,"cadastro");
     $("#hubStudentSign").onclick=()=>openStudentReport(alunos,"assinatura");
     $("#hubParents").onclick=()=>openResponsibleReport(rs,alunos,"cadastro");
     $("#hubParentSign").onclick=()=>openResponsibleReport(rs,alunos,"assinatura");
     $("#hubMats").onclick=()=>openMatriculaReport(mats,alunos);
+    $("#hubAtt").onclick=()=>openAttendanceReport(ats);
     return;
   }
   const [cash,rec]=await Promise.all([api("listarCaixa",{token:state.adminToken}),api("listarRecebimentos",{token:state.adminToken})]);
