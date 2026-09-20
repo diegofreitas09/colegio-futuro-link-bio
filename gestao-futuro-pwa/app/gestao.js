@@ -158,7 +158,7 @@ function openProductForm(p){
 async function renderRecebimentos(){
   const list=await api("listarRecebimentos",{token:state.adminToken});
   $("#view").innerHTML=`<div class="section-head"><h2>Contas a receber</h2><div class="toolbar"><button class="btn btn-report" id="receivablesReport">📄 Relatório</button></div></div><div class="table-wrap"><table><thead><tr><th>Recebimento</th><th>Aluno</th><th>Parcela</th><th>Vencimento</th><th>Previsto</th><th>Recebido</th><th>Status</th><th></th></tr></thead><tbody>${list.map(r=>`<tr><td>${esc(r.ID_RECEBIMENTO)}</td><td>${esc(r.ID_ALUNO)}</td><td>${esc(r.PARCELA||"")}</td><td>${esc(r.VENCIMENTO||"")}</td><td class="money">${money(r.VALOR_PREVISTO)}</td><td class="money">${money(r.VALOR_RECEBIDO)}</td><td>${pill(r.STATUS_CALCULADO||r.STATUS||"")}</td><td><button class="icon-btn" data-pay="${esc(r.ID_RECEBIMENTO)}">Receber</button></td></tr>`).join("")||`<tr><td colspan="8" class="empty">Sem recebimentos.</td></tr>`}</tbody></table></div>`;
-  $('#receivablesReport').onclick=()=>openReceivablesReport(list); $('[data-pay]').forEach(x=>x.onclick=()=>payModal(x.dataset.pay));
+  $('#receivablesReport').onclick=()=>openReceivablesReport(list); $$('[data-pay]').forEach(x=>x.onclick=()=>payModal(x.dataset.pay));
 }
 function payModal(id){modal(`<div class="modal-head"><h3>Registrar pagamento</h3><button class="icon-btn" data-close>✕</button></div><div class="modal-body"><div class="form-grid"><div class="field"><label>Recebimento</label><input value="${esc(id)}" disabled></div><div class="field"><label>Valor *</label><input id="payValue" type="number" step="0.01"></div><div class="field"><label>Forma</label><select id="payMethod"><option>Pix</option><option>Dinheiro</option><option>Cartão de débito</option><option>Cartão de crédito</option><option>Boleto/Transferência</option></select></div></div></div><div class="modal-foot"><button class="btn btn-soft" data-close>Cancelar</button><button class="btn btn-primary" id="savePay">Confirmar</button></div>`);$$('[data-close]').forEach(x=>x.onclick=closeModal);$("#savePay").onclick=async()=>{try{await api("registrarPagamento",{token:state.adminToken,data:{ID_RECEBIMENTO:id,VALOR:$("#payValue").value,FORMA_PAGAMENTO:$("#payMethod").value}});closeModal();renderRecebimentos();}catch(e){alert(e.message)}};}
 
@@ -166,7 +166,7 @@ async function renderCaixa(){
   const list=await api("listarCaixa",{token:state.adminToken});
   $("#view").innerHTML=`<div class="section-head"><h2>Movimentações</h2><div class="toolbar"><button class="btn btn-report" id="cashReport">📄 Relatório</button><button class="btn btn-primary" id="newMove">+ Movimento</button></div></div><div class="table-wrap"><table><thead><tr><th>Data</th><th>Tipo</th><th>Categoria</th><th>Descrição</th><th>Forma</th><th>Valor</th><th>Responsável</th><th class="action-col">Ação</th></tr></thead><tbody>${list.slice().reverse().map(c=>`<tr><td>${esc(c.DATA||"")}</td><td>${pill(c.TIPO||"",c.TIPO==="Entrada"?"ok":"warn")}</td><td>${esc(c.CATEGORIA||"")}<br><span class="muted">${esc(c.SUBCATEGORIA||"")}</span></td><td>${esc(c["DESCRIÇÃO"]||"")}</td><td>${esc(c.FORMA_PAGAMENTO||"")}</td><td class="money">${money(c.VALOR)}</td><td>${esc(c["RESPONSÁVEL"]||"")}</td><td class="action-col"><button class="trash-btn" data-del-move="${esc(c.ID_CAIXA||"")}" title="Apagar esta movimentação" aria-label="Apagar movimentação ${esc(c.ID_CAIXA||"")}">🗑️</button></td></tr>`).join("")||`<tr><td colspan="8" class="empty">Sem movimentos.</td></tr>`}</tbody></table></div>`;
   $("#newMove").onclick=openMoveModal;
-  $("[data-del-move]").forEach(btn=>btn.onclick=async()=>{
+  $$("[data-del-move]").forEach(btn=>btn.onclick=async()=>{
     const id=btn.dataset.delMove;
     const row=list.find(x=>String(x.ID_CAIXA||"")===String(id))||{};
     const prod=state.runMode==="PRODUCAO";
@@ -188,7 +188,7 @@ async function openMoveModal(){
   let cats=[];try{cats=await api("listarCategorias",{token:state.adminToken});}catch{}
   const clientRequestId="CXREQ-"+Date.now()+"-"+Math.random().toString(36).slice(2,8).toUpperCase();
   modal(`<div class="modal-head"><h3>Novo movimento de caixa</h3><button class="icon-btn" data-close>✕</button></div><div class="modal-body"><form id="moveForm" class="form-grid"><div class="field"><label>Data</label><input type="date" name="DATA" value="${new Date().toISOString().slice(0,10)}"></div><div class="field"><label>Tipo *</label><select name="TIPO" id="moveType"><option>Entrada</option><option>Saída</option></select></div><div class="field"><label>Valor *</label><input type="number" step="0.01" name="VALOR" required></div><div class="field span-2"><label>Categoria *</label><select name="CATEGORIA" id="moveCat" required><option value="">Selecione</option>${cats.map(c=>`<option data-type="${esc(c.TIPO)}" value="${esc(c.CATEGORIA)}">${esc(c.TIPO)} — ${esc(c.CATEGORIA)} / ${esc(c.SUBCATEGORIA||"")}</option>`).join("")}</select></div><div class="field"><label>Forma</label><select name="FORMA_PAGAMENTO"><option>Pix</option><option>Dinheiro</option><option>Cartão</option><option>Boleto/Transferência</option></select></div><div class="field span-3"><label>Descrição</label><input name="DESCRIÇÃO"></div></form></div><div class="modal-foot"><button class="btn btn-soft" data-close>Cancelar</button><button class="btn btn-primary" id="saveMove">Salvar</button></div>`);
-  $('[data-close]').forEach(x=>x.onclick=closeModal);
+  $$('[data-close]').forEach(x=>x.onclick=closeModal);
   let saving=false;
   $("#saveMove").onclick=async()=>{
     if(saving)return;
@@ -196,7 +196,7 @@ async function openMoveModal(){
     saving=true;
     const btn=$("#saveMove"),old=btn.textContent;
     btn.disabled=true;btn.classList.add("is-saving");btn.textContent="Salvando…";
-    $("[data-close]").forEach(x=>x.disabled=true);
+    $$("[data-close]").forEach(x=>x.disabled=true);
     const data=Object.fromEntries(new FormData(f).entries());data.CLIENT_REQUEST_ID=clientRequestId;
     try{
       const res=await api("salvarMovimentoCaixa",{token:state.adminToken,data});
@@ -206,7 +206,7 @@ async function openMoveModal(){
       await renderCaixa();
     }catch(e){
       saving=false;btn.disabled=false;btn.classList.remove("is-saving");btn.textContent=old;
-      $("[data-close]").forEach(x=>x.disabled=false);
+      $$("[data-close]").forEach(x=>x.disabled=false);
       showToast(e.message||"Não foi possível salvar a movimentação.","error");
     }
   };
