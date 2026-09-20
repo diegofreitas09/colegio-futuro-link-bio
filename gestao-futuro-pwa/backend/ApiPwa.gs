@@ -4,7 +4,8 @@
  * Este arquivo deve substituir o conteúdo atual de ApiPwa.gs no MESMO projeto Apps Script.
  * O Código.gs existente permanece como base de Secretaria/Financeiro.
  */
-const PWA_API_VERSION="UNIFICADA";
+const PWA_API_VERSION="2026.09.20.2";
+const PWA_CAPABILITIES=Object.freeze({testMode:true,clearTest:true,modeTagging:true,modeFilteredFinance:true,modeIsolationGuard:true});
 const PWA_GATEWAY_PROP="FUTURO_PWA_GATEWAY_KEY";
 const PWA_STAFF_HASH_PROP="FUTURO_STAFF_PASSWORD_SHA256";
 const PWA_DEBUG_PROP="FUTURO_PWA_DEBUG";
@@ -74,6 +75,25 @@ function pwaNorm_(v){return String(v||"").normalize("NFD").replace(/[\u0300-\u03
 function pwaMode_(mode){return String(mode||"PRODUCAO").toUpperCase()==="TESTE"?"TESTE":"PRODUCAO"}
 function pwaModeMatches_(row,mode){var r=String(row&&row.MODO_REGISTRO||"").toUpperCase();return pwaMode_(mode)==="TESTE"?r==="TESTE":r!=="TESTE"}
 function pwaFilterMode_(arr,mode){return (arr||[]).filter(function(x){return pwaModeMatches_(x,mode)})}
+function pwaAssertRowMode_(row,mode,label){
+  if(row&&!pwaModeMatches_(row,mode))throw new Error((label||"Registro")+" pertence a outro ambiente. Produção e Teste não podem ser misturados.");
+  return row;
+}
+function pwaRequireProduction_(mode,label){
+  if(pwaMode_(mode)==="TESTE")throw new Error((label||"Este comando")+" altera configurações oficiais e não pode ser executado em Teste/Simulação.");
+}
+function pwaMarkLastDataRow_(sheetName,mode,sessao){
+  var sh=SpreadsheetApp.getActive().getSheetByName(sheetName);if(!sh||sh.getLastRow()<5)return 0;
+  var headers=sh.getRange(4,1,1,sh.getLastColumn()).getDisplayValues()[0],modeCol=headers.indexOf("MODO_REGISTRO")+1,sessCol=headers.indexOf("SESSAO_TESTE")+1;
+  if(!modeCol)return 0;
+  var row=sh.getLastRow();sh.getRange(row,modeCol).setValue(pwaMode_(mode));if(sessCol)sh.getRange(row,sessCol).setValue(pwaMode_(mode)==="TESTE"?String(sessao||""):"");return 1;
+}
+function pwaMoneyBr_(v){return "R$ "+Utilities.formatString("%.2f",gfRoundMoneyPwa_(v)).replace(".",",")}
+function pwaDate_(v){
+  if(v instanceof Date&&!isNaN(v.getTime()))return v;
+  var s=String(v||"").trim(),m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);if(m)return new Date(Number(m[3]),Number(m[2])-1,Number(m[1]));
+  var d=new Date(s);return isNaN(d.getTime())?null:d;
+}
 function pwaMarkWhere_(sheetName,matchKeys,matchValue,mode,sessao){
   if(!matchValue)return 0;
   var sh=SpreadsheetApp.getActive().getSheetByName(sheetName);if(!sh)return 0;
@@ -174,16 +194,60 @@ function pwaBootstrapSecretaria_(token,modo){
   try{b.itensContrato=pwaFilterMode_(rows_("ITENS_CONTRATO"),modo)}catch(e){b.itensContrato=[]}
   return b
 }
-function pwaAtualizarDocumento_(token,id,patch){pwaStaff_(token);return pwaWithLock_(function(){return atualizarDocumento(id,patch||{})})}
-function pwaListarDocumentosAluno_(token,idAluno){pwaStaff_(token);return listarDocumentosAluno(idAluno)}
-function pwaListarRecebimentosAluno_(token,idAluno){pwaStaff_(token);return listarRecebimentosAluno(idAluno)}
+function pwaAtualizarDocumento_(token,id,patch,modo,sessao){
+  pwaStaff_(token);return pwaWithLock_(function(){
+    var row=findById_("DOCUMENTOS_ALUNO","ID_DOCUMENTO",id);if(!row)throw new Error("Documento não encontrado.");pwaAssertRowMode_(row,modo,"Documento");
+    var p=Object.assign({},patch||{},{MODO_REGISTRO:pwaMode_(modo),SESSAO_TESTE:pwaMode_(modo)==="TESTE"?String(sessao||""):""});
+    return atualizarDocumento(id,p);
+  })
+}
+function pwaListarDocumentosAluno_(token,idAluno,modo){pwaStaff_(token);return pwaFilterMode_(listarDocumentosAluno(idAluno)||[],modo)}
+function pwaListarRecebimentosAluno_(token,idAluno,modo){pwaStaff_(token);return pwaFilterMode_(listarRecebimentosAluno(idAluno)||[],modo)}
+function pwaListarRecebimentos_(token,modo){pwaAdmin_(token);return pwaFilterMode_(listarRecebimentos(token)||[],modo)}
+function pwaListarCaixa_(token,modo){pwaAdmin_(token);return pwaFilterMode_(listarCaixa(token)||[],modo)}
+function pwaRegistrarPagamento_(token,data,modo,sessao){
+  pwaAdmin_(token);data=data||{};return pwaWithLock_(function(){
+    var rec=findById_("RECEBIMENTOS","ID_RECEBIMENTO",data.ID_RECEBIMENTO);if(!rec)throw new Error("Recebimento não encontrado.");pwaAssertRowMode_(rec,modo,"Recebimento");
+    var res=registrarPagamento(token,data);
+    pwaMarkWhere_("RECEBIMENTOS","ID_RECEBIMENTO",data.ID_RECEBIMENTO,modo,sessao);
+    pwaMarkWhere_("CAIXA","ID_RECEBIMENTO",data.ID_RECEBIMENTO,modo,sessao);
+    return res;
+  })
+}
+function pwaSalvarMovimentoCaixa_(token,data,modo,sessao){
+  pwaAdmin_(token);data=data||{};return pwaWithLock_(function(){
+    data.MODO_REGISTRO=pwaMode_(modo);data.SESSAO_TESTE=pwaMode_(modo)==="TESTE"?String(sessao||""):"";
+    var res=salvarMovimentoCaixa(token,data),id=res&&(res.id||res.ID_CAIXA)||data.ID_CAIXA||"";
+    if(id)pwaMarkWhere_("CAIXA","ID_CAIXA",id,modo,sessao);else pwaMarkLastDataRow_("CAIXA",modo,sessao);
+    return res;
+  })
+}
+function pwaGetFechamento_(token,modo){
+  pwaAdmin_(token);if(pwaMode_(modo)!=="TESTE")return getFechamento(token);
+  var now=new Date(),start=new Date(now.getFullYear(),now.getMonth(),1),end=new Date(now.getFullYear(),now.getMonth()+1,0);
+  var rows=pwaFilterMode_(rows_("CAIXA"),"TESTE").filter(function(x){var d=pwaDate_(x.DATA);return d&&d>=start&&d<=new Date(end.getFullYear(),end.getMonth(),end.getDate(),23,59,59)});
+  var entradas=rows.filter(function(x){return String(x.TIPO)==="Entrada"}).reduce(function(s,x){return s+pwaNum_(x.VALOR)},0);
+  var saidas=rows.filter(function(x){return String(x.TIPO)==="Saída"}).reduce(function(s,x){return s+pwaNum_(x.VALOR)},0);
+  function byForma(re){return rows.filter(function(x){return String(x.TIPO)==="Entrada"&&re.test(pwaNorm_(x.FORMA_PAGAMENTO))}).reduce(function(s,x){return s+pwaNum_(x.VALOR)},0)}
+  return {headers:["PERÍODO","DATA_INICIAL","DATA_FINAL","ENTRADAS","SAÍDAS","SALDO","PIX","DINHEIRO","CARTÕES","BOLETO/TRANSF.","STATUS"],atual:[
+    "Mês atual",Utilities.formatDate(start,Session.getScriptTimeZone(),"dd/MM/yyyy"),Utilities.formatDate(end,Session.getScriptTimeZone(),"dd/MM/yyyy"),
+    pwaMoneyBr_(entradas),pwaMoneyBr_(saidas),pwaMoneyBr_(entradas-saidas),pwaMoneyBr_(byForma(/pix/)),pwaMoneyBr_(byForma(/dinheiro/)),
+    pwaMoneyBr_(byForma(/cart/)),pwaMoneyBr_(byForma(/boleto|transf/)),"Simulação"
+  ]};
+}
 function pwaSalvarAluno_(token,data,modo,sessao){
   pwaStaff_(token);data=data||{};data.MODO_REGISTRO=pwaMode_(modo);data.SESSAO_TESTE=pwaMode_(modo)==="TESTE"?String(sessao||""):"";
-  return pwaWithLock_(function(){var res=salvarAluno(data),id=res&&(res.id||res.ID_ALUNO)||data.ID_ALUNO||"";if(id)pwaMarkWhere_("ALUNOS","ID_ALUNO",id,modo,sessao);return res})
+  return pwaWithLock_(function(){
+    if(data.ID_ALUNO)pwaAssertRowMode_(findById_("ALUNOS","ID_ALUNO",data.ID_ALUNO),modo,"Aluno");
+    var res=salvarAluno(data),id=res&&(res.id||res.ID_ALUNO)||data.ID_ALUNO||"";if(id)pwaMarkWhere_("ALUNOS","ID_ALUNO",id,modo,sessao);return res
+  })
 }
 function pwaSalvarResponsavel_(token,data,modo,sessao){
   pwaStaff_(token);data=data||{};data.MODO_REGISTRO=pwaMode_(modo);data.SESSAO_TESTE=pwaMode_(modo)==="TESTE"?String(sessao||""):"";
-  return pwaWithLock_(function(){var res=salvarResponsavel(data),id=res&&(res.id||res.ID_RESPONSAVEL)||data.ID_RESPONSAVEL||"";if(id)pwaMarkWhere_("RESPONSAVEIS","ID_RESPONSAVEL",id,modo,sessao);return res})
+  return pwaWithLock_(function(){
+    if(data.ID_RESPONSAVEL)pwaAssertRowMode_(findById_("RESPONSAVEIS","ID_RESPONSAVEL",data.ID_RESPONSAVEL),modo,"Responsável");
+    var res=salvarResponsavel(data),id=res&&(res.id||res.ID_RESPONSAVEL)||data.ID_RESPONSAVEL||"";if(id)pwaMarkWhere_("RESPONSAVEIS","ID_RESPONSAVEL",id,modo,sessao);return res
+  })
 }
 function pwaCriarMatricula_(token,data,modo,sessao){
   pwaStaff_(token);data=data||{};data.MODO_REGISTRO=pwaMode_(modo);data.SESSAO_TESTE=pwaMode_(modo)==="TESTE"?String(sessao||""):"";
@@ -226,11 +290,11 @@ function pwaCriarMatricula_(token,data,modo,sessao){
 }
 
 function listarAtendimentosPwa_(token,modo){pwaStaff_(token);return pwaFilterMode_(rows_(GF_TABS.ATENDIMENTOS),modo)}
-function getAtendimentoPwa_(token,id){
+function getAtendimentoPwa_(token,id,modo){
   pwaStaff_(token);
   var atendimento=findById_(GF_TABS.ATENDIMENTOS,"ID_ATENDIMENTO",id);
-  if(!atendimento)throw new Error("Atendimento não encontrado.");
-  var itens=rows_(GF_TABS.ITENS_ATENDIMENTO).filter(function(x){return x.ID_ATENDIMENTO===id&&x.SELECIONADO!=="Não"});
+  if(!atendimento)throw new Error("Atendimento não encontrado.");pwaAssertRowMode_(atendimento,modo,"Atendimento");
+  var itens=pwaFilterMode_(rows_(GF_TABS.ITENS_ATENDIMENTO),modo).filter(function(x){return x.ID_ATENDIMENTO===id&&x.SELECIONADO!=="Não"});
   return {atendimento:atendimento,itens:itens};
 }
 function salvarAtendimentoPwa_(token,data,itens,modo,sessao){
@@ -238,6 +302,7 @@ function salvarAtendimentoPwa_(token,data,itens,modo,sessao){
   if(!data.NOME_ALUNO||!data.ANO_LETIVO||!data.SERIE_PRETENDIDA)throw new Error("Aluno, ano letivo e série são obrigatórios.");
   return pwaWithLock_(function(){
     var id=String(data.ID_ATENDIMENTO||"").trim(),old=id?findById_(GF_TABS.ATENDIMENTOS,"ID_ATENDIMENTO",id):null,now=new Date();
+    if(old)pwaAssertRowMode_(old,modo,"Atendimento");
     var extrasTotal=itens.filter(function(x){return x.CATEGORIA!=="Mensalidade"}).reduce(function(s,x){return s+pwaNum_(x.VALOR_APRESENTADO||x.VALOR_TABELA)*Math.max(1,pwaNum_(x.QTD)||1)},0);
     var planTotal=pwaNum_(data.TOTAL_PLANO),total=planTotal>0?planTotal+extrasTotal:itens.reduce(function(s,x){return s+pwaNum_(x.VALOR_APRESENTADO||x.VALOR_TABELA)*Math.max(1,pwaNum_(x.QTD)||1)},0);
     if(!id)id=nextId_("ATE-",GF_TABS.ATENDIMENTOS,"ID_ATENDIMENTO");
@@ -285,7 +350,7 @@ function salvarAtendimentoPwa_(token,data,itens,modo,sessao){
       MODO_REGISTRO:pwaMode_(modo),SESSAO_TESTE:pwaMode_(modo)==="TESTE"?String(sessao||""):""
     };
     if(old)updateById_(GF_TABS.ATENDIMENTOS,"ID_ATENDIMENTO",id,rec);else append_(GF_TABS.ATENDIMENTOS,rec);
-    var existentes=rows_(GF_TABS.ITENS_ATENDIMENTO).filter(function(x){return x.ID_ATENDIMENTO===id});
+    var existentes=pwaFilterMode_(rows_(GF_TABS.ITENS_ATENDIMENTO),modo).filter(function(x){return x.ID_ATENDIMENTO===id});
     existentes.forEach(function(x){updateById_(GF_TABS.ITENS_ATENDIMENTO,"ID_ITEM_ATENDIMENTO",x.ID_ITEM_ATENDIMENTO,{SELECIONADO:"Não",ATUALIZADO_EM:now})});
     itens.forEach(function(x){
       var ex=existentes.find(function(e){return e.ID_PRODUTO===x.ID_PRODUTO}),iid=ex&&ex.ID_ITEM_ATENDIMENTO||nextId_("ATI-",GF_TABS.ITENS_ATENDIMENTO,"ID_ITEM_ATENDIMENTO"),item={
@@ -302,7 +367,7 @@ function solicitarDescontoPwa_(token,d,modo,sessao){
   pwaStaff_(token);d=d||{};
   if(!d.ID_ATENDIMENTO||!d.ID_PRODUTO)throw new Error("Atendimento e produto são obrigatórios.");
   return pwaWithLock_(function(){
-    var at=findById_(GF_TABS.ATENDIMENTOS,"ID_ATENDIMENTO",d.ID_ATENDIMENTO);if(!at)throw new Error("Atendimento não encontrado.");
+    var at=findById_(GF_TABS.ATENDIMENTOS,"ID_ATENDIMENTO",d.ID_ATENDIMENTO);if(!at)throw new Error("Atendimento não encontrado.");pwaAssertRowMode_(at,modo,"Atendimento");
     var prod=findById_(S.PRODUTOS,"ID_PRODUTO",d.ID_PRODUTO),id=nextId_("SOL-",GF_TABS.SOLICITACOES,"ID_SOLICITACAO"),now=new Date();
     append_(GF_TABS.SOLICITACOES,{
       ID_SOLICITACAO:id,ID_ATENDIMENTO:d.ID_ATENDIMENTO,ID_ALUNO:at.ID_ALUNO||"",ID_PRODUTO:d.ID_PRODUTO,ANO_LETIVO:Number(d.ANO_LETIVO||at.ANO_LETIVO),SERIE:d.SERIE||at.SERIE_PRETENDIDA||"",VALOR_TABELA:pwaNum_(d.VALOR_TABELA), "DESCONTO_SOLICITADO_%":pwaNum_(d.DESCONTO_SOLICITADO),VALOR_SOLICITADO:pwaNum_(d.VALOR_SOLICITADO),MOTIVO:d.MOTIVO||"",STATUS:"Aguardando",VALOR_AUTORIZADO:"",OBSERVACAO_GESTAO:"",SOLICITADO_POR:pwaUser_("Atendimento"),SOLICITADO_EM:now,DECIDIDO_POR:"",DECIDIDO_EM:"",ALERTA_ENVIADO:"Não",CONCLUIDO_EM:"",OBSERVACAO_FINAL:"",MODO_REGISTRO:pwaMode_(modo),SESSAO_TESTE:pwaMode_(modo)==="TESTE"?String(sessao||""):""
@@ -315,17 +380,17 @@ function listarSolicitacoesDescontoPwa_(token,modo){
   pwaAdmin_(token);var ats=pwaFilterMode_(rows_(GF_TABS.ATENDIMENTOS),modo),ps=rows_(S.PRODUTOS);
   return pwaFilterMode_(rows_(GF_TABS.SOLICITACOES),modo).map(function(r){var a=ats.find(function(x){return x.ID_ATENDIMENTO===r.ID_ATENDIMENTO}),p=ps.find(function(x){return x.ID_PRODUTO===r.ID_PRODUTO});r.ALUNO=a&&a.NOME_ALUNO||r.ID_ALUNO||"";r.PRODUTO=p&&p.PRODUTO||r.ID_PRODUTO||"";r.RESPONSAVEL=a&&a.RESPONSAVEL||"";return r}).reverse();
 }
-function decidirSolicitacaoDescontoPwa_(token,id,status,valor,obs){
+function decidirSolicitacaoDescontoPwa_(token,id,status,valor,obs,modo){
   pwaAdmin_(token);if(["Autorizado","Negado"].indexOf(status)<0)throw new Error("Decisão inválida.");
   return pwaWithLock_(function(){
-    var r=findById_(GF_TABS.SOLICITACOES,"ID_SOLICITACAO",id);if(!r)throw new Error("Solicitação não encontrada.");
+    var r=findById_(GF_TABS.SOLICITACOES,"ID_SOLICITACAO",id);if(!r)throw new Error("Solicitação não encontrada.");pwaAssertRowMode_(r,modo,"Solicitação");
     var now=new Date(),patch={STATUS:status,VALOR_AUTORIZADO:status==="Autorizado"?pwaNum_(valor):"",OBSERVACAO_GESTAO:obs||"",DECIDIDO_POR:pwaUser_("Gestão"),DECIDIDO_EM:now};
     updateById_(GF_TABS.SOLICITACOES,"ID_SOLICITACAO",id,patch);
     if(status==="Autorizado"){
-      var item=rows_(GF_TABS.ITENS_ATENDIMENTO).find(function(x){return x.ID_ATENDIMENTO===r.ID_ATENDIMENTO&&x.ID_PRODUTO===r.ID_PRODUTO&&x.SELECIONADO==="Sim"});
+      var item=pwaFilterMode_(rows_(GF_TABS.ITENS_ATENDIMENTO),modo).find(function(x){return x.ID_ATENDIMENTO===r.ID_ATENDIMENTO&&x.ID_PRODUTO===r.ID_PRODUTO&&x.SELECIONADO==="Sim"});
       if(item){var table=pwaNum_(r.VALOR_TABELA),aut=pwaNum_(valor),desc=table?((table-aut)/table)*100:0;updateById_(GF_TABS.ITENS_ATENDIMENTO,"ID_ITEM_ATENDIMENTO",item.ID_ITEM_ATENDIMENTO,{"DESCONTO_%":desc,VALOR_APRESENTADO:aut,ATUALIZADO_EM:now})}
     }
-    var pend=rows_(GF_TABS.SOLICITACOES).filter(function(x){return x.ID_ATENDIMENTO===r.ID_ATENDIMENTO&&x.ID_SOLICITACAO!==id&&x.STATUS==="Aguardando"});
+    var pend=pwaFilterMode_(rows_(GF_TABS.SOLICITACOES),modo).filter(function(x){return x.ID_ATENDIMENTO===r.ID_ATENDIMENTO&&x.ID_SOLICITACAO!==id&&x.STATUS==="Aguardando"});
     updateById_(GF_TABS.ATENDIMENTOS,"ID_ATENDIMENTO",r.ID_ATENDIMENTO,{PEDIDO_DESCONTO_PENDENTE:pend.length?"Sim":"Não",ATUALIZADO_EM:now});
     audit_("Gestão",status==="Autorizado"?"AUTORIZAR_DESCONTO":"NEGAR_DESCONTO","Solicitação",id,JSON.stringify(r),JSON.stringify(patch));SpreadsheetApp.flush();return {ok:true,id:id};
   });
@@ -504,7 +569,7 @@ function doPost(e){
   var requestId=Utilities.getUuid();
   try{
     var body=pwaParseBody_(e),action=String(body.action||"").trim();if(!action)throw new Error("Ação não informada.");
-    if(action==="health")return pwaJson_({ok:true,service:"Gestão Futuro API",version:PWA_API_VERSION,requestId:requestId,time:new Date().toISOString()});
+    if(action==="health")return pwaJson_({ok:true,service:"Gestão Futuro API",version:PWA_API_VERSION,capabilities:PWA_CAPABILITIES,requestId:requestId,time:new Date().toISOString()});
     pwaRequireGateway_(body.gatewayKey);var data;
     switch(action){
       case "loginGestao":data=loginGestao(body.password||"");break;
@@ -514,33 +579,33 @@ function doPost(e){
       case "salvarAluno":data=pwaSalvarAluno_(body.token,body.data,body.modo,body.sessaoTeste);break;
       case "salvarResponsavel":data=pwaSalvarResponsavel_(body.token,body.data,body.modo,body.sessaoTeste);break;
       case "criarMatriculaCompleta":data=pwaCriarMatricula_(body.token,body.data,body.modo,body.sessaoTeste);break;
-      case "atualizarDocumento":data=pwaAtualizarDocumento_(body.token,body.id||(body.data&&body.data.ID_DOCUMENTO),body.data||{});break;
-      case "listarDocumentosAluno":data=pwaListarDocumentosAluno_(body.token,body.idAluno);break;
-      case "listarRecebimentosAluno":data=pwaListarRecebimentosAluno_(body.token,body.idAluno);break;
+      case "atualizarDocumento":data=pwaAtualizarDocumento_(body.token,body.id||(body.data&&body.data.ID_DOCUMENTO),body.data||{},body.modo,body.sessaoTeste);break;
+      case "listarDocumentosAluno":data=pwaListarDocumentosAluno_(body.token,body.idAluno,body.modo);break;
+      case "listarRecebimentosAluno":data=pwaListarRecebimentosAluno_(body.token,body.idAluno,body.modo);break;
       case "listarProdutosPublicos":data=listarProdutosPublicos();break;
       case "dashboardPublico":data=pwaDashboardPublico_(body.modo);break;
       case "dashboardGestao":data=pwaDashboardGestao_(body.token,body.modo);break;
-      case "listarRecebimentos":data=listarRecebimentos(body.token);break;
-      case "listarCaixa":data=listarCaixa(body.token);break;
+      case "listarRecebimentos":data=pwaListarRecebimentos_(body.token,body.modo);break;
+      case "listarCaixa":data=pwaListarCaixa_(body.token,body.modo);break;
       case "listarProdutosGestao":data=listarProdutosGestao(body.token);break;
-      case "atualizarProduto":data=pwaAtualizarProduto_(body.token,body.id,body.data||{});break;
-      case "criarProdutoServico":data=pwaCriarProdutoServico_(body.token,body.data||{});break;
-      case "aplicarReajusteIndividual":data=aplicarReajusteIndividualPwa_(body.token,body.data||{});break;
+      case "atualizarProduto":pwaRequireProduction_(body.modo,"Atualização de produto");data=pwaAtualizarProduto_(body.token,body.id,body.data||{});break;
+      case "criarProdutoServico":pwaRequireProduction_(body.modo,"Criação de produto/serviço");data=pwaCriarProdutoServico_(body.token,body.data||{});break;
+      case "aplicarReajusteIndividual":pwaRequireProduction_(body.modo,"Reajuste individual");data=aplicarReajusteIndividualPwa_(body.token,body.data||{});break;
       case "listarBeneficios":data=listarBeneficios(body.token);break;
       case "listarCategorias":data=listarCategorias(body.token);break;
-      case "getFechamento":data=getFechamento(body.token);break;
+      case "getFechamento":data=pwaGetFechamento_(body.token,body.modo);break;
       case "gerarResumoAluno":data=gerarResumoAluno(body.token,body.idAluno);break;
-      case "registrarPagamento":data=pwaWithLock_(function(){return registrarPagamento(body.token,body.data||{})});break;
-      case "salvarMovimentoCaixa":data=pwaWithLock_(function(){return salvarMovimentoCaixa(body.token,body.data||{})});break;
+      case "registrarPagamento":data=pwaRegistrarPagamento_(body.token,body.data||{},body.modo,body.sessaoTeste);break;
+      case "salvarMovimentoCaixa":data=pwaSalvarMovimentoCaixa_(body.token,body.data||{},body.modo,body.sessaoTeste);break;
       case "listarAtendimentos":data=listarAtendimentosPwa_(body.token,body.modo);break;
-      case "getAtendimento":data=getAtendimentoPwa_(body.token,body.id);break;
+      case "getAtendimento":data=getAtendimentoPwa_(body.token,body.id,body.modo);break;
       case "salvarAtendimento":data=salvarAtendimentoPwa_(body.token,body.data,body.itens,body.modo,body.sessaoTeste);break;
       case "solicitarDesconto":data=solicitarDescontoPwa_(body.token,body.data,body.modo,body.sessaoTeste);break;
       case "listarSolicitacoesDesconto":data=listarSolicitacoesDescontoPwa_(body.token,body.modo);break;
-      case "decidirSolicitacaoDesconto":data=decidirSolicitacaoDescontoPwa_(body.token,body.id,body.status,body.valorAutorizado,body.observacao);break;
+      case "decidirSolicitacaoDesconto":data=decidirSolicitacaoDescontoPwa_(body.token,body.id,body.status,body.valorAutorizado,body.observacao,body.modo);break;
       case "getPanfletoSerie":data=getPanfletoSeriePwa_(body.token,body.ano,body.serie);break;
-      case "salvarPanfletoSerie":data=salvarPanfletoSeriePwa_(body.token,body.ano,body.serie,body.data);break;
-      case "aplicarReajusteCatalogo":data=aplicarReajusteCatalogoPwa_(body.token,body.data);break;
+      case "salvarPanfletoSerie":pwaRequireProduction_(body.modo,"Edição de panfleto");data=salvarPanfletoSeriePwa_(body.token,body.ano,body.serie,body.data);break;
+      case "aplicarReajusteCatalogo":pwaRequireProduction_(body.modo,"Reajuste em lote");data=aplicarReajusteCatalogoPwa_(body.token,body.data);break;
       case "importarLoteIntegracao":data=importarLoteIntegracaoPwa_(body.token,body.data,body.modo,body.sessaoTeste);break;
       case "limparAutorizacoesTeste":data=limparAutorizacoesTestePwa_(body.token);break;
       case "limparDadosTeste":data=limparDadosTestePwa_(body.token);break;
