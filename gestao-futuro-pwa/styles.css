@@ -442,3 +442,17 @@ body.home-active .shell{filter:blur(2px) saturate(.8);pointer-events:none;user-s
 }
 .flyer-a4.dense .flyer-uniform-card img{height:98px}
 .flyer-a4.ultra-dense .flyer-uniform-card img{height:78px}
+
+
+/* Miniaturas de fardamento no Atendimento */
+.catalog-item.with-uniform{grid-template-columns:92px 1fr auto;align-items:center}
+.attendance-uniform-thumb{width:84px;display:grid;gap:4px;justify-items:center;padding:5px;border:1px solid #dfe8f3;border-radius:12px;background:#fff}
+.attendance-uniform-thumb img{display:block;width:74px;height:74px;object-fit:contain;object-position:center;border-radius:8px;background:#fff}
+.attendance-uniform-thumb span{font-size:8px;font-weight:800;color:#2f5f99;text-transform:uppercase;letter-spacing:.04em}
+.catalog-item.with-uniform label{min-width:0}
+@media(max-width:760px){
+  .catalog-item.with-uniform{grid-template-columns:76px 1fr;gap:9px}
+  .catalog-item.with-uniform .catalog-price{grid-column:1/-1;width:100%;display:flex;justify-content:space-between;align-items:center}
+  .attendance-uniform-thumb{width:68px;padding:4px}
+  .attendance-uniform-thumb img{width:60px;height:60px}
+}
