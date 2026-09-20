@@ -583,11 +583,11 @@ async function navigate(view){
 function renderAcessos(){
   const acessos=[
     {
-      nome:"Agenda On-line • Computex",
-      descricao:"Acesso ao sistema escolar Computex utilizado pela escola.",
+      nome:"Agenda On-line • Gestor Escolar",
+      descricao:"Acesso ao Gestor Escolar e à agenda on-line utilizada pela escola.",
       url:"https://escola.computex.com.br/escola329/index2.php",
-      icon:"https://www.google.com/s2/favicons?domain=escola.computex.com.br&sz=128",
-      fallback:"C",
+      icon:"/assets/agenda-online-gestor.png?v=20260920-agendaicon",
+      fallback:"G",
       destaque:true
     },
     {
