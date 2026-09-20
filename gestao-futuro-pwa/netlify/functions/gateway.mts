@@ -15,7 +15,7 @@ async function notifyDirector(payload: Record<string, unknown>) {
   const privateKey = Netlify.env.get("FUTURO_VAPID_PRIVATE_KEY") || "";
   if (!publicKey || !privateKey) return;
   try {
-    webpush.setVapidDetails("https://gestao-futuro-pwa.netlify.app", publicKey, privateKey);
+    webpush.setVapidDetails("https://gestao.colegiofuturoce.com.br", publicKey, privateKey);
     const store = getStore("gestao-futuro-push");
     const subs = await store.get("director-subscriptions", { type: "json" }) as any[] | null;
     const rows = Array.isArray(subs) ? subs : [];
