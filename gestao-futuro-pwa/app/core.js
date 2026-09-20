@@ -619,7 +619,7 @@ function renderAcessos(){
       nome:"Agenda On-line • Gestor Escolar",
       descricao:"Acesso ao Gestor Escolar e à agenda on-line utilizada pela escola.",
       url:"https://escola.computex.com.br/escola329/index2.php",
-      icon:"/assets/agenda-online-gestor.png?v=20260920-agendaicon",
+      icon:"/assets/agenda-online-gestor.png?v=20260920-agendaicon2",
       fallback:"G",
       destaque:true
     },
