@@ -45,7 +45,7 @@ async function sendToAll(payload: Record<string, unknown>) {
   const publicKey = Netlify.env.get("FUTURO_VAPID_PUBLIC_KEY") || "";
   const privateKey = Netlify.env.get("FUTURO_VAPID_PRIVATE_KEY") || "";
   if (!publicKey || !privateKey) return { sent: 0, total: 0 };
-  webpush.setVapidDetails("https://gestao-futuro-pwa.netlify.app", publicKey, privateKey);
+  webpush.setVapidDetails("https://gestao.colegiofuturoce.com.br", publicKey, privateKey);
   const subs = await readSubs();
   const keep:any[] = [];
   let sent = 0;
