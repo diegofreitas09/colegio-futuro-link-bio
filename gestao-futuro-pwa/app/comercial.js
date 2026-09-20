@@ -503,6 +503,66 @@ function gfExtrasJsonFromForm(){
     };
   }).filter(function(x){return x.nome||x.descricao||x.valor});
 }
+const GF_UNIFORM_ASSETS=Object.freeze({
+  infantil:{label:"Educação Infantil",src:"/assets/fardamento/farda-infantil.png",segment:"infantil"},
+  iniciais:{label:"Fardamento oficial • 1º ao 5º Ano",src:"/assets/fardamento/farda-anos-iniciais.png",segment:"iniciais"},
+  "esportes-iniciais":{label:"Educação Física e Esportes • 1º ao 5º Ano",src:"/assets/fardamento/farda-esportes-iniciais.png",segment:"iniciais"},
+  finais:{label:"Fardamento oficial • 6º ao 9º Ano",src:"/assets/fardamento/farda-anos-finais.png",segment:"finais"},
+  "esportes-finais":{label:"Educação Física e Esportes • 6º ao 9º Ano",src:"/assets/fardamento/farda-esportes-finais.png",segment:"finais"},
+  lancamentos:{label:"Lançamentos 2026 • Casaco e STI",src:"/assets/fardamento/farda-lancamentos.png",segment:"geral"}
+});
+function gfUniformSegment(serie){
+  var v=String(serie||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+  if(/infantil/.test(v))return "infantil";
+  if(/^[1-5][ºo]?\s*ano/.test(v)||/anos iniciais/.test(v))return "iniciais";
+  if(/^[6-9][ºo]?\s*ano/.test(v)||/anos finais/.test(v))return "finais";
+  if(/medio|médio/.test(String(serie||"").toLowerCase()))return "medio";
+  return "";
+}
+function gfUniformDefaults(serie){
+  var seg=gfUniformSegment(serie);
+  if(seg==="infantil")return ["infantil"];
+  if(seg==="iniciais")return ["iniciais","esportes-iniciais"];
+  if(seg==="finais")return ["finais","esportes-finais"];
+  return [];
+}
+function gfParseUniformConfig(cfg,serie){
+  var raw=cfg&&cfg.FARDAMENTO||"",parsed=null;
+  if(raw&&typeof raw==="object")parsed=raw;
+  else if(typeof raw==="string"&&raw.trim().charAt(0)==="{"){try{parsed=JSON.parse(raw)}catch(e){}}
+  var items=Array.isArray(parsed&&parsed.itens)?parsed.itens.filter(function(k){return !!GF_UNIFORM_ASSETS[k]}):[];
+  var explicit=!!(parsed&&Array.isArray(parsed.itens));
+  if(!explicit)items=gfUniformDefaults(serie);
+  return {itens:items,texto:parsed&&parsed.texto!=null?String(parsed.texto):((parsed||raw!==String(raw))?"":String(raw||"")),customUrl:String((parsed&&parsed.customUrl)||cfg&&cfg.IMAGEM_URL||"")};
+}
+function gfSafeImageUrl(url){
+  var u=String(url||"").trim();if(!u)return "";
+  if(u.charAt(0)==="/")return u;
+  try{var x=new URL(u,location.origin);return /^https?:$/.test(x.protocol)?x.href:""}catch(e){return ""}
+}
+function gfUniformMarkup(cfg,serie){
+  var uc=gfParseUniformConfig(cfg,serie),cards=[];
+  uc.itens.forEach(function(k){var a=GF_UNIFORM_ASSETS[k];if(a)cards.push("<figure class='flyer-uniform-card'><img src='"+esc(a.src)+"' alt='"+esc(a.label)+"'><figcaption>"+esc(a.label)+"</figcaption></figure>")});
+  var custom=gfSafeImageUrl(uc.customUrl);if(custom)cards.push("<figure class='flyer-uniform-card custom'><img src='"+esc(custom)+"' alt='Fardamento personalizado'><figcaption>Imagem personalizada</figcaption></figure>");
+  if(!cards.length){
+    if(gfUniformSegment(serie)==="medio")return "<section class='flyer-uniforms flyer-uniform-empty'><div><h3>Fardamento</h3><p>Imagem específica do Ensino Médio ainda não cadastrada. A Gestão pode escolher uma imagem no editor do panfleto.</p></div></section>";
+    return "";
+  }
+  return "<section class='flyer-uniforms'><div class='flyer-uniform-title'><h3>Fardamento da série</h3><span>Modelos oficiais</span></div><div class='flyer-uniform-grid "+(cards.length===1?"single":"")+"'>"+cards.join("")+"</div>"+(uc.texto?"<p class='flyer-uniform-note'>"+esc(uc.texto)+"</p>":"")+"</section>";
+}
+function gfUniformPickerMarkup(cfg,serie){
+  var uc=gfParseUniformConfig(cfg,serie),seg=gfUniformSegment(serie),keys=Object.keys(GF_UNIFORM_ASSETS);
+  keys.sort(function(a,b){
+    var aa=GF_UNIFORM_ASSETS[a],bb=GF_UNIFORM_ASSETS[b];
+    return (aa.segment===seg?0:aa.segment==="geral"?1:2)-(bb.segment===seg?0:bb.segment==="geral"?1:2);
+  });
+  return "<div class='uniform-picker'>"+keys.map(function(k){
+    var a=GF_UNIFORM_ASSETS[k],checked=uc.itens.indexOf(k)>=0?" checked":"";
+    var relevant=(a.segment===seg||a.segment==="geral")?" relevant":"";
+    return "<label class='uniform-pick-card"+relevant+"'><input type='checkbox' data-uniform-key='"+esc(k)+"'"+checked+"><span class='uniform-pick-image'><img src='"+esc(a.src)+"' alt=''></span><b>"+esc(a.label)+"</b></label>";
+  }).join("")+"</div>";
+}
+
 function gfFlyerMarkup(y,s,cfg,list){
   var groups=gfGroups(list),body="";
   Object.keys(groups).forEach(function(cat){
@@ -519,10 +579,12 @@ function gfFlyerMarkup(y,s,cfg,list){
     "</div></section>":"";
   var offer=cfg.O_QUE_OFERECE?"<section class='flyer-info'><h3>O que oferecemos</h3><p>"+esc(cfg.O_QUE_OFERECE)+"</p></section>":"";
   var notes=cfg.OBSERVACOES?"<div class='flyer-note'>"+esc(cfg.OBSERVACOES)+"</div>":"";
+  var uniforms=gfUniformMarkup(cfg,s);
   return "<article class='flyer flyer-a4"+density+"' id='flyerPreview'>"+
     "<div class='flyer-head'>"+(window.FUTURO_BRAND&&window.FUTURO_BRAND.logo?"<img src='"+window.FUTURO_BRAND.logo+"' alt='Colégio Futuro'>":"")+
     "<div><span>MATRÍCULAS "+y+"</span><h2>"+esc(cfg.TITULO||("Colégio Futuro • "+s))+"</h2><p>"+esc(cfg.SUBTITULO||"Educação que prepara para o presente e impulsiona cada estudante para o futuro.")+"</p></div></div>"+
     "<div class='flyer-series'>"+esc(s)+"</div>"+
+    uniforms+
     "<div class='flyer-content-grid'>"+body+extrasHtml+offer+"</div>"+
     "<div class='flyer-cols'><section><h3>Novatos</h3><p>"+esc(cfg.DOCUMENTOS_NOVATO||"Documentação conforme orientação da Secretaria.")+"</p></section><section><h3>Veteranos</h3><p>"+esc(cfg.DOCUMENTOS_VETERANO||"Atualização cadastral e novo contrato.")+"</p></section></div>"+
     notes+
@@ -571,11 +633,14 @@ async function renderPanfletos(){
   await generate();
 }
 function editFlyerContent(y,s,cfg){
-  var extras=gfParseExtras(cfg.SERVICOS_ADICIONAIS);
+  var extras=gfParseExtras(cfg.SERVICOS_ADICIONAIS),uniformCfg=gfParseUniformConfig(cfg,s);
   modal("<div class='modal-head'><h3>Conteúdo do panfleto</h3><button class='icon-btn' data-close>✕</button></div><div class='modal-body'><form id='flyerEdit' class='form-grid'>"+
     "<div class='field span-2'><label>Título</label><input name='TITULO' value='"+esc(cfg.TITULO||("Colégio Futuro • "+s))+"'></div>"+
     "<div class='field span-3'><label>Subtítulo</label><input name='SUBTITULO' value='"+esc(cfg.SUBTITULO||"")+"'></div>"+
     "<div class='field span-3'><label>O que oferece</label><textarea name='O_QUE_OFERECE'>"+esc(cfg.O_QUE_OFERECE||"")+"</textarea></div>"+
+    "<div class='field span-3 uniform-editor-block'><div class='section-head compact'><div><label>Fardamento visual</label><span class='muted'>As imagens sugeridas já acompanham a série. Marque ou desmarque o que deve aparecer no panfleto.</span></div></div>"+gfUniformPickerMarkup(cfg,s)+"</div>"+
+    "<div class='field span-3'><label>Observação sobre o fardamento</label><textarea id='uniformText' placeholder='Ex.: Uso obrigatório conforme orientação da escola.'>"+esc(uniformCfg.texto||"")+"</textarea></div>"+
+    "<div class='field span-3'><label>Imagem personalizada do fardamento (opcional)</label><input id='uniformCustomUrl' type='url' value='"+esc(uniformCfg.customUrl||"")+"' placeholder='https://...'><small class='muted'>Se informada, entra junto às imagens oficiais.</small></div>"+
     "<div class='field span-3'><label>Novatos</label><textarea name='DOCUMENTOS_NOVATO'>"+esc(cfg.DOCUMENTOS_NOVATO||"")+"</textarea></div>"+
     "<div class='field span-3'><label>Veteranos</label><textarea name='DOCUMENTOS_VETERANO'>"+esc(cfg.DOCUMENTOS_VETERANO||"")+"</textarea></div>"+
     "<div class='field span-3'><label>Observações</label><textarea name='OBSERVACOES'>"+esc(cfg.OBSERVACOES||"")+"</textarea></div>"+
@@ -591,12 +656,17 @@ function editFlyerContent(y,s,cfg){
   $("#addExtra").onclick=function(){extras=gfExtrasJsonFromForm();extras.push({nome:"",descricao:"",valor:""});drawExtras()};
   $$("[data-close]").forEach(function(x){x.onclick=closeModal});
   $("#saveFlyer").onclick=async function(){
+    var btn=this,old=btn.textContent;
     try{
+      btn.disabled=true;btn.textContent="Salvando…";
       var data=Object.fromEntries(new FormData($("#flyerEdit")).entries());
       data.SERVICOS_ADICIONAIS=JSON.stringify(gfExtrasJsonFromForm());
+      var selected=$$("[data-uniform-key]:checked").map(function(x){return x.dataset.uniformKey});
+      data.FARDAMENTO=JSON.stringify({versao:1,itens:selected,texto:$("#uniformText").value||"",customUrl:$("#uniformCustomUrl").value||""});
+      data.IMAGEM_URL=$("#uniformCustomUrl").value||"";
       await api("salvarPanfletoSerie",{token:state.adminToken,ano:y,serie:s,data:data});
       state.flyerCache=state.flyerCache||{};delete state.flyerCache[y+"|"+s];
       closeModal();renderPanfletos();
-    }catch(e){alert(e.message)}
+    }catch(e){showToast(e.message||"Não foi possível salvar o panfleto.","error");btn.disabled=false;btn.textContent=old}
   };
 }
