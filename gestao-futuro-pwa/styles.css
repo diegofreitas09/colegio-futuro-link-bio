@@ -355,3 +355,12 @@ body.home-active .shell{filter:blur(2px) saturate(.8);pointer-events:none;user-s
   .school-access-grid{grid-template-columns:1fr}.school-access-card{min-height:102px;padding:14px}
   .school-access-icon{width:56px;height:56px}.school-access-icon img{width:36px;height:36px}
 }
+
+
+/* Botão limpar teste */
+#clearTestBtn{border:1px solid #efb8bd;background:#fff1f2;color:#b4232d;font-weight:850;box-shadow:none}
+#clearTestBtn:hover{background:#ffe5e7;border-color:#df8f97}
+#clearTestBtn.hidden{display:none!important}
+@media(max-width:760px){
+  #clearTestBtn{min-height:42px;padding:9px 12px;font-size:11px}
+}
