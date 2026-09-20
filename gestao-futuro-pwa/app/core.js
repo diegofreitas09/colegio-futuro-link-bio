@@ -250,7 +250,7 @@ function openModeGate(){
           </button>
           <button class="mode-gate-option test" id="gateTest">
             <span class="mode-gate-icon">🧪</span>
-            <div><strong>Teste / Simulação</strong><small>Use para treinamento e conferência. Os registros ficam separados e podem ser apagados depois.</small></div>
+            <div><strong>Teste / Simulação</strong><small>Use para treinamento e conferência. Os registros ficam separados e não afetam os dados oficiais.</small></div>
             <i>Simular</i>
           </button>
         </div>
@@ -258,31 +258,11 @@ function openModeGate(){
           <div><span class="notify-dot ${notif.cls}"></span><div><b>Notificações</b><small id="gateNotifyText">${notif.label}. Ao escolher o ambiente, vamos solicitar/liberar as notificações neste aparelho.</small></div></div>
           <span class="mode-gate-device">${/Mobi|Android/i.test(navigator.userAgent)?"Celular":"Desktop"}</span>
         </div>
-        ${role==="admin"?`<div class="mode-gate-clean"><div><b>🧹 Limpeza de simulação</b><small>Apaga somente dados marcados como TESTE, inclusive autorizações, sem tocar na produção.</small></div><button class="btn btn-danger" id="gateClearTests">Limpar simulação</button></div>`:""}
         <div class="mode-gate-foot"><span>Escolha obrigatória para proteger os dados oficiais.</span><button class="link-btn" id="gateLogout">Sair do acesso</button></div>
       </div>
     </section>`;
   $("#gateProduction").onclick=function(){selectEntryMode("PRODUCAO",this)};
   $("#gateTest").onclick=function(){selectEntryMode("TESTE",this)};
-  const clear=$("#gateClearTests");
-  if(clear)clear.onclick=async function(){
-    if(!confirm("Apagar todos os registros de Teste/Simulação? Os dados de Produção serão preservados."))return;
-    const old=this.textContent;this.disabled=true;this.textContent="Limpando…";
-    try{
-      // cleanup is administrative; temporarily use TESTE metadata without releasing the gate
-      state.runMode="TESTE";ensureTestSession();
-      const res=await api("limparDadosTeste",{token:state.adminToken});
-      resetRunModeForEntry();clearLocalTestData();clearApiCache();
-      sessionStorage.setItem("gf_pending_approvals","0");
-      const badge=$("#approvalBadge");if(badge){badge.textContent="0";badge.classList.add("hidden")}
-      showToast("Simulação limpa: "+(res?.total||0)+" registro(s) removido(s) ✓","ok");
-      this.disabled=false;this.textContent=old;
-    }catch(e){
-      resetRunModeForEntry();
-      showToast(e.message||"Não foi possível limpar a simulação.","error");
-      this.disabled=false;this.textContent=old;
-    }
-  };
   $("#gateLogout").onclick=logoutAll;
 }
 function clearLocalTestData(){
@@ -324,7 +304,11 @@ async function api(action, payload={}) {
     try{
       const r=await fetch(API,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action,...meta,...payload}),signal:ctrl.signal});
       let out;try{out=await r.json()}catch{throw new Error("Resposta inválida do servidor.")}
-      if(!r.ok||!out.ok)throw new Error(out.error||"Falha no servidor.");
+      if(!r.ok||!out.ok){
+        const msg=String(out.error||"Falha no servidor.");
+        if(/^Ação não reconhecida:/i.test(msg))throw new Error("Este comando ainda não está disponível nesta versão do servidor.");
+        throw new Error(msg);
+      }
       if(ttl)state.apiCache.set(key,{at:Date.now(),data:out.data});
       if(writeActions.includes(action))clearApiCache();
       return out.data;
