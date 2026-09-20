@@ -374,3 +374,26 @@ body.home-active .shell{filter:blur(2px) saturate(.8);pointer-events:none;user-s
 .trash-btn{width:36px;height:36px;border:1px solid #efc1c5;border-radius:10px;background:#fff4f5;color:#b4232d;display:inline-grid;place-items:center;cursor:pointer;font-size:16px;transition:.16s ease}
 .trash-btn:hover{background:#ffe7e9;border-color:#df969e;transform:translateY(-1px)}
 .trash-btn:disabled{opacity:.55;cursor:wait;transform:none}
+
+
+/* Central de relatórios institucionais */
+.btn-report{background:#eef5ff;border:1px solid #b8d0ee;color:#12487f;font-weight:850}
+.btn-report:hover{background:#e3efff;border-color:#91b5df}
+.report-intro{display:flex;flex-direction:column;gap:5px;margin-bottom:18px;padding:14px 16px;border-radius:14px;background:#f4f8fd;border:1px solid #dce7f4}
+.report-intro b{color:#0b3c74;font-size:15px}.report-intro span{color:#66778c;font-size:12px;line-height:1.45}
+.report-hub-hero{display:flex;align-items:center;justify-content:space-between;gap:22px;padding:26px 28px;margin-bottom:18px;border-radius:22px;background:linear-gradient(120deg,#0d4c99,#0a3474 62%,#082552);color:#fff;box-shadow:0 16px 36px rgba(8,42,92,.14)}
+.report-hub-hero span{font-size:10px;letter-spacing:.18em;font-weight:900;color:#a9d2ff}
+.report-hub-hero h2{margin:5px 0 7px;font-size:31px;letter-spacing:-.03em}
+.report-hub-hero p{margin:0;max-width:720px;color:#dceaff;font-size:13px;line-height:1.5}
+.report-hub-hero>b{min-width:92px;height:82px;border-radius:18px;display:grid;place-items:center;text-align:center;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);font-size:20px;line-height:1.05}
+.report-hub-hero>b small{font-size:10px;color:#cfe1fb}
+.report-hub-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.report-hub-card{appearance:none;border:1px solid #dbe5f1;background:#fff;border-radius:18px;padding:18px;min-height:142px;text-align:left;display:flex;flex-direction:column;gap:7px;cursor:pointer;box-shadow:0 10px 26px rgba(15,45,86,.07);transition:.17s ease;color:#173f70}
+.report-hub-card:hover{transform:translateY(-2px);border-color:#a8c5e6;box-shadow:0 15px 30px rgba(15,45,86,.11)}
+.report-hub-card i{font-style:normal;font-size:26px}.report-hub-card strong{font-size:16px}.report-hub-card span{font-size:12px;line-height:1.45;color:#69798e}
+.report-download-btn{min-width:150px}
+@media(max-width:900px){.report-hub-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:640px){
+ .report-hub-hero{padding:20px;align-items:flex-start}.report-hub-hero h2{font-size:25px}.report-hub-hero>b{min-width:68px;width:68px;height:68px;font-size:15px}
+ .report-hub-grid{grid-template-columns:1fr}.report-hub-card{min-height:112px}.btn-report{width:100%}
+}
