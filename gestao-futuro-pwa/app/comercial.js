@@ -124,9 +124,56 @@ async function gfPdfBrandPng(){
     });
   }catch(e){return null}
 }
+async function gfPdfImagePng(src){
+  try{
+    src=String(src||"").trim();if(!src)return null;
+    return await new Promise(function(resolve){
+      var img=new Image();
+      img.onload=function(){
+        try{
+          var maxW=1100,scale=Math.min(1,maxW/(img.naturalWidth||maxW)),w=Math.max(1,Math.round((img.naturalWidth||1)*scale)),h=Math.max(1,Math.round((img.naturalHeight||1)*scale));
+          var cv=document.createElement("canvas");cv.width=w;cv.height=h;var cx=cv.getContext("2d");
+          cx.fillStyle="#ffffff";cx.fillRect(0,0,w,h);cx.drawImage(img,0,0,w,h);
+          resolve({data:cv.toDataURL("image/png"),ratio:w/h});
+        }catch(e){resolve(null)}
+      };
+      img.onerror=function(){resolve(null)};
+      img.src=src;
+    });
+  }catch(e){return null}
+}
+function gfIsUniformProduct(p){
+  var txt=[p&&p.CATEGORIA,p&&p.SUBCATEGORIA,p&&p.PRODUTO,p&&p.OBSERVACAO,p&&p["DESCRIÇÃO"]].filter(Boolean).join(" ").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+  return /fard|uniform|camisa|camiseta|bermuda|short|calca escolar|calça escolar|casaco escolar/.test(txt);
+}
+function gfUniformAssetKeyForProduct(p,serie){
+  var seg=gfUniformSegment(serie),txt=[p&&p.CATEGORIA,p&&p.SUBCATEGORIA,p&&p.PRODUTO,p&&p.OBSERVACAO,p&&p["DESCRIÇÃO"]].filter(Boolean).join(" ").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+  var sports=/esport|educacao fisica|educação física|ed\. fisica|ed\. física/.test(txt);
+  if(seg==="infantil")return "infantil";
+  if(seg==="iniciais")return sports?"esportes-iniciais":"iniciais";
+  if(seg==="finais")return sports?"esportes-finais":"finais";
+  return "";
+}
+function gfUniformAssetForProduct(p,serie){
+  var k=gfUniformAssetKeyForProduct(p,serie);
+  return k&&typeof GF_UNIFORM_ASSETS!=="undefined"?GF_UNIFORM_ASSETS[k]:null;
+}
 async function gfDownloadAttendancePdf(rec,itens){
   var JsPDF=await gfEnsureJsPdf(),brand=await gfPdfBrandPng(),doc=new JsPDF({unit:"mm",format:"a4",orientation:"portrait"});
   var W=210,H=297,M=13,y=0,contentBottom=274;
+  var uniformItems=(itens||[]).filter(gfIsUniformProduct),uniformGroups=[],uniformImages={};
+
+  uniformItems.forEach(function(it){
+    var asset=gfUniformAssetForProduct(it,rec.SERIE_PRETENDIDA);
+    if(!asset)return;
+    var key=asset.src,g=uniformGroups.find(function(x){return x.key===key});
+    if(!g){g={key:key,asset:asset,items:[]};uniformGroups.push(g)}
+    g.items.push(it);
+  });
+  for(var ui=0;ui<uniformGroups.length;ui++){
+    var ug=uniformGroups[ui];
+    uniformImages[ug.key]=await gfPdfImagePng(ug.asset.src);
+  }
 
   function drawHeader(){
     doc.setFillColor(18,59,118);doc.rect(0,0,W,28,"F");
@@ -175,6 +222,32 @@ async function gfDownloadAttendancePdf(rec,itens){
     doc.setFont("helvetica","bold");doc.setTextColor(20,43,77);doc.setFontSize(8);doc.text(money(it.VALOR_APRESENTADO||it.VALOR_TABELA||0),W-M-3,y+1.6,{align:"right"});
     y+=12;
   }
+  function uniformBlock(g){
+    var img=uniformImages[g.key],boxH=img?50:24;ensure(boxH+12);
+    doc.setFillColor(248,251,255);doc.setDrawColor(214,225,239);doc.roundedRect(M,y-2,W-M*2,boxH+7,2,2,"FD");
+    var imgX=M+4,imgY=y+2,imgW=58,imgH=boxH-1;
+    if(img&&img.data){
+      try{
+        var ratio=img.ratio||1.4,w=imgW,h=w/ratio;
+        if(h>imgH){h=imgH;w=h*ratio}
+        doc.addImage(img.data,"PNG",imgX+(imgW-w)/2,imgY,w,h);
+      }catch(e){}
+    }
+    var tx=M+67;
+    doc.setTextColor(18,59,118);doc.setFont("helvetica","bold");doc.setFontSize(9);doc.text(g.asset.label,tx,y+4);
+    var yy=y+10,subtotal=0;
+    g.items.forEach(function(it){
+      var val=Number(it.VALOR_APRESENTADO||it.VALOR_TABELA||0);subtotal+=val;
+      doc.setFont("helvetica","normal");doc.setTextColor(55,67,84);doc.setFontSize(7.2);
+      var n=doc.splitTextToSize(gfPdfText(it.PRODUTO||it.ID_PRODUTO),78);doc.text(n.slice(0,1),tx,yy);
+      doc.setFont("helvetica","bold");doc.setTextColor(20,43,77);doc.text(money(val),W-M-4,yy,{align:"right"});
+      yy+=5.2;
+    });
+    doc.setDrawColor(220,228,238);doc.line(tx,yy-1.4,W-M-4,yy-1.4);
+    doc.setFont("helvetica","bold");doc.setFontSize(7.5);doc.setTextColor(18,59,118);doc.text("Subtotal do fardamento",tx,yy+3);
+    doc.text(money(subtotal),W-M-4,yy+3,{align:"right"});
+    y+=boxH+10;
+  }
   function addFooters(){
     var pages=doc.getNumberOfPages();
     for(var p=1;p<=pages;p++){
@@ -204,6 +277,11 @@ async function gfDownloadAttendancePdf(rec,itens){
   section("Produtos e serviços selecionados");
   (itens||[]).forEach(item);
   if(!(itens||[]).length){ensure(8);doc.setFont("helvetica","normal");doc.setTextColor(105,115,130);doc.setFontSize(8);doc.text("Nenhum produto ou serviço adicional selecionado.",M,y);y+=7}
+
+  if(uniformGroups.length){
+    section("Fardamento selecionado • imagem e valores");
+    uniformGroups.forEach(uniformBlock);
+  }
 
   section("Resumo");
   ensure(16);doc.setFillColor(236,244,255);doc.roundedRect(M,y-2,W-M*2,14,2,2,"F");
@@ -313,8 +391,9 @@ async function renderAtendimento(){
     Object.keys(groups).forEach(function(cat){
       html+="<section class='catalog-group'><h3>"+esc(cat)+"</h3><div class='catalog-grid'>";
       groups[cat].forEach(function(p){
-        var checked=state.attendanceItems.has(p.ID_PRODUTO);
-        html+="<article class='catalog-item "+(checked?"selected":"")+"'><label><input type='checkbox' data-att-product='"+esc(p.ID_PRODUTO)+"' "+(checked?"checked":"")+"><div><small>"+esc(p.SUBCATEGORIA||"")+"</small><strong>"+esc(p.PRODUTO)+"</strong><span>"+esc(p["DESCRIÇÃO"]||p["OBSERVAÇÃO"]||"")+"</span></div></label><div class='catalog-price'><b>"+money(p.VALOR_BASE)+"</b><button type='button' class='discount-link' data-discount='"+esc(p.ID_PRODUTO)+"'>Pedir desconto</button></div></article>";
+        var checked=state.attendanceItems.has(p.ID_PRODUTO),uniformAsset=gfIsUniformProduct(p)?gfUniformAssetForProduct(p,s):null;
+        var uniformThumb=uniformAsset?"<div class='attendance-uniform-thumb'><img src='"+esc(uniformAsset.src)+"' alt='"+esc(uniformAsset.label)+"'><span>Ver farda</span></div>":"";
+        html+="<article class='catalog-item "+(checked?"selected":"")+" "+(uniformAsset?"with-uniform":"")+"'>"+uniformThumb+"<label><input type='checkbox' data-att-product='"+esc(p.ID_PRODUTO)+"' "+(checked?"checked":"")+"><div><small>"+esc(p.SUBCATEGORIA||"")+"</small><strong>"+esc(p.PRODUTO)+"</strong><span>"+esc(p["DESCRIÇÃO"]||p["OBSERVAÇÃO"]||"")+"</span></div></label><div class='catalog-price'><b>"+money(p.VALOR_BASE)+"</b><button type='button' class='discount-link' data-discount='"+esc(p.ID_PRODUTO)+"'>Pedir desconto</button></div></article>";
       });
       html+="</div></section>";
     });
