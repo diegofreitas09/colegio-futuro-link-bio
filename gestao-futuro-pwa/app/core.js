@@ -357,10 +357,8 @@ function sessionLabel() {
 function refreshInterfaceSwitch(){
   const b=$("#interfaceSwitchBtn"); if(!b) return;
   const role=activeInterfaceRole();
-  if(role==="staff"){
-    b.classList.remove("hidden"); b.textContent="⇄ Gestão"; b.dataset.targetRole="admin"; b.title="Trocar para a interface da Gestão";
-  }else if(role==="admin"){
-    b.classList.remove("hidden"); b.textContent="⇄ Secretaria"; b.dataset.targetRole="staff"; b.title="Trocar para a interface da Secretaria";
+  if(role==="staff"||role==="admin"){
+    b.classList.remove("hidden"); b.textContent="⌂ Início"; b.dataset.targetRole="home"; b.title="Voltar à tela principal";
   }else{
     b.classList.add("hidden"); b.dataset.targetRole="";
   }
@@ -374,7 +372,8 @@ function modal(html) { $("#modalRoot").innerHTML=`<div class="modal-backdrop"><d
 function closeModal() { $("#modalRoot").innerHTML=""; }
 function switchInterfaceModal(targetRole){
   const toAdmin=targetRole==="admin";
-  const title=toAdmin?"Trocar para Gestão":"Trocar para Secretaria";
+  const isPublic=activeInterfaceRole()==="public";
+  const title=isPublic?(toAdmin?"Acessar Gestão":"Acessar Secretaria"):(toAdmin?"Trocar para Gestão":"Trocar para Secretaria");
   const subtitle=toAdmin
     ?"Informe a senha da Gestão para abrir a área administrativa e financeira."
     :"Informe a senha da Secretaria para abrir a área operacional.";
@@ -408,11 +407,14 @@ function switchInterfaceModal(targetRole){
         sessionStorage.setItem("gf_staff_token",res.token);sessionStorage.removeItem("gf_admin_token");sessionStorage.setItem("gf_role","staff");
         if(oldAdmin){try{await api("logout",{token:oldAdmin})}catch{}}
       }
-      clearApiCache();state.bootstrap=null;resetRunModeForEntry();
+      clearApiCache();state.bootstrap=null;setRunMode("PRODUCAO");
       applyRoleInterface();refreshSessionButton();closeModal();
-      showToast("Interface alterada para "+(toAdmin?"Gestão":"Secretaria")+" ✓","ok");
+      if(typeof hideHomeScreen==="function")hideHomeScreen();
+      showToast((isPublic?"Acesso liberado: ":"Interface alterada para ")+(toAdmin?"Gestão":"Secretaria")+" ✓","ok");
       if(toAdmin&&typeof pollApprovals==="function")pollApprovals();
-      await navigate("dashboard");openModeGate();
+      ensureEntryNotifications().catch(()=>{});
+      await navigate("dashboard");
+      if(typeof resetHomeIdle==="function")resetHomeIdle();
     }catch(e){
       showToast(e.message||"Senha inválida.","error");
       btn.disabled=false;btn.textContent=old;$("#switchRolePass").focus();
@@ -453,7 +455,7 @@ function authModal(targetRole="staff") {
       state.adminToken="";sessionStorage.removeItem("gf_admin_token");
       state.staffToken=res.token; state.role="staff";
       sessionStorage.setItem("gf_staff_token",res.token); sessionStorage.setItem("gf_role","staff");
-      state.bootstrap=null;resetRunModeForEntry();applyRoleInterface();refreshSessionButton(); closeModal(); await navigate("dashboard");openModeGate();
+      state.bootstrap=null;setRunMode("PRODUCAO");applyRoleInterface();refreshSessionButton(); closeModal(); if(typeof hideHomeScreen==="function")hideHomeScreen(); ensureEntryNotifications().catch(()=>{}); await navigate("dashboard"); if(typeof resetHomeIdle==="function")resetHomeIdle();
     }catch(e){ alert(e.message); btn.disabled=false; btn.textContent="Entrar na Secretaria"; }
   };
   $("#adminLogin").onclick=async()=>{
@@ -467,7 +469,7 @@ function authModal(targetRole="staff") {
       state.staffToken="";sessionStorage.removeItem("gf_staff_token");
       state.adminToken=res.token; state.role="admin";
       sessionStorage.setItem("gf_admin_token",res.token); sessionStorage.setItem("gf_role","admin");
-      state.bootstrap=null;resetRunModeForEntry();applyRoleInterface();refreshSessionButton(); closeModal(); if(typeof pollApprovals==="function") pollApprovals(); await navigate("dashboard");openModeGate();
+      state.bootstrap=null;setRunMode("PRODUCAO");applyRoleInterface();refreshSessionButton(); closeModal(); if(typeof hideHomeScreen==="function")hideHomeScreen(); if(typeof pollApprovals==="function") pollApprovals(); ensureEntryNotifications().catch(()=>{}); await navigate("dashboard"); if(typeof resetHomeIdle==="function")resetHomeIdle();
     }catch(e){ alert(e.message); btn.disabled=false; btn.textContent="Entrar na Gestão"; }
   };
   const lo=$("#logoutBtn"); if(lo) lo.onclick=logoutAll;
@@ -479,7 +481,7 @@ async function logoutAll(){
   try{ if(state.staffToken && state.staffToken!==state.adminToken) await api("logout",{token:state.staffToken}); }catch{}
   state.staffToken=""; state.adminToken=""; state.role=""; state.bootstrap=null;
   sessionStorage.removeItem("gf_staff_token");sessionStorage.removeItem("gf_admin_token");sessionStorage.removeItem("gf_role");
-  resetRunModeForEntry();closeModeGate();applyRoleInterface();refreshSessionButton();closeModal();navigate("dashboard");
+  resetRunModeForEntry();closeModeGate();applyRoleInterface();refreshSessionButton();closeModal();navigate("dashboard");if(typeof showHomeScreen==="function")showHomeScreen("logout");
 }
 
 async function requireRole(view){
