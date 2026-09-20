@@ -4,8 +4,8 @@
  * Este arquivo deve substituir o conteúdo atual de ApiPwa.gs no MESMO projeto Apps Script.
  * O Código.gs existente permanece como base de Secretaria/Financeiro.
  */
-const PWA_API_VERSION="2026.09.20.2";
-const PWA_CAPABILITIES=Object.freeze({testMode:true,clearTest:true,modeTagging:true,modeFilteredFinance:true,modeIsolationGuard:true});
+const PWA_API_VERSION="2026.09.20.3";
+const PWA_CAPABILITIES=Object.freeze({testMode:true,clearTest:true,modeTagging:true,modeFilteredFinance:true,modeIsolationGuard:true,cashSaveIdempotency:true,cashDeleteIndividual:true});
 const PWA_GATEWAY_PROP="FUTURO_PWA_GATEWAY_KEY";
 const PWA_STAFF_HASH_PROP="FUTURO_STAFF_PASSWORD_SHA256";
 const PWA_DEBUG_PROP="FUTURO_PWA_DEBUG";
@@ -216,10 +216,35 @@ function pwaRegistrarPagamento_(token,data,modo,sessao){
 }
 function pwaSalvarMovimentoCaixa_(token,data,modo,sessao){
   pwaAdmin_(token);data=data||{};return pwaWithLock_(function(){
-    data.MODO_REGISTRO=pwaMode_(modo);data.SESSAO_TESTE=pwaMode_(modo)==="TESTE"?String(sessao||""):"";
-    var res=salvarMovimentoCaixa(token,data),id=res&&(res.id||res.ID_CAIXA)||data.ID_CAIXA||"";
+    var requestId=String(data.CLIENT_REQUEST_ID||"").trim(),cache=CacheService.getScriptCache(),cacheKey=requestId?("gf_cash_save_"+requestId):"";
+    if(cacheKey){
+      var prior=cache.get(cacheKey);
+      if(prior){try{return JSON.parse(prior)}catch(_e){return {ok:true,duplicate:true}}}
+    }
+    var payload=Object.assign({},data);delete payload.CLIENT_REQUEST_ID;
+    payload.MODO_REGISTRO=pwaMode_(modo);payload.SESSAO_TESTE=pwaMode_(modo)==="TESTE"?String(sessao||""):"";
+    var res=salvarMovimentoCaixa(token,payload),id=res&&(res.id||res.ID_CAIXA)||payload.ID_CAIXA||"";
     if(id)pwaMarkWhere_("CAIXA","ID_CAIXA",id,modo,sessao);else pwaMarkLastDataRow_("CAIXA",modo,sessao);
-    return res;
+    var out=res&&typeof res==="object"?res:{ok:true,id:id};out.id=out.id||id||"";out.duplicate=false;
+    if(cacheKey)cache.put(cacheKey,JSON.stringify(out),600);
+    return out;
+  })
+}
+function pwaExcluirMovimentoCaixa_(token,id,modo){
+  pwaAdmin_(token);id=String(id||"").trim();if(!id)throw new Error("Movimentação não informada.");
+  return pwaWithLock_(function(){
+    var rec=findById_("CAIXA","ID_CAIXA",id);if(!rec)throw new Error("Movimentação não encontrada.");
+    pwaAssertRowMode_(rec,modo,"Movimentação");
+    if(String(rec.ID_RECEBIMENTO||"").trim())throw new Error("Esta movimentação está vinculada a um recebimento. Faça o estorno pelo módulo Recebimentos para manter o financeiro consistente.");
+    var sh=SpreadsheetApp.getActive().getSheetByName("CAIXA");if(!sh)throw new Error("Aba CAIXA não encontrada.");
+    var lastCol=sh.getLastColumn(),lastRow=sh.getLastRow(),headers=sh.getRange(4,1,1,lastCol).getDisplayValues()[0],idCol=headers.indexOf("ID_CAIXA")+1;
+    if(!idCol)throw new Error("Coluna ID_CAIXA não encontrada.");
+    var ids=lastRow>=5?sh.getRange(5,idCol,lastRow-4,1).getDisplayValues():[],rowNum=0;
+    for(var i=0;i<ids.length;i++){if(String(ids[i][0]).trim()===id){rowNum=i+5;break}}
+    if(!rowNum)throw new Error("Movimentação não localizada na planilha.");
+    audit_("Gestão","EXCLUIR","Caixa",id,JSON.stringify(rec),"");
+    sh.deleteRow(rowNum);SpreadsheetApp.flush();
+    return {ok:true,id:id};
   })
 }
 function pwaGetFechamento_(token,modo){
@@ -597,6 +622,7 @@ function doPost(e){
       case "gerarResumoAluno":data=gerarResumoAluno(body.token,body.idAluno);break;
       case "registrarPagamento":data=pwaRegistrarPagamento_(body.token,body.data||{},body.modo,body.sessaoTeste);break;
       case "salvarMovimentoCaixa":data=pwaSalvarMovimentoCaixa_(body.token,body.data||{},body.modo,body.sessaoTeste);break;
+      case "excluirMovimentoCaixa":data=pwaExcluirMovimentoCaixa_(body.token,body.id,body.modo);break;
       case "listarAtendimentos":data=listarAtendimentosPwa_(body.token,body.modo);break;
       case "getAtendimento":data=getAtendimentoPwa_(body.token,body.id,body.modo);break;
       case "salvarAtendimento":data=salvarAtendimentoPwa_(body.token,body.data,body.itens,body.modo,body.sessaoTeste);break;
