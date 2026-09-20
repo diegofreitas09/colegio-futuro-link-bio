@@ -263,17 +263,20 @@ linear-gradient(160deg,#0d55be 0%,#082e71 38%,#041a3d 72%,#03132d 100%)}
 @keyframes splashEnter{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
 @keyframes splashPulse{0%,80%,100%{opacity:.35;transform:scale(.8)}40%{opacity:1;transform:scale(1.15)}}
 
-.dashboard-brand-hero{position:relative;margin:0 0 20px;border-radius:22px;overflow:hidden;min-height:260px;background:radial-gradient(circle at 78% 20%,rgba(72,154,255,.34),transparent 27%),radial-gradient(circle at 15% 90%,rgba(247,181,0,.15),transparent 30%),linear-gradient(135deg,#0d4da4 0%,#082f6c 48%,#061d43 100%);border:1px solid rgba(23,82,157,.24);box-shadow:0 18px 45px rgba(9,39,84,.16)}
-.dashboard-brand-visual{min-height:260px;display:flex;align-items:center;justify-content:center;gap:28px;padding:34px 28px 62px;color:#fff}
-.dashboard-hero-logo{display:block;width:min(180px,30vw);height:min(180px,30vw);max-width:180px;max-height:180px;object-fit:contain;border-radius:28px;background:#fff;padding:10px;box-shadow:0 20px 44px rgba(0,0,0,.22)}
-.dashboard-hero-copy{display:grid;gap:5px}.dashboard-hero-copy small{font-size:10px;letter-spacing:.18em;color:#9dcbff;font-weight:900}.dashboard-hero-copy strong{font-size:clamp(30px,5vw,54px);line-height:1;letter-spacing:-.04em}.dashboard-hero-copy p{margin:5px 0 0;color:#dceaff;font-size:13px}
-.dashboard-brand-caption{position:absolute;left:16px;bottom:15px;display:flex;align-items:center;gap:8px}
+.dashboard-brand-hero{position:relative;margin:0 0 20px;border-radius:22px;overflow:hidden;min-height:300px;background:radial-gradient(circle at 82% 18%,rgba(72,154,255,.30),transparent 28%),radial-gradient(circle at 12% 92%,rgba(247,181,0,.13),transparent 30%),linear-gradient(100deg,#214f86 0%,#123d79 38%,#082c69 72%,#061f4d 100%);border:1px solid rgba(23,82,157,.24);box-shadow:0 18px 45px rgba(9,39,84,.16)}
+.dashboard-brand-visual{min-height:300px;display:flex;align-items:center;justify-content:flex-start;gap:34px;padding:34px 42px 66px;color:#fff;text-align:left}
+.dashboard-hero-logo{display:block;flex:0 0 auto;width:190px;height:190px;object-fit:contain;border-radius:28px;background:#fff;padding:10px;box-shadow:0 20px 44px rgba(0,0,0,.22)}
+.dashboard-hero-copy{display:flex;flex:1;min-width:0;flex-direction:column;align-items:flex-start;justify-content:center;text-align:left}
+.dashboard-hero-copy small{display:block;margin:0 0 9px;font-size:12px;letter-spacing:.18em;color:#a8ccff;font-weight:900}
+.dashboard-hero-copy strong{display:block;width:100%;font-size:clamp(58px,7vw,96px);line-height:.92;letter-spacing:-.055em;font-weight:900;white-space:nowrap;color:#fff}
+.dashboard-hero-copy p{margin:16px 0 0;color:#e7f1ff;font-size:clamp(15px,1.7vw,21px);line-height:1.25;font-weight:500;white-space:normal}
+.dashboard-brand-caption{position:absolute;left:20px;bottom:14px;display:flex;align-items:center;gap:8px}
 .dashboard-brand-caption span{display:inline-flex;align-items:center;min-height:30px;padding:7px 11px;border-radius:999px;background:rgba(4,27,66,.78);border:1px solid rgba(255,255,255,.28);backdrop-filter:blur(10px);color:#fff;font-size:10px;font-weight:850;letter-spacing:.025em;box-shadow:0 6px 18px rgba(0,0,0,.16)}
 .brand-logo.official{background:#fff!important;border:1px solid rgba(255,255,255,.38);box-shadow:0 10px 26px rgba(0,0,0,.18)!important}
 .brand-logo.official img{padding:2px;filter:none}
 @media(max-width:760px){
   .app-splash-content{width:92vw}.app-splash-logo{width:86vw;margin-bottom:24px}.app-splash p{margin:14px 0 30px}
-  .dashboard-brand-hero{border-radius:16px;margin-bottom:14px;min-height:210px}.dashboard-brand-visual{min-height:210px;padding:24px 16px 54px;gap:16px}.dashboard-hero-logo{width:104px;height:104px;border-radius:20px;padding:7px}.dashboard-hero-copy strong{font-size:30px}.dashboard-hero-copy p{font-size:10px}.dashboard-brand-caption{left:10px;bottom:10px}.dashboard-brand-caption span{font-size:9px;min-height:26px;padding:6px 9px}
+  .dashboard-brand-hero{border-radius:16px;margin-bottom:14px;min-height:230px}.dashboard-brand-visual{min-height:230px;padding:22px 18px 56px;gap:14px;align-items:center;justify-content:flex-start}.dashboard-hero-logo{width:112px;height:112px;border-radius:20px;padding:7px}.dashboard-hero-copy{align-items:flex-start;text-align:left}.dashboard-hero-copy small{font-size:8px;margin-bottom:5px}.dashboard-hero-copy strong{font-size:clamp(34px,9vw,46px);line-height:.94;white-space:normal}.dashboard-hero-copy p{font-size:10px;line-height:1.35;margin-top:9px}.dashboard-brand-caption{left:10px;bottom:10px}.dashboard-brand-caption span{font-size:9px;min-height:26px;padding:6px 9px}
 }
 
 
