@@ -397,3 +397,48 @@ body.home-active .shell{filter:blur(2px) saturate(.8);pointer-events:none;user-s
  .report-hub-hero{padding:20px;align-items:flex-start}.report-hub-hero h2{font-size:25px}.report-hub-hero>b{min-width:68px;width:68px;height:68px;font-size:15px}
  .report-hub-grid{grid-template-columns:1fr}.report-hub-card{min-height:112px}.btn-report{width:100%}
 }
+
+
+/* Fardamento visual nos panfletos */
+.flyer-uniforms{margin-top:8px!important;padding:8px;border:1px solid #dce6f3;border-radius:11px;background:linear-gradient(180deg,#f8fbff,#fff);break-inside:avoid}
+.flyer-uniform-title{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
+.flyer-uniform-title h3{margin:0!important;padding:0!important;border:0!important;font-size:13px;color:#123b76}
+.flyer-uniform-title span{font-size:8.5px;color:#6c7e94;font-weight:800;text-transform:uppercase;letter-spacing:.06em}
+.flyer-uniform-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.flyer-uniform-grid.single{grid-template-columns:1fr}
+.flyer-uniform-card{margin:0;min-width:0;border:1px solid #e1e8f2;border-radius:9px;background:#fff;padding:4px;overflow:hidden;break-inside:avoid}
+.flyer-uniform-card img{display:block;width:100%;height:122px;object-fit:contain;object-position:center;background:#fff;border-radius:6px}
+.flyer-uniform-card figcaption{padding:4px 4px 1px;color:#123b76;font-size:8.5px;font-weight:800;line-height:1.15}
+.flyer-uniform-note{margin:5px 1px 0;font-size:8.5px;line-height:1.2;color:#596b82}
+.flyer-uniform-empty{padding:9px 11px!important;background:#fff8e7;border-color:#f0d78a}
+.flyer-uniform-empty h3{margin:0 0 3px!important;border:0!important;padding:0!important;font-size:12px}
+.flyer-uniform-empty p{margin:0;font-size:8.5px;line-height:1.25;color:#77662e}
+
+.uniform-editor-block{padding:12px;border:1px solid #d8e4f3;border-radius:14px;background:#f7faff}
+.uniform-picker{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:8px}
+.uniform-pick-card{position:relative;display:grid;grid-template-columns:24px 78px 1fr;align-items:center;gap:8px;padding:8px;border:1px solid #dce5f0;border-radius:12px;background:#fff;cursor:pointer;min-width:0}
+.uniform-pick-card.relevant{border-color:#9fc5ef;background:#f4f9ff}
+.uniform-pick-card input{width:18px;height:18px;accent-color:#1e63d8}
+.uniform-pick-image{height:58px;border-radius:8px;background:#fff;display:grid;place-items:center;overflow:hidden;border:1px solid #edf1f6}
+.uniform-pick-image img{width:100%;height:100%;object-fit:contain}
+.uniform-pick-card b{font-size:11px;line-height:1.25;color:#123b76}
+
+@media(max-width:760px){
+  .flyer-uniform-grid{grid-template-columns:1fr}
+  .flyer-uniform-card img{height:auto;max-height:210px}
+  .uniform-picker{grid-template-columns:1fr}
+  .uniform-pick-card{grid-template-columns:24px 72px 1fr}
+}
+@media print{
+  .flyer-uniforms{padding:5px!important;margin-top:4px!important}
+  .flyer-uniform-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:5px!important}
+  .flyer-uniform-grid.single{grid-template-columns:1fr!important}
+  .flyer-uniform-card{padding:3px!important}
+  .flyer-uniform-card img{height:82px!important}
+  .flyer-uniform-card figcaption{font-size:7px!important;padding:2px!important}
+  .flyer-uniform-title{margin-bottom:4px!important}
+  .flyer-uniform-title h3{font-size:10px!important}
+  .flyer-uniform-note,.flyer-uniform-empty p{font-size:7px!important}
+}
+.flyer-a4.dense .flyer-uniform-card img{height:98px}
+.flyer-a4.ultra-dense .flyer-uniform-card img{height:78px}
