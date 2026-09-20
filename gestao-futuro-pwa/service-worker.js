@@ -1,4 +1,4 @@
-const CACHE = "gestao-futuro-shell-v36";
+const CACHE = "gestao-futuro-shell-v37";
 const SHELL = [
   "/", "/index.html", "/styles.css", "/manifest.webmanifest",
   "/assets/app-icon-192.png", "/assets/app-icon-512.png", "/assets/logo-futuro.png", "/assets/hero-futuro.webp",
