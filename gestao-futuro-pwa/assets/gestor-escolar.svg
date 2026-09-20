@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="Gestor Escolar">
+  <rect x="1" y="1" width="238" height="238" rx="10" fill="#ffffff" stroke="#d9d9d9" stroke-width="2"/>
+  <rect x="10" y="10" width="103" height="103" rx="5" fill="#fff000"/>
+  <rect x="127" y="10" width="103" height="103" rx="5" fill="#e3221c"/>
+  <rect x="10" y="127" width="103" height="103" rx="5" fill="#0d86c8"/>
+  <rect x="127" y="127" width="103" height="103" rx="5" fill="#83c91f"/>
+  <path d="M111 13
+           L82 42
+           C78 46 78 53 82 57
+           L96 71
+           C102 77 102 87 96 93
+           C90 99 80 99 74 93
+           L60 79
+           C56 75 49 75 45 79
+           L14 110
+           L49 145
+           C53 149 60 149 64 145
+           L77 132
+           C83 126 93 126 99 132
+           C105 138 105 148 99 154
+           L86 167
+           C82 171 82 178 86 182
+           L111 207
+           L136 182
+           C140 178 140 171 136 167
+           L123 154
+           C117 148 117 138 123 132
+           C129 126 139 126 145 132
+           L158 145
+           C162 149 169 149 173 145
+           L208 110
+           L173 75
+           C169 71 162 71 158 75
+           L145 88
+           C139 94 129 94 123 88
+           C117 82 117 72 123 66
+           L136 53
+           C140 49 140 42 136 38
+           L111 13 Z"
+        fill="#ffffff" stroke="#8b8b8b" stroke-width="3" stroke-linejoin="round"/>
+</svg>
