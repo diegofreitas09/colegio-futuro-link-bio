@@ -17,7 +17,7 @@ button,input,select,textarea{font:inherit}.hidden{display:none!important}.muted{
 .section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:22px 0 12px}.section-head h2{margin:0;font-size:20px;color:var(--blue)}.toolbar{display:flex;gap:8px;flex-wrap:wrap}.search{min-width:260px;border:1px solid var(--line);border-radius:11px;padding:10px 12px;background:#fff}
 .table-wrap{overflow:auto;background:#fff;border:1px solid var(--line);border-radius:15px;box-shadow:var(--shadow)}table{width:100%;border-collapse:collapse;min-width:850px}th,td{padding:11px 12px;border-bottom:1px solid var(--line);text-align:left;font-size:13px}th{position:sticky;top:0;background:#f0f5fd;color:#284365;font-size:11px;text-transform:uppercase;letter-spacing:.04em}tbody tr:hover{background:#fafcff}.pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#eef3fb;font-size:11px;font-weight:800}.pill.ok{background:#e7f8ee;color:#116c3b}.pill.warn{background:#fff2cc;color:#795d00}.money{font-variant-numeric:tabular-nums;font-weight:750}
 .form-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.field{display:grid;gap:5px}.field label{font-size:11px;font-weight:800;color:#4f5f73;text-transform:uppercase}.field input,.field select,.field textarea{width:100%;border:1px solid #dce3ed;border-radius:10px;padding:10px 11px;background:#fff;color:var(--text)}.field textarea{min-height:78px;resize:vertical}.span-2{grid-column:span 2}.span-3{grid-column:span 3}
-.modal-backdrop{position:fixed;inset:0;background:#0b2346aa;display:grid;place-items:center;padding:18px;z-index:100}.modal{width:min(850px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:18px;box-shadow:0 30px 80px #001b3d55}.modal-head{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}.modal-head h3{margin:0;color:var(--blue)}.modal-body{padding:18px}.modal-foot{padding:14px 18px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:9px}.icon-btn{border:0;background:#eef3fb;border-radius:9px;padding:7px 10px;cursor:pointer}
+.modal-backdrop{position:fixed;inset:0;background:#0b2346cc;display:grid;place-items:center;padding:18px;z-index:40000}.modal{width:min(850px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:18px;box-shadow:0 30px 80px #001b3d55}.modal-head{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}.modal-head h3{margin:0;color:var(--blue)}.modal-body{padding:18px}.modal-foot{padding:14px 18px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:9px}.icon-btn{border:0;background:#eef3fb;border-radius:9px;padding:7px 10px;cursor:pointer}
 .login-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.login-card{border:1px solid var(--line);border-radius:15px;padding:16px}.login-card h4{margin:0 0 5px;color:var(--blue)}
 .empty{padding:30px;text-align:center;color:var(--muted)}.status-dot{width:8px;height:8px;border-radius:999px;display:inline-block;background:#9aa4b2;margin-right:6px}.status-dot.online{background:#20a45b}.status-dot.offline{background:#e14848}
 @media(max-width:1050px){.cards{grid-template-columns:repeat(2,1fr)}.form-grid{grid-template-columns:repeat(2,1fr)}.span-3{grid-column:span 2}}
@@ -274,4 +274,42 @@ linear-gradient(160deg,#0d55be 0%,#082e71 38%,#041a3d 72%,#03132d 100%)}
 @media(max-width:760px){
   .app-splash-content{width:92vw}.app-splash-logo{width:86vw;margin-bottom:24px}.app-splash p{margin:14px 0 30px}
   .dashboard-brand-hero{border-radius:16px;margin-bottom:14px;min-height:210px}.dashboard-brand-visual{min-height:210px;padding:24px 16px 54px;gap:16px}.dashboard-hero-logo{width:104px;height:104px;border-radius:20px;padding:7px}.dashboard-hero-copy strong{font-size:30px}.dashboard-hero-copy p{font-size:10px}.dashboard-brand-caption{left:10px;bottom:10px}.dashboard-brand-caption span{font-size:9px;min-height:26px;padding:6px 9px}
+}
+
+
+/* Tela principal fixa + descanso de tela */
+body.home-active{overflow:hidden}
+body.home-active .shell{filter:blur(2px) saturate(.8);pointer-events:none;user-select:none}
+.app-splash.home-screen{z-index:30000;display:grid;opacity:1;visibility:visible;pointer-events:auto}
+.app-splash.home-screen.done{opacity:0;visibility:hidden;pointer-events:none}
+.home-screen .app-splash-content{width:min(760px,92vw);padding:28px 0}
+.home-screen .app-splash-logo{width:min(440px,72vw);max-height:310px;margin-bottom:24px;border-radius:0}
+.home-screen .app-splash h1{font-size:clamp(38px,7vw,68px)}
+.home-screen .app-splash p{margin:16px 0 24px}
+.home-role-picker{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:min(650px,100%);margin:0 auto 20px}
+.home-role-btn{min-height:86px;border:1px solid rgba(255,255,255,.24);border-radius:20px;padding:13px 14px;display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;text-align:left;color:#fff;background:rgba(255,255,255,.09);backdrop-filter:blur(12px);box-shadow:0 12px 30px rgba(0,0,0,.12);cursor:pointer;transition:.18s ease}
+.home-role-btn:hover{transform:translateY(-2px);background:rgba(255,255,255,.14)}
+.home-role-btn.admin{border-color:rgba(247,200,68,.4)}
+.home-role-btn.staff{border-color:rgba(109,187,255,.42)}
+.home-role-icon{width:48px;height:48px;border-radius:15px;display:grid;place-items:center;background:rgba(255,255,255,.14);font-size:24px}
+.home-role-btn strong{display:block;font-size:17px}
+.home-role-btn small{display:block;margin-top:4px;color:#cfe1fb;font-size:10px;letter-spacing:.01em;text-transform:none}
+.home-role-btn i{font-style:normal;font-size:9px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;padding:7px 9px;border-radius:999px;background:rgba(255,255,255,.12)}
+.home-role-btn.admin i{color:#ffd968}.home-role-btn.staff i{color:#9fd2ff}
+.home-status{display:flex;align-items:center;justify-content:center;gap:9px;margin-top:4px}
+.home-status-dot{width:8px;height:8px;border-radius:50%;background:#52b6ff;box-shadow:18px 0 0 #d5aa38,36px 0 0 #2e69aa;margin-right:36px}
+.home-status small{font-size:9px!important;letter-spacing:.25em!important;color:#9bbbe6!important}
+.home-install{margin:18px auto 0;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.08);color:#fff;border-radius:999px;padding:9px 14px;font-size:10px;font-weight:800;cursor:pointer}
+.home-install.hidden{display:none}
+@media(max-width:760px){
+  .home-screen .app-splash-content{width:90vw;padding:18px 0 24px}
+  .home-screen .app-splash-logo{width:min(78vw,430px);max-height:44vh;margin-bottom:22px}
+  .home-screen .app-splash h1{font-size:42px}
+  .home-screen .app-splash p{font-size:15px;margin:14px 0 22px}
+  .home-role-picker{grid-template-columns:1fr;gap:9px;width:100%}
+  .home-role-btn{min-height:74px;padding:10px 12px;border-radius:17px}
+  .home-role-icon{width:42px;height:42px;font-size:21px}
+  .home-role-btn strong{font-size:15px}
+  .home-role-btn small{font-size:9px}
+  .home-status{margin-top:14px}
 }
