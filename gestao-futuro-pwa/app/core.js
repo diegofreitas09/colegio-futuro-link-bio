@@ -17,6 +17,9 @@ const state = {
   testSession: sessionStorage.getItem("gf_test_session") || "",
   apiCache: new Map(),
   apiInflight: new Map(),
+  backendVersion: "",
+  backendCaps: {},
+  backendChecked: false,
   navSeq: 0
 };
 
@@ -167,9 +170,12 @@ function refreshModeButton(){
   }
   const clear=$("#clearTestBtn");
   if(clear){
-    const canClear=state.runMode==="TESTE" && activeInterfaceRole()==="admin" && !!state.adminToken;
-    clear.classList.toggle("hidden",!canClear);
+    const show=state.runMode==="TESTE" && activeInterfaceRole()==="admin" && !!state.adminToken;
+    const canClear=show && state.backendCaps.clearTest===true;
+    clear.classList.toggle("hidden",!show);
     clear.disabled=!canClear;
+    clear.textContent=canClear?"🧹 Limpar teste":"🧹 Limpar teste • API pendente";
+    clear.title=canClear?"Apagar somente registros de Teste/Simulação":"Publique a versão atualizada do Apps Script para habilitar a limpeza.";
   }
 }
 function setRunMode(mode){
@@ -217,6 +223,15 @@ function closeModeGate(){
 async function selectEntryMode(mode,button){
   const old=button?.innerHTML||"";
   if(button){button.disabled=true;button.innerHTML="<strong>Preparando…</strong><small>Ativando ambiente e notificações</small>"}
+  if(mode==="TESTE"){
+    if(!state.backendChecked)await checkApi();
+    const safe=state.backendCaps.testMode===true&&state.backendCaps.modeTagging===true;
+    if(!safe){
+      if(button){button.disabled=false;button.innerHTML=old}
+      showToast("Teste/Simulação bloqueado até publicar a API atualizada do Apps Script.","error");
+      return;
+    }
+  }
   setRunMode(mode);
   const notif=await ensureEntryNotifications();
   closeModeGate();
@@ -281,6 +296,10 @@ async function clearAllTestData(){
     showToast("Ative Teste / Simulação antes de usar a limpeza.","error");
     return;
   }
+  if(state.backendCaps.clearTest!==true){
+    showToast("A API do Apps Script ainda está desatualizada. Publique a versão atual para liberar a limpeza.","error");
+    return;
+  }
   const ok=confirm("Limpar TODOS os registros de Teste/Simulação?\n\nA Produção será preservada. Esta ação não pode ser desfeita.");
   if(!ok)return;
   const btn=$("#clearTestBtn"),old=btn?.textContent||"🧹 Limpar teste";
@@ -336,7 +355,9 @@ function apiCacheKey(action,payload,meta){
 function clearApiCache(){state.apiCache.clear();state.bootstrap=null}
 async function api(action, payload={}) {
   const writeActions=["salvarAluno","salvarResponsavel","criarMatriculaCompleta","atualizarDocumento","registrarPagamento","salvarMovimentoCaixa","salvarAtendimento","solicitarDesconto","decidirSolicitacaoDesconto","salvarPanfletoSerie","atualizarProduto","criarProdutoServico","aplicarReajusteIndividual","aplicarReajusteCatalogo","limparDadosTeste","limparAutorizacoesTeste"];
+  const productionOnly=["salvarPanfletoSerie","atualizarProduto","criarProdutoServico","aplicarReajusteIndividual","aplicarReajusteCatalogo"];
   if(writeActions.includes(action)&&!state.runMode){openModeGate();throw new Error("Escolha Produção ou Teste/Simulação antes de salvar.")}
+  if(state.runMode==="TESTE"&&productionOnly.includes(action))throw new Error("Este comando altera configurações oficiais e só pode ser usado em Produção.");
   const meta={modo:currentRunMode(),sessaoTeste:state.runMode==="TESTE"?ensureTestSession():""};
   const ttl=API_CACHE_TTL[action]||0,key=ttl?apiCacheKey(action,payload,meta):"";
   if(ttl){
@@ -371,10 +392,22 @@ async function checkApi() {
   try {
     const r = await fetch(API, {cache:"no-store"});
     const data = await r.json();
-    if (r.ok && data.ok) { dot.className="status-dot online"; text.textContent="backend conectado"; }
-    else throw new Error();
+    if (r.ok && data.ok) {
+      state.backendVersion=String(data.version||"");
+      state.backendCaps=data.capabilities&&typeof data.capabilities==="object"?data.capabilities:{};
+      state.backendChecked=true;
+      dot.className="status-dot online";
+      const safeTest=state.backendCaps.testMode===true&&state.backendCaps.modeTagging===true;
+      text.textContent=safeTest?"backend conectado • API "+state.backendVersion:"backend conectado • atualização pendente";
+      refreshModeButton();
+      return data;
+    }
+    throw new Error();
   } catch {
+    state.backendChecked=true;state.backendCaps={};
     dot.className="status-dot offline"; text.textContent="backend indisponível";
+    refreshModeButton();
+    return null;
   }
 }
 
