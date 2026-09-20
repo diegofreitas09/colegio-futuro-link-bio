@@ -65,7 +65,7 @@ async function sendToAll(payload: Record<string, unknown>) {
 
 export default async (req: Request, _context: Context) => {
   const publicKey = Netlify.env.get("FUTURO_VAPID_PUBLIC_KEY") || "";
-  if (req.method === "GET") return json({ ok: true, publicKey });
+  if (req.method === "GET") return json({ ok: true, configured: !!publicKey, publicKey });
 
   if (req.method !== "POST") return json({ ok: false, error: "Método não permitido." }, 405);
 
