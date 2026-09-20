@@ -23,15 +23,15 @@ const state = {
 const titles = {
   dashboard:"Dashboard", atendimento:"Atendimento de matrículas", panfletos:"Panfletos por série", alunos:"Alunos", responsaveis:"Responsáveis", matriculas:"Matrículas",
   documentos:"Documentos", produtos:"Valores e reajustes", autorizacoes:"Autorizações da Gestão", recebimentos:"Recebimentos",
-  caixa:"Fluxo de caixa", fechamento:"Fechamento financeiro", integracoes:"Central de integrações"
+  caixa:"Fluxo de caixa", fechamento:"Fechamento financeiro", integracoes:"Central de integrações", acessos:"Acessos da escola"
 };
 
 const INTERFACE_VIEWS = Object.freeze({
-  staff:["dashboard","atendimento","panfletos","alunos","responsaveis","matriculas","documentos"],
-  admin:["dashboard","panfletos","produtos","autorizacoes","recebimentos","caixa","fechamento","integracoes"],
+  staff:["dashboard","atendimento","panfletos","alunos","responsaveis","matriculas","documentos","acessos"],
+  admin:["dashboard","panfletos","produtos","autorizacoes","recebimentos","caixa","fechamento","integracoes","acessos"],
   public:["dashboard"]
 });
-const roleForView = view => ["produtos","autorizacoes","recebimentos","caixa","fechamento","integracoes"].includes(view) ? "admin" : ["atendimento","alunos","responsaveis","matriculas","documentos"].includes(view) ? "staff" : view==="panfletos" ? "shared" : "public";
+const roleForView = view => ["produtos","autorizacoes","recebimentos","caixa","fechamento","integracoes"].includes(view) ? "admin" : ["atendimento","alunos","responsaveis","matriculas","documentos"].includes(view) ? "staff" : ["panfletos","acessos"].includes(view) ? "shared" : "public";
 const activeInterfaceRole = () => state.role==="admin" && state.adminToken ? "admin" : state.role==="staff" && state.staffToken ? "staff" : "public";
 const allowedViewsFor = role => INTERFACE_VIEWS[role] || INTERFACE_VIEWS.public;
 const tokenFor = role => role === "admin" ? state.adminToken : (state.role==="staff" ? state.staffToken : state.adminToken);
@@ -528,10 +528,66 @@ async function navigate(view){
     if(view==="caixa") await renderCaixa();
     if(view==="fechamento") await renderFechamento();
     if(view==="integracoes") await renderIntegracoes();
+    if(view==="acessos") await renderAcessos();
   }catch(e){
     if(/Sessão.*expirada|Sessão.*inválida/i.test(e.message)){ await logoutAll(); authModal(roleForView(view)); }
     $("#view").innerHTML=`<div class="card"><div class="empty">${esc(e.message)}</div></div>`;
   }
+}
+
+function renderAcessos(){
+  const acessos=[
+    {
+      nome:"Agenda On-line • Computex",
+      descricao:"Acesso ao sistema escolar Computex utilizado pela escola.",
+      url:"https://escola.computex.com.br/escola329/index2.php",
+      icon:"https://www.google.com/s2/favicons?domain=escola.computex.com.br&sz=128",
+      fallback:"C",
+      destaque:true
+    },
+    {
+      nome:"Site oficial do Colégio Futuro",
+      descricao:"Portal institucional da escola, informações, projetos e contatos.",
+      url:"https://colegiofuturoce.com.br",
+      icon:"/assets/app-icon-192.png",
+      fallback:"F"
+    },
+    {
+      nome:"Gestão Futuro",
+      descricao:"Plataforma interna de Secretaria, Gestão, Financeiro e Matrículas.",
+      url:"https://gestao.colegiofuturoce.com.br",
+      icon:"/assets/app-icon-192.png",
+      fallback:"G"
+    }
+  ];
+  $("#view").innerHTML=`
+    <section class="school-access-hero">
+      <div>
+        <span>ATALHOS INSTITUCIONAIS</span>
+        <h2>Acessos da escola</h2>
+        <p>Um único lugar para abrir os sistemas e portais usados pela Secretaria e pela Gestão.</p>
+      </div>
+      <div class="school-access-count">${acessos.length}<small>acessos</small></div>
+    </section>
+    <div class="school-access-grid">
+      ${acessos.map(a=>`
+        <a class="school-access-card ${a.destaque?"featured":""}" href="${a.url}" target="_blank" rel="noopener noreferrer">
+          <div class="school-access-icon">
+            <img src="${a.icon}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'">
+            <b style="display:none">${a.fallback}</b>
+          </div>
+          <div class="school-access-copy">
+            <strong>${a.nome}</strong>
+            <span>${a.descricao}</span>
+            <small>${new URL(a.url).hostname}</small>
+          </div>
+          <i>↗</i>
+        </a>`).join("")}
+    </div>
+    <div class="school-access-note">
+      <b>Central única de acessos</b>
+      <span>Os próximos sistemas da escola podem ser adicionados aqui, mantendo Secretaria e Gestão com a mesma lista oficial.</span>
+    </div>`;
 }
 
 function dashNorm(v){return String(v||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim()}
