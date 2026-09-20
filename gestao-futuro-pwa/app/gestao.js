@@ -215,6 +215,7 @@ async function openMoveModal(){
 async function renderFechamento(){
   const f=await api("getFechamento",{token:state.adminToken});
   const headers=f.headers||[], row=f.atual||[];
-  $("#view").innerHTML=`<div class="section-head"><h2>Fechamento atual</h2></div><div class="cards grid">${headers.map((h,i)=>`<div class="card metric"><div class="label">${esc(h)}</div><div class="value" style="font-size:${i<3?"18":"23"}">${esc(row[i]||"—")}</div><div class="hint">período em acompanhamento</div></div>`).join("")}</div>`;
+  $("#view").innerHTML=`<div class="section-head"><h2>Fechamento atual</h2><div class="toolbar"><button class="btn btn-report" id="closingReport">📄 Relatório</button></div></div><div class="cards grid">${headers.map((h,i)=>`<div class="card metric"><div class="label">${esc(h)}</div><div class="value" style="font-size:${i<3?"18":"23"}">${esc(row[i]||"—")}</div><div class="hint">período em acompanhamento</div></div>`).join("")}</div>`;
+  $("#closingReport").onclick=()=>openClosingReport(f);
 }
 
