@@ -52,6 +52,7 @@ function applyRoleInterface(){
     badge.textContent=role==="staff"?"Interface Secretaria":role==="admin"?"Interface Gestão":"Escolha seu acesso";
     badge.className="interface-badge "+role;
   }
+  refreshModeButton();
 }
 
 function esc(v="") { return String(v ?? "").replace(/[&<>'"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c])); }
@@ -164,6 +165,12 @@ function refreshModeButton(){
     b.textContent="Escolher modo";
     b.className="btn btn-soft";
   }
+  const clear=$("#clearTestBtn");
+  if(clear){
+    const canClear=state.runMode==="TESTE" && activeInterfaceRole()==="admin" && !!state.adminToken;
+    clear.classList.toggle("hidden",!canClear);
+    clear.disabled=!canClear;
+  }
 }
 function setRunMode(mode){
   state.runMode=mode==="TESTE"?"TESTE":"PRODUCAO";
@@ -265,6 +272,43 @@ function openModeGate(){
   $("#gateTest").onclick=function(){selectEntryMode("TESTE",this)};
   $("#gateLogout").onclick=logoutAll;
 }
+async function clearAllTestData(){
+  if(activeInterfaceRole()!=="admin"||!state.adminToken){
+    showToast("A limpeza de testes é exclusiva da Gestão.","error");
+    return;
+  }
+  if(state.runMode!=="TESTE"){
+    showToast("Ative Teste / Simulação antes de usar a limpeza.","error");
+    return;
+  }
+  const ok=confirm("Limpar TODOS os registros de Teste/Simulação?\n\nA Produção será preservada. Esta ação não pode ser desfeita.");
+  if(!ok)return;
+  const btn=$("#clearTestBtn"),old=btn?.textContent||"🧹 Limpar teste";
+  if(btn){btn.disabled=true;btn.textContent="Limpando…";}
+  try{
+    const res=await api("limparDadosTeste",{token:state.adminToken});
+    clearLocalTestData();
+    clearApiCache();
+    state.bootstrap=null;
+    state.testSession="TST-"+Date.now()+"-"+Math.random().toString(36).slice(2,7).toUpperCase();
+    sessionStorage.setItem("gf_test_session",state.testSession);
+    sessionStorage.setItem("gf_pending_approvals","0");
+    const badge=$("#approvalBadge");if(badge){badge.textContent="0";badge.classList.add("hidden")}
+    showToast("Teste limpo: "+Number(res?.total||0)+" registro(s) removido(s) ✓","ok");
+    await navigate(state.view||"dashboard");
+  }catch(e){
+    const msg=String(e?.message||"Não foi possível limpar o teste.");
+    if(/ainda não está disponível|Ação não reconhecida|não reconhecida/i.test(msg)){
+      showToast("O botão voltou, mas a limpeza total ainda precisa ser publicada no servidor do Apps Script.","error");
+    }else{
+      showToast(msg,"error");
+    }
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent=old;}
+    refreshModeButton();
+  }
+}
+
 function clearLocalTestData(){
   try{
     const key="gestao_futuro_atendimentos_locais_v1";
@@ -277,6 +321,7 @@ function clearLocalTestData(){
   }catch(e){}
 }
 function openModeModal(){ openModeGate(); }
+const clearTestTop=$("#clearTestBtn"); if(clearTestTop) clearTestTop.onclick=clearAllTestData;
 
 const API_CACHE_TTL = Object.freeze({
   dashboardPublico:15000,dashboardGestao:15000,bootstrapSecretaria:30000,
