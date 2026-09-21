@@ -31,7 +31,7 @@ function gfReportToken(){
 }
 async function gfDownloadReport(spec,button){
   const auth=gfReportToken();
-  if(!auth.token)throw new Error("Sessão necessária para gerar o relatório.");
+  if(!auth.token){showToast("Sessão necessária para gerar o relatório.","error");throw new Error("Sessão necessária para gerar o relatório.");}
   const old=button?.innerHTML||button?.textContent||"";
   if(button){button.disabled=true;button.classList.add("is-saving");button.textContent="Gerando…";}
   try{
@@ -41,11 +41,16 @@ async function gfDownloadReport(spec,button){
       throw new Error(e.error||"Não foi possível gerar o relatório.");
     }
     const blob=await r.blob();
+    if(!blob.size)throw new Error("O arquivo do relatório veio vazio.");
     const cd=r.headers.get("content-disposition")||"";
     const name=(cd.match(/filename="([^"]+)"/)||[])[1]||((spec.filename||"relatorio")+"."+(spec.format==="xlsx"?"xlsx":"pdf"));
-    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();
-    setTimeout(()=>URL.revokeObjectURL(a.href),1200);
+    const url=URL.createObjectURL(blob),a=document.createElement("a");
+    a.href=url;a.download=name;a.style.display="none";document.body.appendChild(a);a.click();
+    setTimeout(()=>{a.remove();URL.revokeObjectURL(url)},1500);
     showToast("Relatório gerado e baixado ✓","ok");
+  }catch(e){
+    showToast(e.message||"Não foi possível gerar o relatório.","error");
+    throw e;
   }finally{
     if(button){button.disabled=false;button.classList.remove("is-saving");button.innerHTML=old;}
   }
