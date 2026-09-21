@@ -155,6 +155,206 @@ function openProductForm(p){
   };
 }
 
+
+function revNum(v){return Number(String(v??0).replace(/\./g,"").replace(",","."))||0}
+function revNorm(v){return String(v||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim()}
+function revSeriesRank(v){
+  const s=revNorm(v),inf=s.match(/infantil\s*(\d+)/);if(inf)return Number(inf[1])-10;
+  const ano=s.match(/^(\d+)[ºoaª]?\s*ano/);if(ano)return Number(ano[1]);
+  const em=s.match(/^(\d+)[ºoaª]?\s*(?:serie|em)/);if(em)return 20+Number(em[1]);
+  return 90;
+}
+function revSegmentCode(serie){
+  const s=revNorm(serie);
+  if(s.includes("infantil"))return "INF";
+  const n=Number((s.match(/^(\d+)/)||[])[1]||0);
+  if(/ensino medio|\bem\b|serie/.test(s))return "EM";
+  if(n>=1&&n<=5)return "AI";
+  if(n>=6&&n<=9)return "AF";
+  return "";
+}
+function revSeriesForYear(a,year){
+  return Number(year)===2027?String(a.PROXIMA_SERIE_2027||"").trim():String(a["SÉRIE"]||"").trim();
+}
+function revProduct(products,id){return (products||[]).find(p=>String(p.ID_PRODUTO||"")===id&&String(p.ATIVO||"Sim")!=="Não")}
+function revTuitionFor(products,serie,year,plan){
+  const seg=revSegmentCode(serie);if(!seg||seg==="EM")return null;
+  const monthly=revProduct(products,`MEN-${seg}-${plan}-${year}`);
+  const annual=revProduct(products,`ANU-${seg}-${year}`);
+  if(!monthly||!annual)return null;
+  return {
+    segment:seg,
+    monthly:revNum(monthly.VALOR_PARCELA||monthly.VALOR_BASE),
+    annual:revNum(annual.VALOR_BASE),
+    monthlyProduct:monthly.PRODUTO||monthly.ID_PRODUTO,
+    annualProduct:annual.PRODUTO||annual.ID_PRODUTO
+  };
+}
+function revDateParts(v){
+  const s=String(v||"").trim();
+  let m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);if(m)return {y:Number(m[1]),m:Number(m[2])};
+  m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);if(m)return {y:Number(m[3]),m:Number(m[2])};
+  const d=new Date(s);return isNaN(d)?{y:0,m:0}:{y:d.getFullYear(),m:d.getMonth()+1};
+}
+function revMoneyCompact(v){return Number(v||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL",maximumFractionDigits:0})}
+function revBuildModel(alunos,products,year,plan){
+  const active=(alunos||[]).filter(a=>String(a.STATUS||"Ativo")!=="Inativo");
+  const rows=active.map(a=>{
+    const serie=revSeriesForYear(a,year),tuition=revTuitionFor(products,serie,year,plan);
+    return {
+      id:a.ID_ALUNO||"",matricula:a.MATRICULA_ORIGEM||"",aluno:a.NOME_COMPLETO||"",
+      serie,proxima:a.PROXIMA_SERIE_2027||"",monthly:tuition?.monthly||0,annual:tuition?.annual||0,
+      covered:!!tuition,product:tuition?.monthlyProduct||"",segment:tuition?.segment||""
+    };
+  }).filter(r=>r.serie);
+  const map=new Map();
+  rows.forEach(r=>{
+    if(!map.has(r.serie))map.set(r.serie,{serie:r.serie,students:0,covered:0,monthly:0,annual:0});
+    const x=map.get(r.serie);x.students++;if(r.covered){x.covered++;x.monthly+=r.monthly;x.annual+=r.annual}
+  });
+  const summary=[...map.values()].sort((a,b)=>revSeriesRank(a.serie)-revSeriesRank(b.serie)||a.serie.localeCompare(b.serie,"pt-BR",{numeric:true}));
+  return {rows,summary};
+}
+function revBars(rows,key,formatter){
+  const max=Math.max(1,...rows.map(x=>Number(x[key]||0)));
+  return rows.map(x=>`<div class="rev-bar-row"><span>${esc(x.serie)}</span><div><i style="width:${Math.max(2,(Number(x[key]||0)/max)*100)}%"></i></div><b>${esc(formatter(Number(x[key]||0)))}</b></div>`).join("");
+}
+function revRevenueChartDataUrl(summary){
+  try{
+    const W=1400,H=Math.max(520,summary.length*44+130),cv=document.createElement("canvas");cv.width=W;cv.height=H;
+    const ctx=cv.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,W,H);ctx.fillStyle="#123b76";ctx.font="bold 30px Arial";ctx.fillText("Receita bruta mensal estimada por série",40,45);
+    ctx.font="18px Arial";ctx.fillStyle="#687a91";ctx.fillText("Tabela cheia • sem descontos individuais",40,76);
+    const left=270,right=170,top=112,rowH=39,max=Math.max(1,...summary.map(x=>x.monthly));
+    summary.forEach((x,i)=>{
+      const y=top+i*rowH,w=W-left-right,bw=w*(x.monthly/max);
+      ctx.textAlign="right";ctx.fillStyle="#36465c";ctx.font="17px Arial";ctx.fillText(x.serie,left-16,y+16);
+      ctx.fillStyle="#edf2f8";ctx.fillRect(left,y,w,20);ctx.fillStyle="#1d5fa9";ctx.fillRect(left,y,bw,20);
+      ctx.textAlign="left";ctx.fillStyle="#123b76";ctx.font="bold 15px Arial";ctx.fillText(revMoneyCompact(x.monthly),left+bw+8,y+16);
+    });
+    return cv.toDataURL("image/png",.92);
+  }catch(e){return ""}
+}
+async function renderProjecaoReceita(){
+  const [b,products,cash]=await Promise.all([
+    loadBootstrap(),
+    api("listarProdutosGestao",{token:state.adminToken}),
+    api("listarCaixa",{token:state.adminToken}).catch(()=>([]))
+  ]);
+  const alunos=b.alunos||[];
+  const now=new Date(),defaultMonth=now.getMonth()+1;
+  $("#view").innerHTML=`
+    <section class="rev-hero">
+      <div><small>FINANCEIRO • PROJEÇÃO</small><h2>Receita estimada por aluno e série</h2><p>Simulação usando os <b>valores cheios da tabela oficial</b>. Não aplica descontos individuais, bolsas ou inadimplência.</p></div>
+      <div class="rev-hero-badge">ESTIMATIVA<small>não contábil</small></div>
+    </section>
+    <section class="card rev-filters">
+      <div class="field"><label>Ano letivo</label><select id="revYear"><option value="2026">2026 • alunos atuais</option><option value="2027">2027 • progressão prevista</option></select></div>
+      <div class="field"><label>Plano de mensalidade</label><select id="revPlan"><option value="12">Plano 12 parcelas</option><option value="11">Plano 11 parcelas</option></select></div>
+      <div class="field"><label>Mês para despesas</label><select id="revMonth">${Array.from({length:12},(_,i)=>`<option value="${i+1}" ${i+1===defaultMonth?"selected":""}>${new Date(2026,i,1).toLocaleDateString("pt-BR",{month:"long"})}</option>`).join("")}</select></div>
+      <div class="field"><label>Série</label><select id="revSeries"><option value="">Todas as séries</option></select></div>
+      <div class="field rev-search-field"><label>Aluno</label><input id="revSearch" class="search" autocomplete="off" placeholder="Digite nome ou matrícula…"></div>
+      <div class="rev-filter-actions"><button class="btn btn-soft" id="revClear">Limpar</button><button class="btn btn-report" id="revExcel">📊 Excel</button><button class="btn btn-primary" id="revPdf">📄 PDF</button></div>
+    </section>
+    <div id="revNotice"></div>
+    <div class="rev-kpis" id="revKpis"></div>
+    <div class="rev-charts" id="revCharts"></div>
+    <section class="card rev-summary-card"><div class="section-head"><div><h3>Receita por série</h3><span class="muted">Quantidade de alunos × valor cheio da mensalidade.</span></div><b id="revSeriesCount"></b></div><div id="revSummary"></div></section>
+    <section class="card rev-students-card"><div class="section-head"><div><h3>Relação de alunos e mensalidades</h3><span class="muted">Base usada na estimativa financeira.</span></div><b id="revStudentCount"></b></div><div id="revStudents"></div></section>`;
+
+  let current={rows:[],summary:[],filteredRows:[],filteredSummary:[],grossMonth:0,grossAnnual:0,expenseMonth:0,netMonth:0,netAnnualProjected:0,uncovered:0};
+
+  const populateSeries=()=>{
+    const year=Number($("#revYear").value),model=revBuildModel(alunos,products,year,$("#revPlan").value);
+    const prev=$("#revSeries").value;
+    $("#revSeries").innerHTML='<option value="">Todas as séries</option>'+model.summary.map(x=>`<option value="${esc(x.serie)}">${esc(x.serie)}</option>`).join("");
+    if([...$("#revSeries").options].some(o=>o.value===prev))$("#revSeries").value=prev;
+  };
+
+  const calculate=()=>{
+    const year=Number($("#revYear").value),plan=$("#revPlan").value,month=Number($("#revMonth").value);
+    const model=revBuildModel(alunos,products,year,plan),series=$("#revSeries").value,q=revNorm($("#revSearch").value);
+    const filteredRows=model.rows.filter(r=>(!series||r.serie===series)&&(!q||[r.aluno,r.matricula,r.serie].some(v=>revNorm(v).includes(q))));
+    const map=new Map();
+    filteredRows.forEach(r=>{
+      if(!map.has(r.serie))map.set(r.serie,{serie:r.serie,students:0,covered:0,monthly:0,annual:0});
+      const x=map.get(r.serie);x.students++;if(r.covered){x.covered++;x.monthly+=r.monthly;x.annual+=r.annual}
+    });
+    const filteredSummary=[...map.values()].sort((a,b)=>revSeriesRank(a.serie)-revSeriesRank(b.serie));
+    const grossMonth=filteredRows.reduce((a,r)=>a+r.monthly,0),grossAnnual=filteredRows.reduce((a,r)=>a+r.annual,0);
+    const expenseMonth=(cash||[]).filter(c=>{
+      const p=revDateParts(c.DATA);return p.y===year&&p.m===month&&revNorm(c.TIPO)==="saida";
+    }).reduce((a,c)=>a+revNum(c.VALOR),0);
+    const netMonth=grossMonth-expenseMonth,netAnnualProjected=grossAnnual-(expenseMonth*12);
+    const uncovered=filteredRows.filter(r=>!r.covered).length;
+    current={rows:model.rows,summary:model.summary,filteredRows,filteredSummary,grossMonth,grossAnnual,expenseMonth,netMonth,netAnnualProjected,uncovered,year,plan,month,series,q};
+
+    const monthName=new Date(year,month-1,1).toLocaleDateString("pt-BR",{month:"long"});
+    $("#revNotice").innerHTML=`<div class="rev-warning"><b>Como ler esta projeção</b><span><strong>Receita bruta</strong> = valores cheios do catálogo × alunos. <strong>Líquida operacional estimada</strong> = bruta mensal − saídas registradas no Caixa em ${esc(monthName)}. Não considera descontos de alunos, bolsas, inadimplência, impostos ou taxas. A líquida anual apenas anualiza as saídas do mês (${money(expenseMonth)} × 12).</span></div>`;
+
+    $("#revKpis").innerHTML=`
+      <div><small>ALUNOS NA PROJEÇÃO</small><strong>${filteredRows.length}</strong><span>${uncovered?`${uncovered} sem mensalidade cadastrada`:"100% com valor cadastrado"}</span></div>
+      <div><small>BRUTA MENSAL ESTIMADA</small><strong>${money(grossMonth)}</strong><span>valor cheio • plano ${plan}x</span></div>
+      <div><small>BRUTA ANUAL ESTIMADA</small><strong>${money(grossAnnual)}</strong><span>anuidade cheia da tabela</span></div>
+      <div><small>SAÍDAS DO MÊS</small><strong>${money(expenseMonth)}</strong><span>Caixa • ${esc(monthName)}</span></div>
+      <div class="net"><small>LÍQUIDA OPERACIONAL / MÊS</small><strong>${money(netMonth)}</strong><span>bruta − saídas cadastradas</span></div>
+      <div class="net"><small>LÍQUIDA ANUAL PROJETADA*</small><strong>${money(netAnnualProjected)}</strong><span>*saídas mensais anualizadas</span></div>`;
+
+    $("#revCharts").innerHTML=`
+      <section class="rev-chart-card"><div class="rev-chart-head"><div><small>GRÁFICO 1</small><h3>Receita mensal por série</h3></div><b>${money(grossMonth)}</b></div><div class="rev-bars">${revBars(filteredSummary,"monthly",revMoneyCompact)||'<div class="empty">Sem valores para exibir.</div>'}</div></section>
+      <section class="rev-chart-card"><div class="rev-chart-head"><div><small>GRÁFICO 2</small><h3>Alunos por série</h3></div><b>${filteredRows.length} alunos</b></div><div class="rev-bars students">${revBars(filteredSummary,"students",v=>String(v))||'<div class="empty">Sem alunos para exibir.</div>'}</div></section>`;
+
+    $("#revSeriesCount").textContent=filteredSummary.length+" série(s)";
+    $("#revSummary").innerHTML=`<div class="table-wrap"><table><thead><tr><th>Série</th><th>Alunos</th><th>Com valor</th><th>Mensalidade cheia</th><th>Receita mensal</th><th>Receita anual</th></tr></thead><tbody>${filteredSummary.map(x=>{
+      const one=filteredRows.find(r=>r.serie===x.serie&&r.covered);
+      return `<tr><td><strong>${esc(x.serie)}</strong></td><td>${x.students}</td><td>${x.covered}</td><td class="money">${one?money(one.monthly):"Sem valor"}</td><td class="money"><strong>${money(x.monthly)}</strong></td><td class="money">${money(x.annual)}</td></tr>`;
+    }).join("")||'<tr><td colspan="6" class="empty">Nenhum resultado.</td></tr>'}</tbody></table></div>`;
+
+    $("#revStudentCount").textContent=filteredRows.length+" aluno(s)";
+    $("#revStudents").innerHTML=`<div class="table-wrap"><table><thead><tr><th>Matrícula</th><th>Aluno</th><th>Série</th><th>Mensalidade cheia</th><th>Anuidade cheia</th><th>Base</th></tr></thead><tbody>${filteredRows.sort((a,b)=>revSeriesRank(a.serie)-revSeriesRank(b.serie)||a.aluno.localeCompare(b.aluno,"pt-BR")).map(r=>`<tr><td>${esc(r.matricula||"—")}</td><td><strong>${esc(r.aluno)}</strong></td><td>${esc(r.serie)}</td><td class="money">${r.covered?money(r.monthly):"—"}</td><td class="money">${r.covered?money(r.annual):"—"}</td><td>${r.covered?'<span class="pill ok">Tabela cheia</span>':'<span class="pill warn">Sem valor cadastrado</span>'}</td></tr>`).join("")||'<tr><td colspan="6" class="empty">Nenhum aluno encontrado.</td></tr>'}</tbody></table></div>`;
+  };
+
+  const exportProjection=async(format,btn)=>{
+    calculate();
+    const c=current,monthName=new Date(c.year,c.month-1,1).toLocaleDateString("pt-BR",{month:"long"});
+    const chartDataUrl=revRevenueChartDataUrl(c.filteredSummary);
+    await gfDownloadReport({
+      format,title:"Projeção Financeira de Mensalidades",subtitle:`Ano ${c.year} • plano ${c.plan} parcelas • valores cheios sem descontos individuais`,
+      filename:gfReportFile("projecao-receita",[c.year,c.series||"todas",c.plan+"x"]),
+      orientation:"landscape",chartDataUrl,chartTitle:"Receita bruta mensal estimada por série",
+      meta:gfReportMeta([{label:"Ano",value:String(c.year)},{label:"Plano",value:c.plan+" parcelas"},{label:"Série",value:c.series||"Todas"},{label:"Mês despesas",value:monthName}]),
+      summary:[
+        {label:"Alunos",value:String(c.filteredRows.length)},
+        {label:"Bruta mensal",value:money(c.grossMonth)},
+        {label:"Bruta anual",value:money(c.grossAnnual)},
+        {label:"Líquida operacional/mês",value:money(c.netMonth)}
+      ],
+      columns:[
+        {key:"matricula",label:"Matrícula",width:.9},{key:"aluno",label:"Aluno",width:2.3},{key:"serie",label:"Série",width:.9},
+        {key:"mensal",label:"Mensalidade cheia",width:1.1,align:"right"},{key:"anual",label:"Anuidade cheia",width:1.1,align:"right"},{key:"status",label:"Base de cálculo",width:1.1}
+      ],
+      rows:c.filteredRows.map(r=>({matricula:r.matricula||"",aluno:r.aluno,serie:r.serie,mensal:r.covered?money(r.monthly):"Sem valor",anual:r.covered?money(r.annual):"Sem valor",status:r.covered?"Tabela cheia":"Sem mensalidade cadastrada"})),
+      extraSheets:[
+        {name:"Resumo por série",columns:["Série","Alunos","Com valor","Mensalidade cheia","Receita mensal","Receita anual"],rows:c.filteredSummary.map(x=>{const one=c.filteredRows.find(r=>r.serie===x.serie&&r.covered);return [x.serie,x.students,x.covered,one?.monthly||0,x.monthly,x.annual]})},
+        {name:"Premissas",columns:["Premissa","Valor"],rows:[
+          ["Valores individuais","Tabela cheia, sem descontos ou bolsas"],
+          ["Inadimplência","Não considerada"],
+          ["Saídas do mês",c.expenseMonth],
+          ["Líquida mensal estimada",c.netMonth],
+          ["Líquida anual projetada",c.netAnnualProjected],
+          ["Observação","A líquida anual anualiza as saídas registradas no mês selecionado; não representa resultado contábil."]
+        ]}
+      ]
+    },btn);
+  };
+
+  $("#revYear").onchange=()=>{populateSeries();calculate()};
+  $("#revPlan").onchange=calculate;$("#revMonth").onchange=calculate;$("#revSeries").onchange=calculate;$("#revSearch").oninput=calculate;
+  $("#revClear").onclick=()=>{$("#revSeries").value="";$("#revSearch").value="";calculate()};
+  $("#revPdf").onclick=function(){exportProjection("pdf",this)};
+  $("#revExcel").onclick=function(){exportProjection("xlsx",this)};
+  populateSeries();calculate();
+}
+
 async function renderRecebimentos(){
   const list=await api("listarRecebimentos",{token:state.adminToken});
   $("#view").innerHTML=`<div class="section-head"><h2>Contas a receber</h2><div class="toolbar"><button class="btn btn-report" id="receivablesReport">📄 Relatório</button></div></div><div class="table-wrap"><table><thead><tr><th>Recebimento</th><th>Aluno</th><th>Parcela</th><th>Vencimento</th><th>Previsto</th><th>Recebido</th><th>Status</th><th></th></tr></thead><tbody>${list.map(r=>`<tr><td>${esc(r.ID_RECEBIMENTO)}</td><td>${esc(r.ID_ALUNO)}</td><td>${esc(r.PARCELA||"")}</td><td>${esc(r.VENCIMENTO||"")}</td><td class="money">${money(r.VALOR_PREVISTO)}</td><td class="money">${money(r.VALOR_RECEBIDO)}</td><td>${pill(r.STATUS_CALCULADO||r.STATUS||"")}</td><td><button class="icon-btn" data-pay="${esc(r.ID_RECEBIMENTO)}">Receber</button></td></tr>`).join("")||`<tr><td colspan="8" class="empty">Sem recebimentos.</td></tr>`}</tbody></table></div>`;
