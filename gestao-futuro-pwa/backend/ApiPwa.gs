@@ -4,8 +4,8 @@
  * Este arquivo deve substituir o conteúdo atual de ApiPwa.gs no MESMO projeto Apps Script.
  * O Código.gs existente permanece como base de Secretaria/Financeiro.
  */
-const PWA_API_VERSION="2026.09.20.3";
-const PWA_CAPABILITIES=Object.freeze({testMode:true,clearTest:true,modeTagging:true,modeFilteredFinance:true,modeIsolationGuard:true,cashSaveIdempotency:true,cashDeleteIndividual:true});
+const PWA_API_VERSION="2026.09.20.4";
+const PWA_CAPABILITIES=Object.freeze({testMode:true,clearTest:true,modeTagging:true,modeFilteredFinance:true,modeIsolationGuard:true,cashSaveIdempotency:true,cashDeleteIndividual:true,studentMigration:true,studentProgression:true,documentAdd:true});
 const PWA_GATEWAY_PROP="FUTURO_PWA_GATEWAY_KEY";
 const PWA_STAFF_HASH_PROP="FUTURO_STAFF_PASSWORD_SHA256";
 const PWA_DEBUG_PROP="FUTURO_PWA_DEBUG";
@@ -202,6 +202,38 @@ function pwaAtualizarDocumento_(token,id,patch,modo,sessao){
   })
 }
 function pwaListarDocumentosAluno_(token,idAluno,modo){pwaStaff_(token);return pwaFilterMode_(listarDocumentosAluno(idAluno)||[],modo)}
+function pwaAdicionarDocumentoAluno_(token,data,modo,sessao){
+  pwaStaff_(token);data=data||{};
+  if(!data.ID_ALUNO)throw new Error("Aluno não informado.");
+  if(!data.DOCUMENTO)throw new Error("Informe o nome do documento.");
+  return pwaWithLock_(function(){
+    var aluno=findById_("ALUNOS","ID_ALUNO",data.ID_ALUNO);
+    if(!aluno)throw new Error("Aluno não encontrado.");
+    pwaAssertRowMode_(aluno,modo,"Aluno");
+    var id=nextId_("DOC-","DOCUMENTOS_ALUNO","ID_DOCUMENTO"),now=new Date();
+    append_("DOCUMENTOS_ALUNO",{
+      ID_DOCUMENTO:id,
+      ID_ALUNO:data.ID_ALUNO,
+      ID_MATRICULA:data.ID_MATRICULA||"",
+      ID_REGRA:data.ID_REGRA||"",
+      DOCUMENTO:data.DOCUMENTO||"",
+      STATUS:data.STATUS||"Pendente",
+      DATA_ENTREGA:data.DATA_ENTREGA||"",
+      DATA_VALIDADE:data.DATA_VALIDADE||"",
+      LINK_DRIVE:data.LINK_DRIVE||"",
+      OBSERVACAO:data.OBSERVACAO||"",
+      CONFERIDO_POR:data.CONFERIDO_POR||"",
+      CONFERIDO_EM:data.CONFERIDO_EM||"",
+      OBRIGATORIO:data.OBRIGATORIO||"A conferir",
+      PENDENCIA:data.PENDENCIA||"",
+      MODO_REGISTRO:pwaMode_(modo),
+      SESSAO_TESTE:pwaMode_(modo)==="TESTE"?String(sessao||""):""
+    });
+    audit_("Secretaria","ADICIONAR_DOCUMENTO","Aluno",data.ID_ALUNO,"",JSON.stringify({id:id,documento:data.DOCUMENTO}));
+    SpreadsheetApp.flush();
+    return {ok:true,id:id};
+  })
+}
 function pwaListarRecebimentosAluno_(token,idAluno,modo){pwaStaff_(token);return pwaFilterMode_(listarRecebimentosAluno(idAluno)||[],modo)}
 function pwaListarRecebimentos_(token,modo){pwaAdmin_(token);return pwaFilterMode_(listarRecebimentos(token)||[],modo)}
 function pwaListarCaixa_(token,modo){pwaAdmin_(token);return pwaFilterMode_(listarCaixa(token)||[],modo)}
@@ -606,6 +638,7 @@ function doPost(e){
       case "criarMatriculaCompleta":data=pwaCriarMatricula_(body.token,body.data,body.modo,body.sessaoTeste);break;
       case "atualizarDocumento":data=pwaAtualizarDocumento_(body.token,body.id||(body.data&&body.data.ID_DOCUMENTO),body.data||{},body.modo,body.sessaoTeste);break;
       case "listarDocumentosAluno":data=pwaListarDocumentosAluno_(body.token,body.idAluno,body.modo);break;
+      case "adicionarDocumentoAluno":data=pwaAdicionarDocumentoAluno_(body.token,body.data||{},body.modo,body.sessaoTeste);break;
       case "listarRecebimentosAluno":data=pwaListarRecebimentosAluno_(body.token,body.idAluno,body.modo);break;
       case "listarProdutosPublicos":data=listarProdutosPublicos();break;
       case "dashboardPublico":data=pwaDashboardPublico_(body.modo);break;
