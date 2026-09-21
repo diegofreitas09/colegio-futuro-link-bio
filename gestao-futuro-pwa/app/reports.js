@@ -270,6 +270,110 @@ function openClosingReport(f={}){
   };
 }
 
+
+function gfSeriesRank(v){
+  const s=String(v||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
+  const inf=s.match(/infantil\s*(\d+)/);if(inf)return Number(inf[1])-10;
+  const ano=s.match(/^(\d+)[ºo]?\s*ano/);if(ano)return Number(ano[1]);
+  const em=s.match(/^(\d+)[ªa]?\s*(?:serie\s+do\s+ensino\s+medio|em)/);if(em)return 20+Number(em[1]);
+  if(/conclu/.test(s))return 99;
+  return 80;
+}
+function gfSeriesStats(alunos=[],field="SÉRIE"){
+  const map=new Map();
+  (alunos||[]).forEach(a=>{const k=String(a?.[field]||"").trim();if(k)map.set(k,(map.get(k)||0)+1)});
+  return [...map.entries()].map(([serie,total])=>({serie,total})).sort((a,b)=>gfSeriesRank(a.serie)-gfSeriesRank(b.serie)||a.serie.localeCompare(b.serie,"pt-BR",{numeric:true}));
+}
+function gfStudentChartDataUrl(current=[],next=[]){
+  try{
+    const all=[...new Set([...current.map(x=>x.serie),...next.map(x=>x.serie)])].sort((a,b)=>gfSeriesRank(a)-gfSeriesRank(b)||a.localeCompare(b,"pt-BR",{numeric:true}));
+    const cur=Object.fromEntries(current.map(x=>[x.serie,x.total])),nxt=Object.fromEntries(next.map(x=>[x.serie,x.total]));
+    const W=1400,H=Math.max(500,all.length*42+150),cv=document.createElement("canvas");cv.width=W;cv.height=H;
+    const ctx=cv.getContext("2d");ctx.fillStyle="#ffffff";ctx.fillRect(0,0,W,H);
+    ctx.fillStyle="#123b76";ctx.font="bold 32px Arial";ctx.fillText("Alunos por série • 2026 x Progressão 2027",40,48);
+    ctx.font="20px Arial";ctx.fillStyle="#63758d";ctx.fillText("Azul: série atual em 2026   •   Verde: progressão prevista para 2027",40,82);
+    const left=260,right=80,top=120,rowH=38,max=Math.max(1,...all.map(x=>Math.max(cur[x]||0,nxt[x]||0)));
+    all.forEach((serie,i)=>{
+      const y=top+i*rowH,w=W-left-right;
+      ctx.font="18px Arial";ctx.fillStyle="#26364d";ctx.textAlign="right";ctx.fillText(serie,left-18,y+18);
+      ctx.fillStyle="#edf2f8";ctx.fillRect(left,y,w,24);
+      const cw=w*(cur[serie]||0)/max,nw=w*(nxt[serie]||0)/max;
+      ctx.fillStyle="#1d5fa9";ctx.fillRect(left,y,cw,10);
+      ctx.fillStyle="#3b8b62";ctx.fillRect(left,y+13,nw,10);
+      ctx.textAlign="left";ctx.font="bold 15px Arial";ctx.fillStyle="#123b76";ctx.fillText(String(cur[serie]||0),left+cw+8,y+9);
+      ctx.fillStyle="#28734f";ctx.fillText(String(nxt[serie]||0),left+nw+8,y+23);
+    });
+    return cv.toDataURL("image/png",.92);
+  }catch(e){return ""}
+}
+function gfStudentSeriesBars(stats,total,label){
+  const max=Math.max(1,...stats.map(x=>x.total));
+  return `<section class="student-chart-card"><div class="student-chart-head"><div><small>${esc(label)}</small><h3>Distribuição por série</h3></div><b>${total} alunos</b></div><div class="student-bar-chart">${stats.map(x=>`<div class="student-bar-row"><span>${esc(x.serie)}</span><div><i style="width:${Math.max(3,(x.total/max)*100)}%"></i></div><b>${x.total}</b><small>${total?((x.total/total)*100).toFixed(1).replace(".",","):"0"}%</small></div>`).join("")}</div></section>`;
+}
+async function renderStudentManagementAnalytics(alunos=[],mats=[]){
+  const active=alunos.filter(a=>String(a.STATUS||"Ativo")!=="Inativo");
+  const current=gfSeriesStats(active,"SÉRIE"),next=gfSeriesStats(active,"PROXIMA_SERIE_2027");
+  const migrated=active.filter(a=>a.MATRICULA_ORIGEM).length,progress=active.filter(a=>a.PROXIMA_SERIE_2027).length;
+  const largest=current.slice().sort((a,b)=>b.total-a.total)[0]||{serie:"—",total:0};
+  $("#view").innerHTML=`
+    <div class="section-head"><div><h2>Alunos • visão gerencial</h2><span class="muted">Distribuição por série, progressão e base completa da escola.</span></div><div class="toolbar"><button class="btn btn-soft" id="backReports">← Relatórios</button><button class="btn btn-report" id="exportStudentsXlsx">📊 Excel</button><button class="btn btn-primary" id="exportStudentsPdf">📄 PDF completo</button></div></div>
+    <div class="student-analytics-kpis">
+      <div><small>ALUNOS ATIVOS</small><strong>${active.length}</strong><span>base atual</span></div>
+      <div><small>SÉRIES</small><strong>${current.length}</strong><span>com alunos</span></div>
+      <div><small>MAIOR TURMA/SÉRIE</small><strong>${largest.total}</strong><span>${esc(largest.serie)}</span></div>
+      <div><small>PROGRESSÃO 2027</small><strong>${progress}</strong><span>${progress===active.length?"100% mapeados":"a revisar"}</span></div>
+    </div>
+    <div class="student-analytics-grid">
+      ${gfStudentSeriesBars(current,active.length,"ANO LETIVO 2026")}
+      ${gfStudentSeriesBars(next,active.length,"PROGRESSÃO PREVISTA 2027")}
+    </div>
+    <section class="card student-series-table-card">
+      <div class="section-head"><div><h3>Resumo por série</h3><span class="muted">Quantitativo atual e próxima etapa prevista.</span></div><div class="student-search-wrap"><input class="search" id="analyticsSearch" placeholder="Pesquisar aluno ou série…"></div></div>
+      <div class="table-wrap"><table><thead><tr><th>Série 2026</th><th>Alunos</th><th>% da escola</th><th>Próxima série</th><th>Matrículas vinculadas</th></tr></thead><tbody>${current.map(x=>{
+        const nextSeries=(active.find(a=>a["SÉRIE"]===x.serie)?.PROXIMA_SERIE_2027)||"—";
+        const linked=mats.filter(m=>String(m["SÉRIE"]||"")===x.serie&&String(m.STATUS||"Ativa")!=="Cancelada").length;
+        return `<tr><td><strong>${esc(x.serie)}</strong></td><td>${x.total}</td><td>${((x.total/active.length)*100).toFixed(1).replace(".",",")}%</td><td><span class="progression-chip">${esc(nextSeries)}</span></td><td>${linked}</td></tr>`;
+      }).join("")}</tbody></table></div>
+    </section>
+    <section class="card student-full-list-card"><div class="section-head"><div><h3>Base completa de alunos</h3><span class="muted">Nome, matrícula, série atual, progressão e situação.</span></div><b id="analyticsCount">${active.length} registros</b></div><div id="analyticsStudents"></div></section>`;
+
+  const drawList=()=>{
+    const q=String($("#analyticsSearch")?.value||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+    const list=active.filter(a=>!q||[a.NOME_COMPLETO,a.MATRICULA_ORIGEM,a["SÉRIE"],a.PROXIMA_SERIE_2027].some(v=>String(v||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().includes(q)));
+    $("#analyticsCount").textContent=list.length+" registros";
+    $("#analyticsStudents").innerHTML=`<div class="table-wrap"><table><thead><tr><th>Matrícula</th><th>Aluno</th><th>Série 2026</th><th>Progressão 2027</th><th>Status</th></tr></thead><tbody>${list.map(a=>`<tr><td>${esc(a.MATRICULA_ORIGEM||"—")}</td><td><strong>${esc(a.NOME_COMPLETO||"")}</strong></td><td>${esc(a["SÉRIE"]||"")}</td><td><span class="progression-chip">${esc(a.PROXIMA_SERIE_2027||"—")}</span></td><td>${esc(a.STATUS||"")}</td></tr>`).join("")}</tbody></table></div>`;
+  };
+  $("#analyticsSearch").oninput=drawList;drawList();
+  $("#backReports").onclick=()=>renderRelatorios();
+
+  const exportReport=async(format,btn)=>{
+    const chartDataUrl=gfStudentChartDataUrl(current,next);
+    const seriesRows=current.map(x=>{
+      const nextSeries=active.find(a=>a["SÉRIE"]===x.serie)?.PROXIMA_SERIE_2027||"—";
+      const projected=next.find(n=>n.serie===nextSeries)?.total||0;
+      return [x.serie,x.total,Number(((x.total/active.length)*100).toFixed(2)),nextSeries,projected];
+    });
+    await gfDownloadReport({
+      format,title:"Relatório Gerencial de Alunos por Série",subtitle:"Ano letivo 2026 • progressão prevista para 2027",
+      filename:"relatorio-gerencial-alunos-por-serie-2026",
+      orientation:"landscape",chartDataUrl,chartTitle:"Distribuição de alunos por série • 2026 x 2027",
+      meta:gfReportMeta([{label:"Base",value:"Alunos ativos"},{label:"Ano atual",value:"2026"},{label:"Progressão",value:"2027"}]),
+      summary:[{label:"Alunos ativos",value:String(active.length)},{label:"Séries",value:String(current.length)},{label:"Maior série",value:largest.serie+" • "+largest.total},{label:"Com progressão",value:String(progress)}],
+      columns:[
+        {key:"matricula",label:"Matrícula",width:1},{key:"aluno",label:"Aluno",width:2.4},{key:"serie",label:"Série 2026",width:1},
+        {key:"proxima",label:"Progressão 2027",width:1.2},{key:"tipo",label:"Tipo",width:.8},{key:"status",label:"Status",width:.8}
+      ],
+      rows:active.sort((a,b)=>gfSeriesRank(a["SÉRIE"])-gfSeriesRank(b["SÉRIE"])||String(a.NOME_COMPLETO||"").localeCompare(String(b.NOME_COMPLETO||""),"pt-BR")).map(a=>({matricula:a.MATRICULA_ORIGEM||"",aluno:a.NOME_COMPLETO||"",serie:a["SÉRIE"]||"",proxima:a.PROXIMA_SERIE_2027||"",tipo:a.TIPO_ALUNO||"",status:a.STATUS||""})),
+      extraSheets:[
+        {name:"Resumo por série",columns:["Série 2026","Alunos","% da escola","Próxima série 2027","Projetado 2027"],rows:seriesRows},
+        {name:"Indicadores",columns:["Indicador","Valor"],rows:[["Alunos ativos",active.length],["Séries",current.length],["Migrados com matrícula original",migrated],["Com progressão 2027",progress],["Maior série",largest.serie],["Quantidade na maior série",largest.total]]}
+      ]
+    },btn);
+  };
+  $("#exportStudentsPdf").onclick=function(){exportReport("pdf",this)};
+  $("#exportStudentsXlsx").onclick=function(){exportReport("xlsx",this)};
+}
+
 async function renderRelatorios(){
   const role=activeInterfaceRole();
   if(role==="staff"){
@@ -291,12 +395,14 @@ async function renderRelatorios(){
     $("#hubAtt").onclick=()=>openAttendanceReport(ats);
     return;
   }
-  const [cash,rec]=await Promise.all([api("listarCaixa",{token:state.adminToken}),api("listarRecebimentos",{token:state.adminToken})]);
+  const [cash,rec,b]=await Promise.all([api("listarCaixa",{token:state.adminToken}),api("listarRecebimentos",{token:state.adminToken}),loadBootstrap()]);const alunos=b.alunos||[],mats=b.matriculas||[];
   $("#view").innerHTML=`<section class="report-hub-hero"><div><span>CENTRAL DE RELATÓRIOS</span><h2>Gestão • Relatórios</h2><p>Relatórios financeiros profissionais, com período, totais e exportação institucional.</p></div><b>PDF<br><small>+ Excel</small></b></section>
   <div class="report-hub-grid">
     <button class="report-hub-card" id="hubCash"><i>💰</i><strong>Fluxo de caixa</strong><span>Escolha data inicial, final e tipo da movimentação.</span></button>
     <button class="report-hub-card" id="hubReceivables"><i>🧾</i><strong>Contas a receber</strong><span>Previsto, recebido, aberto e status.</span></button>
+    <button class="report-hub-card" id="hubStudentAnalytics"><i>📊</i><strong>Alunos por série • Gestão</strong><span>Gráficos, quantitativos, progressão 2027 e base completa em PDF/Excel.</span></button>
   </div>`;
   $("#hubCash").onclick=()=>openCashReport(cash);
   $("#hubReceivables").onclick=()=>openReceivablesReport(rec);
+  $("#hubStudentAnalytics").onclick=()=>renderStudentManagementAnalytics(alunos,mats);
 }
