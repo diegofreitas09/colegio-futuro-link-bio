@@ -182,7 +182,70 @@ function openMatForm(b){
 
 async function renderDocumentos(){
   const b=await loadBootstrap();const alunos=b.alunos||[];
-  $("#view").innerHTML=`<div class="section-head"><h2>Documentos do aluno</h2></div><div class="card"><div class="field"><label>Selecione um aluno</label><select id="docsAluno"><option value="">Selecione</option>${alunos.map(a=>`<option value="${esc(a.ID_ALUNO)}">${esc(a.NOME_COMPLETO)} — ${esc(a["SÉRIE"]||"")}</option>`).join("")}</select></div></div><div id="docsArea"></div>`;
-  $("#docsAluno").onchange=async()=>{const id=$("#docsAluno").value;if(!id){$("#docsArea").innerHTML="";return;}$("#docsArea").innerHTML=`<div class="empty">Carregando…</div>`;try{const docs=await api("listarDocumentosAluno",{token:tokenFor("staff"),idAluno:id});$("#docsArea").innerHTML=`<div class="section-head"><h2>Checklist</h2><div class="toolbar"><button class="btn btn-report" id="docsReport">📄 Relatório</button></div></div><div class="table-wrap"><table><thead><tr><th>Documento</th><th>Obrigatório</th><th>Status</th><th>Entrega</th><th></th></tr></thead><tbody>${docs.map(d=>`<tr><td>${esc(d.DOCUMENTO)}</td><td>${esc(d.OBRIGATORIO||"")}</td><td>${pill(d.STATUS||"Pendente",d.STATUS==="Entregue"?"ok":"warn")}</td><td>${esc(d.DATA_ENTREGA||"")}</td><td><button class="icon-btn" data-doc="${esc(d.ID_DOCUMENTO)}" data-status="${esc(d.STATUS||"")}">${d.STATUS==="Entregue"?"Reabrir":"Marcar entregue"}</button></td></tr>`).join("")||`<tr><td colspan="5" class="empty">Sem documentos.</td></tr>`}</tbody></table></div>`;const alunoAtual=alunos.find(a=>String(a.ID_ALUNO)===String(id))||{};if($("#docsReport"))$("#docsReport").onclick=()=>openDocumentsReport(alunoAtual,docs);$$('[data-doc]').forEach(x=>x.onclick=async()=>{const novo=x.dataset.status==="Entregue"?"Pendente":"Entregue";await api("atualizarDocumento",{token:tokenFor("staff"),id:x.dataset.doc,data:{STATUS:novo}});$("#docsAluno").dispatchEvent(new Event("change"));});}catch(e){$("#docsArea").innerHTML=`<div class="notice error">${esc(e.message)}</div>`;}};
+  $("#view").innerHTML=`<div class="section-head"><h2>Documentos do aluno</h2></div>
+  <div class="card student-doc-search-card"><div class="field"><label>Localizar aluno</label><div class="student-search-wrap"><input class="search" id="docsSearch" autocomplete="off" placeholder="Digite as primeiras letras do nome ou matrícula…"><div class="student-suggest hidden" id="docsSuggest"></div></div><small class="muted">A busca mostra nome, série atual e progressão para o próximo ano.</small></div></div>
+  <div id="docsArea"></div>`;
+
+  async function loadDocs(id){
+    if(!id){$("#docsArea").innerHTML="";return}
+    const aluno=alunos.find(a=>String(a.ID_ALUNO)===String(id))||{};
+    state.docsStudentId=id;$("#docsSearch").value=aluno.NOME_COMPLETO||"";
+    $("#docsSuggest").classList.add("hidden");
+    $("#docsArea").innerHTML=`<div class="empty">Carregando documentos…</div>`;
+    try{
+      const docs=await api("listarDocumentosAluno",{token:tokenFor("staff"),idAluno:id});
+      $("#docsArea").innerHTML=`
+        <section class="student-doc-profile">
+          <div><small>ALUNO</small><strong>${esc(aluno.NOME_COMPLETO||"")}</strong><span>${esc(aluno.MATRICULA_ORIGEM?"Matrícula "+aluno.MATRICULA_ORIGEM:"")}</span></div>
+          <div><small>SÉRIE ATUAL</small><strong>${esc(aluno["SÉRIE"]||"—")}</strong></div>
+          <div><small>PRÓXIMA SÉRIE</small><strong>${esc(aluno.PROXIMA_SERIE_2027||gfNextSeries(aluno["SÉRIE"])||"—")}</strong></div>
+          <div><small>DOCUMENTOS</small><strong>${docs.length}</strong><span>${docs.filter(d=>d.STATUS==="Entregue").length} entregue(s)</span></div>
+        </section>
+        <div class="section-head"><h2>Checklist / Pasta documental</h2><div class="toolbar"><button class="btn btn-primary" id="addStudentDoc">+ Adicionar documento</button><button class="btn btn-report" id="docsReport">📄 Relatório</button></div></div>
+        <div class="table-wrap"><table><thead><tr><th>Documento</th><th>Obrigatório</th><th>Status</th><th>Entrega</th><th>Link</th><th></th></tr></thead><tbody>${docs.map(d=>`<tr><td><strong>${esc(d.DOCUMENTO)}</strong><br><span class="muted">${esc(d.OBSERVACAO||"")}</span></td><td>${esc(d.OBRIGATORIO||"")}</td><td>${pill(d.STATUS||"Pendente",d.STATUS==="Entregue"?"ok":"warn")}</td><td>${esc(d.DATA_ENTREGA||"")}</td><td>${d.LINK_DRIVE?`<a href="${esc(d.LINK_DRIVE)}" target="_blank" rel="noopener noreferrer">Abrir</a>`:"—"}</td><td><button class="icon-btn" data-doc="${esc(d.ID_DOCUMENTO)}" data-status="${esc(d.STATUS||"")}">${d.STATUS==="Entregue"?"Reabrir":"Marcar entregue"}</button></td></tr>`).join("")||`<tr><td colspan="6" class="empty">Nenhum documento cadastrado ainda. Use “Adicionar documento” para iniciar a pasta do aluno.</td></tr>`}</tbody></table></div>`;
+      $("#docsReport").onclick=()=>openDocumentsReport(aluno,docs);
+      $("#addStudentDoc").onclick=()=>openAddDocument(aluno,docs);
+      $$('[data-doc]').forEach(x=>x.onclick=async()=>{
+        const novo=x.dataset.status==="Entregue"?"Pendente":"Entregue";
+        x.disabled=true;x.textContent="Salvando…";
+        try{
+          await api("atualizarDocumento",{token:tokenFor("staff"),id:x.dataset.doc,data:{STATUS:novo,DATA_ENTREGA:novo==="Entregue"?new Date().toISOString().slice(0,10):""}});
+          await loadDocs(id);
+        }catch(e){showToast(e.message||"Não foi possível atualizar o documento.","error");x.disabled=false}
+      });
+    }catch(e){$("#docsArea").innerHTML=`<div class="notice error">${esc(e.message)}</div>`}
+  }
+
+  function openAddDocument(aluno,docs){
+    modal(`<div class="modal-head"><h3>Adicionar documento</h3><button class="icon-btn" data-close>✕</button></div><div class="modal-body">
+      <div class="report-intro"><b>${esc(aluno.NOME_COMPLETO||"")}</b><span>${esc(aluno["SÉRIE"]||"")} • ${esc(aluno.MATRICULA_ORIGEM?"Matrícula "+aluno.MATRICULA_ORIGEM:"")}</span></div>
+      <form id="addDocForm" class="form-grid">
+        <div class="field span-2"><label>Documento *</label><input name="DOCUMENTO" required placeholder="Ex.: Certidão de nascimento"></div>
+        <div class="field"><label>Obrigatório</label><select name="OBRIGATORIO"><option>A conferir</option><option>Sim</option><option>Não</option><option>Condicional</option></select></div>
+        <div class="field"><label>Status</label><select name="STATUS"><option>Pendente</option><option>Entregue</option><option>Dispensado</option></select></div>
+        <div class="field"><label>Data de entrega</label><input type="date" name="DATA_ENTREGA"></div>
+        <div class="field span-2"><label>Link do arquivo/pasta</label><input type="url" name="LINK_DRIVE" placeholder="https://..."></div>
+        <div class="field span-3"><label>Observação</label><textarea name="OBSERVACAO"></textarea></div>
+      </form></div><div class="modal-foot"><button class="btn btn-soft" data-close>Cancelar</button><button class="btn btn-primary" id="saveNewDoc">Salvar documento</button></div>`);
+    $$('[data-close]').forEach(x=>x.onclick=closeModal);
+    $("#saveNewDoc").onclick=async()=>{
+      const form=$("#addDocForm");if(!form.reportValidity())return;
+      const data=Object.fromEntries(new FormData(form).entries());data.ID_ALUNO=aluno.ID_ALUNO;
+      const mat=(b.matriculas||[]).find(m=>String(m.ID_ALUNO)===String(aluno.ID_ALUNO)&&String(m.ANO_LETIVO||"")==="2026");
+      if(mat)data.ID_MATRICULA=mat["ID_MATRÍCULA"]||mat.ID_MATRICULA||"";
+      const btn=$("#saveNewDoc");btn.disabled=true;btn.textContent="Salvando…";
+      try{await api("adicionarDocumentoAluno",{token:tokenFor("staff"),data});closeModal();state.bootstrap=null;await loadDocs(aluno.ID_ALUNO);showToast("Documento adicionado ✓","ok")}catch(e){showToast(e.message||"Não foi possível adicionar o documento.","error");btn.disabled=false;btn.textContent="Salvar documento"}
+    };
+  }
+
+  const input=$("#docsSearch"),suggest=$("#docsSuggest");
+  input.oninput=()=>{
+    const q=input.value.trim(),matches=q?gfStudentSearchRows(alunos,q,10):[];
+    if(matches.length){suggest.innerHTML=gfStudentSuggestHtml(matches).replaceAll("data-student-pick","data-doc-pick");suggest.classList.remove("hidden");$$("[data-doc-pick]").forEach(btn=>btn.onclick=()=>loadDocs(btn.dataset.docPick))}
+    else{suggest.innerHTML="";suggest.classList.add("hidden")}
+  };
+  input.onfocus=()=>{if(input.value.trim())input.dispatchEvent(new Event("input"))};
+  if(state.docsStudentId&&alunos.some(a=>String(a.ID_ALUNO)===String(state.docsStudentId)))await loadDocs(state.docsStudentId);
 }
+
 
