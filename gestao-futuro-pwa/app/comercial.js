@@ -176,22 +176,23 @@ async function gfDownloadAttendancePdf(rec,itens){
   }
 
   function drawHeader(){
-    doc.setFillColor(18,59,118);doc.rect(0,0,W,28,"F");
-    doc.setTextColor(255,255,255);doc.setFont("helvetica","bold");doc.setFontSize(15);doc.text("COLÉGIO FUTURO",M,11);
-    doc.setFont("helvetica","normal");doc.setFontSize(8.5);doc.text("Resumo de atendimento de matrícula",M,18);
+    doc.setFillColor(18,59,118);doc.rect(0,0,W,32,"F");
+    doc.setTextColor(190,218,249);doc.setFont("helvetica","bold");doc.setFontSize(7.6);doc.text("COLÉGIO FUTURO",M,9);
+    doc.setTextColor(255,255,255);doc.setFont("helvetica","bold");doc.setFontSize(14.5);doc.text("Atendimento / Proposta de Matrícula",M,18);
+    doc.setFont("helvetica","normal");doc.setFontSize(7.6);doc.setTextColor(222,235,250);doc.text("Gestão Futuro • Documento para conferência da família",M,25);
     if(brand&&brand.data){
       try{
-        var boxW=38,boxH=18,ratio=brand.ratio||2.2,imgW=boxW,imgH=imgW/ratio;
+        var boxW=42,boxH=22,ratio=brand.ratio||2.2,imgW=boxW,imgH=imgW/ratio;
         if(imgH>boxH){imgH=boxH;imgW=imgH*ratio}
-        var x=W-M-imgW,yImg=(28-imgH)/2;
-        doc.setFillColor(255,255,255);doc.roundedRect(x-2,yImg-1,imgW+4,imgH+2,1.8,1.8,"F");
+        var x=W-M-imgW,yImg=(32-imgH)/2;
+        doc.setFillColor(255,255,255);doc.roundedRect(x-2.5,yImg-1.5,imgW+5,imgH+3,2,2,"F");
         doc.addImage(brand.data,"PNG",x,yImg,imgW,imgH);
       }catch(e){}
     }
-    y=35;
+    y=40;
     if(rec.MODO_REGISTRO==="TESTE"||currentRunMode()==="TESTE"){
       doc.setFillColor(255,247,219);doc.setTextColor(155,102,0);doc.roundedRect(M,y,W-M*2,8,1.8,1.8,"F");
-      doc.setFont("helvetica","bold");doc.setFontSize(8.4);doc.text("TESTE / SIMULAÇÃO — SEM VALIDADE OPERACIONAL",M+4,y+5.4);y+=12;
+      doc.setFont("helvetica","bold");doc.setFontSize(8.4);doc.text("TESTE / SIMULAÇÃO - SEM VALIDADE OPERACIONAL",M+4,y+5.4);y+=12;
     }
   }
   function ensure(h){
@@ -294,6 +295,7 @@ async function gfDownloadAttendancePdf(rec,itens){
   }
 
   addFooters();
+  try{doc.setProperties({title:"Atendimento - "+gfPdfText(rec.NOME_ALUNO||""),subject:"Proposta de matrícula",author:"Colégio Futuro",creator:"Gestão Futuro"})}catch(e){}
   var filename="Atendimento_"+gfPdfFile(rec.NOME_ALUNO)+"_"+gfPdfFile(rec.ID_ATENDIMENTO||"sem_id")+".pdf";
   doc.save(filename);
 }
@@ -680,7 +682,7 @@ function gfFlyerMarkup(y,s,cfg,list){
 function gfBindFlyerActions(y,s,cfg,list){
   $("#printFlyer").onclick=function(){
     var w=window.open("","_blank");if(!w)return alert("Permita pop-ups para gerar o PDF.");
-    w.document.write("<!doctype html><html><head><meta charset='utf-8'><title>Panfleto "+esc(s)+" "+y+"</title><link rel='stylesheet' href='/styles.css'><style>@page{size:A4 portrait;margin:5mm}html,body{margin:0!important;padding:0!important;background:#fff!important}.flyer-actions{display:none!important}.flyer-a4{width:200mm!important;max-width:200mm!important;min-height:auto!important;margin:0 auto!important;box-shadow:none!important;border:0!important;border-radius:0!important;padding:6mm!important;box-sizing:border-box!important}</style></head><body>"+$("#flyerPreview").outerHTML+"<script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script></body></html>");
+    w.document.write("<!doctype html><html><head><meta charset='utf-8'><title>Panfleto "+esc(s)+" "+y+"</title><link rel='stylesheet' href='/styles.css'><style>@page{size:A4 portrait;margin:7mm}html,body{margin:0!important;padding:0!important;background:#fff!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}.flyer-actions{display:none!important}.flyer-a4{width:196mm!important;max-width:196mm!important;min-height:auto!important;margin:0 auto!important;box-shadow:none!important;border:0!important;border-radius:0!important;padding:5mm!important;box-sizing:border-box!important}.flyer-category,.flyer-uniforms,.flyer-cols section,.flyer-info,.flyer-item{break-inside:avoid!important;page-break-inside:avoid!important}img{max-width:100%!important}</style></head><body>"+$("#flyerPreview").outerHTML+"<script>window.onload=function(){var imgs=[].slice.call(document.images);Promise.all(imgs.map(function(img){return img.complete?Promise.resolve():new Promise(function(r){img.onload=img.onerror=r})})).then(function(){setTimeout(function(){window.print()},500)})}<\/script></body></html>");
     w.document.close();
   };
   $("#editFlyer")?.addEventListener("click",function(){editFlyerContent(y,s,cfg)});
