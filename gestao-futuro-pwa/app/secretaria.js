@@ -1,30 +1,81 @@
+function gfStudentNorm(v){return String(v||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim()}
+function gfNextSeries(serie){
+  const map={"Infantil 2":"Infantil 3","Infantil 3":"Infantil 4","Infantil 4":"Infantil 5","Infantil 5":"1º Ano","1º Ano":"2º Ano","2º Ano":"3º Ano","3º Ano":"4º Ano","4º Ano":"5º Ano","5º Ano":"6º Ano","6º Ano":"7º Ano","7º Ano":"8º Ano","8º Ano":"9º Ano","9º Ano":"1º EM","1º EM":"2º EM","2º EM":"3º EM","3º EM":"Concluinte"};
+  return map[String(serie||"")]||"";
+}
+function gfStudentSearchRows(alunos,q,limit=10){
+  q=gfStudentNorm(q);if(!q)return [];
+  return (alunos||[]).map(a=>{
+    const name=gfStudentNorm(a.NOME_COMPLETO),mat=gfStudentNorm(a.MATRICULA_ORIGEM||""),id=gfStudentNorm(a.ID_ALUNO||""),serie=gfStudentNorm(a["SÉRIE"]||"");
+    const starts=name.startsWith(q)||mat.startsWith(q)||id.startsWith(q);
+    const hit=starts||name.includes(q)||mat.includes(q)||id.includes(q)||serie.includes(q);
+    return {a,starts,hit};
+  }).filter(x=>x.hit).sort((x,y)=>(x.starts===y.starts?String(x.a.NOME_COMPLETO||"").localeCompare(String(y.a.NOME_COMPLETO||""),"pt-BR"):x.starts?-1:1)).slice(0,limit).map(x=>x.a);
+}
+function gfStudentSuggestHtml(list){
+  return list.map(a=>`<button type="button" class="student-suggest-item" data-student-pick="${esc(a.ID_ALUNO)}"><span><strong>${esc(a.NOME_COMPLETO||"")}</strong><small>${esc(a.MATRICULA_ORIGEM?"Matrícula "+a.MATRICULA_ORIGEM:"")}</small></span><b>${esc(a["SÉRIE"]||"")}<em>→ ${esc(a.PROXIMA_SERIE_2027||gfNextSeries(a["SÉRIE"])||"")}</em></b></button>`).join("");
+}
 async function renderAlunos(){
   const b=await loadBootstrap(); const alunos=b.alunos||[];
-  $("#view").innerHTML=`<div class="section-head"><h2>${alunos.length} aluno(s)</h2><div class="toolbar"><input class="search" id="studentSearch" placeholder="Buscar nome, CPF, série…"><button class="btn btn-report" id="studentReport">📄 Relatórios</button><button class="btn btn-primary" id="newStudent">+ Novo aluno</button></div></div><div id="studentsTable"></div>`;
-  const draw=()=>{
-    const q=$("#studentSearch").value.toLowerCase().trim();
-    const list=alunos.filter(a=>[a.NOME_COMPLETO,a.CPF,a["SÉRIE"],a.TURMA].join(" ").toLowerCase().includes(q));
-    $("#studentsTable").innerHTML=`<div class="table-wrap"><table><thead><tr><th>ID</th><th>Aluno</th><th>Série</th><th>Turno</th><th>Tipo</th><th>CPF</th><th>Status</th><th></th></tr></thead><tbody>${list.map(a=>`<tr><td>${esc(a.ID_ALUNO)}</td><td><strong>${esc(a.NOME_COMPLETO)}</strong><br><span class="muted">${esc(a.ESCOLA_ORIGEM||"")}</span></td><td>${esc(a["SÉRIE"]||"")}</td><td>${esc(a.TURNO||"")}</td><td>${pill(a.TIPO_ALUNO||"")}</td><td>${esc(a.CPF||"")}</td><td>${pill(a.STATUS||"",a.STATUS==="Ativo"?"ok":"")}</td><td><button class="icon-btn" data-edit-student="${esc(a.ID_ALUNO)}">Editar</button></td></tr>`).join("")||`<tr><td colspan="8" class="empty">Nenhum aluno encontrado.</td></tr>`}</tbody></table></div>`;
+  const series=[...new Set(alunos.map(a=>a["SÉRIE"]).filter(Boolean))];
+  $("#view").innerHTML=`
+    <div class="student-migration-summary">
+      <div><small>BASE ATUAL</small><strong>${alunos.length}</strong><span>alunos vinculados</span></div>
+      <div><small>SÉRIES</small><strong>${series.length}</strong><span>da Educação Infantil ao 9º Ano</span></div>
+      <div><small>MIGRAÇÃO</small><strong>${alunos.filter(a=>a.MATRICULA_ORIGEM).length}</strong><span>com matrícula de origem preservada</span></div>
+      <div><small>PROGRESSÃO</small><strong>${alunos.filter(a=>a.PROXIMA_SERIE_2027).length}</strong><span>com série seguinte registrada</span></div>
+    </div>
+    <div class="section-head"><h2>${alunos.length} aluno(s)</h2><div class="toolbar student-toolbar">
+      <div class="student-search-wrap"><input class="search" id="studentSearch" autocomplete="off" placeholder="Digite as primeiras letras do nome ou matrícula…"><div class="student-suggest hidden" id="studentSuggest"></div></div>
+      <button class="btn btn-report" id="studentReport">📄 Relatórios</button><button class="btn btn-primary" id="newStudent">+ Novo aluno</button>
+    </div></div><div id="studentsTable"></div>`;
+  const bindRows=()=>{
     $$('[data-edit-student]').forEach(x=>x.onclick=()=>openStudentForm(alunos.find(a=>a.ID_ALUNO===x.dataset.editStudent)));
+    $$('[data-doc-student]').forEach(x=>x.onclick=()=>{state.docsStudentId=x.dataset.docStudent;navigate("documentos")});
+  };
+  const draw=()=>{
+    const q=$("#studentSearch").value.trim(),qn=gfStudentNorm(q);
+    const list=!qn?alunos:alunos.filter(a=>[a.NOME_COMPLETO,a.CPF,a["SÉRIE"],a.TURMA,a.MATRICULA_ORIGEM,a.ID_ALUNO].some(v=>gfStudentNorm(v).includes(qn)));
+    $("#studentsTable").innerHTML=`<div class="table-wrap"><table><thead><tr><th>Matrícula</th><th>Aluno</th><th>Série atual</th><th>Próxima série</th><th>Tipo</th><th>Status</th><th>Ações</th></tr></thead><tbody>${list.map(a=>`<tr><td><b>${esc(a.MATRICULA_ORIGEM||"—")}</b><br><span class="muted">${esc(a.ID_ALUNO)}</span></td><td><strong>${esc(a.NOME_COMPLETO)}</strong><br><span class="muted">${esc(a.TURMA||"")}</span></td><td>${esc(a["SÉRIE"]||"")}</td><td><span class="progression-chip">${esc(a.PROXIMA_SERIE_2027||gfNextSeries(a["SÉRIE"])||"—")}</span></td><td>${pill(a.TIPO_ALUNO||"")}</td><td>${pill(a.STATUS||"",a.STATUS==="Ativo"?"ok":"")}</td><td><div class="row-actions"><button class="icon-btn" data-edit-student="${esc(a.ID_ALUNO)}">Editar dados</button><button class="icon-btn" data-doc-student="${esc(a.ID_ALUNO)}">Documentos</button></div></td></tr>`).join("")||`<tr><td colspan="7" class="empty">Nenhum aluno encontrado.</td></tr>`}</tbody></table></div>`;
+    bindRows();
+    const sug=$("#studentSuggest"),matches=q?gfStudentSearchRows(alunos,q,8):[];
+    if(matches.length){sug.innerHTML=gfStudentSuggestHtml(matches);sug.classList.remove("hidden");$$("[data-student-pick]").forEach(btn=>btn.onclick=()=>{const a=alunos.find(x=>x.ID_ALUNO===btn.dataset.studentPick);sug.classList.add("hidden");$("#studentSearch").value=a?.NOME_COMPLETO||"";openStudentForm(a||{})})}
+    else{sug.innerHTML="";sug.classList.add("hidden")}
   };
   let searchFrame=0;
   $("#studentSearch").oninput=()=>{cancelAnimationFrame(searchFrame);searchFrame=requestAnimationFrame(draw)};
+  $("#studentSearch").onfocus=()=>{if($("#studentSearch").value.trim())draw()};
+  document.addEventListener("click",function closeSuggest(ev){if(!ev.target.closest(".student-search-wrap")){$("#studentSuggest")?.classList.add("hidden");document.removeEventListener("click",closeSuggest)}});
   $("#studentReport").onclick=()=>openStudentReport(alunos,"cadastro"); $("#newStudent").onclick=()=>openStudentForm(); draw();
 }
 
 function seriesOptions(selected=""){ const s=["Infantil 2","Infantil 3","Infantil 4","Infantil 5","1º Ano","2º Ano","3º Ano","4º Ano","5º Ano","6º Ano","7º Ano","8º Ano","9º Ano","1º EM","2º EM","3º EM"]; return s.map(x=>`<option ${x===selected?"selected":""}>${x}</option>`).join(""); }
 function openStudentForm(a={}){
-  modal(`<div class="modal-head"><h3>${a.ID_ALUNO?"Editar aluno":"Novo aluno"}</h3><button class="icon-btn" data-close>✕</button></div><div class="modal-body"><form id="studentForm" class="form-grid">
+  const migrated=!!a.MATRICULA_ORIGEM,next=a.PROXIMA_SERIE_2027||gfNextSeries(a["SÉRIE"]||"");
+  modal(`<div class="modal-head"><h3>${a.ID_ALUNO?"Editar aluno":"Novo aluno"}</h3><button class="icon-btn" data-close>✕</button></div><div class="modal-body">
+    ${migrated?`<section class="migration-card"><div><small>MATRÍCULA DE ORIGEM</small><b>${esc(a.MATRICULA_ORIGEM||"")}</b></div><div><small>SÉRIE 2026</small><b>${esc(a.SERIE_ORIGEM_2026||a["SÉRIE"]||"")}</b></div><div><small>PROGRESSÃO 2027</small><b id="nextSeriesCard">${esc(next||"—")}</b></div><div><small>STATUS DA MIGRAÇÃO</small><b>${esc(a.PROGRESSAO_STATUS||"Migrado")}</b></div></section>`:""}
+    <form id="studentForm" class="form-grid">
+    <input type="hidden" name="MATRICULA_ORIGEM" value="${esc(a.MATRICULA_ORIGEM||"")}"><input type="hidden" name="STATUS_ORIGEM" value="${esc(a.STATUS_ORIGEM||"")}"><input type="hidden" name="SERIE_ORIGEM_2026" value="${esc(a.SERIE_ORIGEM_2026||"")}"><input type="hidden" name="PROXIMA_SERIE_2027" id="nextSeriesHidden" value="${esc(next)}"><input type="hidden" name="PROGRESSAO_STATUS" value="${esc(a.PROGRESSAO_STATUS||"Prevista para 2027")}"><input type="hidden" name="FONTE_MIGRACAO" value="${esc(a.FONTE_MIGRACAO||"")}"><input type="hidden" name="DATA_MIGRACAO" value="${esc(a.DATA_MIGRACAO||"")}"><input type="hidden" name="LOCAL_ORIGEM" value="${esc(a.LOCAL_ORIGEM||"")}">
     <div class="field span-2"><label>Nome completo *</label><input name="NOME_COMPLETO" value="${esc(a.NOME_COMPLETO||"")}" required></div><div class="field"><label>Nome social</label><input name="NOME_SOCIAL" value="${esc(a.NOME_SOCIAL||"")}"></div>
-    <div class="field"><label>Data de nascimento</label><input type="date" name="DATA_NASCIMENTO" value="${esc(a.DATA_NASCIMENTO||"")}"></div><div class="field"><label>Ano letivo</label><input type="number" name="ANO_LETIVO" min="2026" max="2100" value="${esc(a.ANO_LETIVO||state.attendanceYear||(new Date().getFullYear()+1))}"></div><div class="field"><label>CPF</label><input name="CPF" inputmode="numeric" value="${esc(a.CPF||"")}"></div><div class="field"><label>RG</label><input name="RG" value="${esc(a.RG||"")}"></div>
-    <div class="field"><label>Série *</label><select name="SÉRIE" required><option value="">Selecione</option>${seriesOptions(a["SÉRIE"]||"")}</select></div><div class="field"><label>Turma</label><input name="TURMA" value="${esc(a.TURMA||"")}"></div><div class="field"><label>Turno</label><select name="TURNO"><option ${a.TURNO==="Manhã"?"selected":""}>Manhã</option><option ${a.TURNO==="Tarde"?"selected":""}>Tarde</option><option ${a.TURNO==="Integral"?"selected":""}>Integral</option></select></div>
-    <div class="field"><label>Tipo</label><select name="TIPO_ALUNO"><option ${a.TIPO_ALUNO==="Novato"?"selected":""}>Novato</option><option ${a.TIPO_ALUNO==="Veterano"?"selected":""}>Veterano</option></select></div><div class="field"><label>Modalidade</label><input name="MODALIDADE" value="${esc(a.MODALIDADE||"Regular")}"></div><div class="field"><label>Escola de origem</label><input name="ESCOLA_ORIGEM" value="${esc(a.ESCOLA_ORIGEM||"")}"></div>
-    <div class="field"><label>CEP</label><input name="CEP" value="${esc(a.CEP||"")}"></div><div class="field span-2"><label>Logradouro</label><input name="LOGRADOURO" value="${esc(a.LOGRADOURO||"")}"></div><div class="field"><label>Número</label><input name="NUMERO" value="${esc(a.NUMERO||"")}"></div><div class="field"><label>Bairro</label><input name="BAIRRO" value="${esc(a.BAIRRO||"")}"></div><div class="field"><label>Cidade</label><input name="CIDADE" value="${esc(a.CIDADE||"Fortaleza")}"></div>
+    <div class="field"><label>Data de nascimento</label><input type="date" name="DATA_NASCIMENTO" value="${esc(a.DATA_NASCIMENTO||"")}"></div><div class="field"><label>Ano letivo</label><input type="number" name="ANO_LETIVO" min="2026" max="2100" value="${esc(a.ANO_LETIVO||2026)}"></div><div class="field"><label>CPF</label><input name="CPF" inputmode="numeric" value="${esc(a.CPF||"")}"></div><div class="field"><label>RG</label><input name="RG" value="${esc(a.RG||"")}"></div>
+    <div class="field"><label>Série *</label><select name="SÉRIE" id="studentSeries" required><option value="">Selecione</option>${seriesOptions(a["SÉRIE"]||"")}</select></div><div class="field"><label>Turma</label><input name="TURMA" value="${esc(a.TURMA||"")}"></div><div class="field"><label>Turno</label><select name="TURNO"><option value=""></option><option ${a.TURNO==="Manhã"?"selected":""}>Manhã</option><option ${a.TURNO==="Tarde"?"selected":""}>Tarde</option><option ${a.TURNO==="Integral"?"selected":""}>Integral</option></select></div>
+    <div class="field"><label>Tipo</label><select name="TIPO_ALUNO"><option ${a.TIPO_ALUNO==="Novato"?"selected":""}>Novato</option><option ${a.TIPO_ALUNO==="Veterano"||!a.TIPO_ALUNO?"selected":""}>Veterano</option></select></div><div class="field"><label>Modalidade</label><input name="MODALIDADE" value="${esc(a.MODALIDADE||"Regular")}"></div><div class="field"><label>Status</label><select name="STATUS"><option ${a.STATUS==="Ativo"||!a.STATUS?"selected":""}>Ativo</option><option ${a.STATUS==="Inativo"?"selected":""}>Inativo</option></select></div>
+    <div class="field span-2"><label>Responsável</label><input name="RESPONSÁVEL" value="${esc(a["RESPONSÁVEL"]||"")}"></div><div class="field"><label>Telefone</label><input name="TELEFONE" value="${esc(a.TELEFONE||"")}"></div><div class="field"><label>NIS</label><input name="NIS" value="${esc(a.NIS||"")}"></div>
+    <div class="field"><label>Sexo</label><input name="SEXO" value="${esc(a.SEXO||"")}"></div><div class="field"><label>Nacionalidade</label><input name="NACIONALIDADE" value="${esc(a.NACIONALIDADE||"")}"></div><div class="field"><label>Naturalidade</label><input name="NATURALIDADE_CIDADE" value="${esc(a.NATURALIDADE_CIDADE||"")}"></div><div class="field"><label>UF naturalidade</label><input name="NATURALIDADE_UF" maxlength="2" value="${esc(a.NATURALIDADE_UF||"")}"></div>
+    <div class="field"><label>Órgão expedidor</label><input name="ORGAO_EXPEDIDOR" value="${esc(a.ORGAO_EXPEDIDOR||"")}"></div><div class="field span-2"><label>Certidão de nascimento</label><input name="CERTIDAO_NASCIMENTO" value="${esc(a.CERTIDAO_NASCIMENTO||"")}"></div><div class="field"><label>Cartão SUS</label><input name="CARTAO_SUS" value="${esc(a.CARTAO_SUS||"")}"></div>
+    <div class="field span-2"><label>Necessidade educacional</label><input name="NECESSIDADE_EDUCACIONAL" value="${esc(a.NECESSIDADE_EDUCACIONAL||"")}"></div><div class="field"><label>Deficiência</label><input name="DEFICIENCIA" value="${esc(a.DEFICIENCIA||"")}"></div><div class="field"><label>Alergia</label><input name="ALERGIA" value="${esc(a.ALERGIA||"")}"></div><div class="field"><label>Medicação</label><input name="MEDICACAO" value="${esc(a.MEDICACAO||"")}"></div>
+    <div class="field"><label>Plano de saúde</label><input name="PLANO_SAUDE" value="${esc(a.PLANO_SAUDE||"")}"></div><div class="field"><label>Contato de emergência</label><input name="NOME_EMERGENCIA" value="${esc(a.NOME_EMERGENCIA||"")}"></div><div class="field"><label>Telefone emergência</label><input name="TELEFONE_EMERGENCIA" value="${esc(a.TELEFONE_EMERGENCIA||"")}"></div>
+    <div class="field"><label>CEP</label><input name="CEP" value="${esc(a.CEP||"")}"></div><div class="field span-2"><label>Logradouro</label><input name="LOGRADOURO" value="${esc(a.LOGRADOURO||"")}"></div><div class="field"><label>Número</label><input name="NUMERO" value="${esc(a.NUMERO||"")}"></div><div class="field"><label>Complemento</label><input name="COMPLEMENTO" value="${esc(a.COMPLEMENTO||"")}"></div><div class="field"><label>Bairro</label><input name="BAIRRO" value="${esc(a.BAIRRO||"")}"></div><div class="field"><label>Cidade</label><input name="CIDADE" value="${esc(a.CIDADE||"")}"></div><div class="field"><label>UF</label><input name="UF" maxlength="2" value="${esc(a.UF||"")}"></div>
+    <div class="field"><label>Cor/Raça</label><input name="COR_RACA" value="${esc(a.COR_RACA||"")}"></div><div class="field"><label>Religião</label><input name="RELIGIAO" value="${esc(a.RELIGIAO||"")}"></div><div class="field span-2"><label>Link/Pasta de documentos</label><input name="LINK_DOCUMENTOS" value="${esc(a.LINK_DOCUMENTOS||"")}"></div>
     <div class="field span-3"><label>Observações</label><textarea name="OBSERVAÇÕES">${esc(a["OBSERVAÇÕES"]||"")}</textarea></div>
-  </form></div><div class="modal-foot"><button class="btn btn-soft" data-close>Cancelar</button><button class="btn btn-primary" id="saveStudent">Salvar aluno</button></div>`);
+  </form></div><div class="modal-foot">${a.ID_ALUNO?`<button class="btn btn-report" id="studentDocsBtn">📁 Documentos</button>`:""}<button class="btn btn-soft" data-close>Cancelar</button><button class="btn btn-primary" id="saveStudent">Salvar aluno</button></div>`);
   $$('[data-close]').forEach(x=>x.onclick=closeModal);
+  const syncNext=()=>{const n=gfNextSeries($("#studentSeries").value);$("#nextSeriesHidden").value=n;if($("#nextSeriesCard"))$("#nextSeriesCard").textContent=n||"—"};
+  $("#studentSeries").onchange=syncNext;
+  if($("#studentDocsBtn"))$("#studentDocsBtn").onclick=()=>{state.docsStudentId=a.ID_ALUNO;closeModal();navigate("documentos")};
   $("#saveStudent").onclick=async()=>{
     const f=$("#studentForm"); if(!f.reportValidity()) return;
+    syncNext();
     const data=Object.fromEntries(new FormData(f).entries()); if(a.ID_ALUNO)data.ID_ALUNO=a.ID_ALUNO;
     const btn=$("#saveStudent");btn.disabled=true;btn.textContent="Salvando…";
     try{await api("salvarAluno",{token:tokenFor("staff"),data});state.bootstrap=null;closeModal();setNotice("Aluno salvo com sucesso.","ok");await renderAlunos();}catch(e){alert(e.message);btn.disabled=false;btn.textContent="Salvar aluno";}
