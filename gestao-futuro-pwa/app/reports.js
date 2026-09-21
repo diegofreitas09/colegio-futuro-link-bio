@@ -139,6 +139,10 @@ function openStudentReport(alunos=[],kind="cadastro"){
 
 function openResponsibleReport(rs=[],alunos=[],kind="cadastro"){
   const series=gfReportSeries(alunos),studentById=Object.fromEntries(alunos.map(a=>[String(a.ID_ALUNO),a]));
+  const explicit=(rs||[]).map(r=>({r,a:studentById[String(r.ID_ALUNO)]||{}}));
+  const linked=new Set(explicit.map(x=>String(x.a.ID_ALUNO||x.r.ID_ALUNO||"")+"|"+String(x.r.NOME_COMPLETO||"").trim().toLowerCase()));
+  const fallback=(alunos||[]).filter(a=>String(a["RESPONSÁVEL"]||"").trim()).map(a=>({r:{ID_ALUNO:a.ID_ALUNO,NOME_COMPLETO:a["RESPONSÁVEL"],PARENTESCO:"",TELEFONE:a.TELEFONE||"",EMAIL:""},a})).filter(x=>!linked.has(String(x.a.ID_ALUNO||"")+"|"+String(x.r.NOME_COMPLETO||"").trim().toLowerCase()));
+  const source=[...explicit,...fallback];
   modal(`<div class="modal-head"><h3>Relatório de responsáveis</h3><button class="icon-btn" data-close>✕</button></div>
   <div class="modal-body"><div class="report-intro"><b>👨‍👩‍👧 Responsáveis por série</b><span>Relação completa ou lista de assinatura dos responsáveis.</span></div>
   <form id="respReportForm" class="form-grid">
@@ -147,10 +151,10 @@ function openResponsibleReport(rs=[],alunos=[],kind="cadastro"){
     <div class="field"><label>Formato</label><select name="FORMAT">${gfReportFormatOptions()}</select></div>
   </form></div>
   <div class="modal-foot"><button class="btn btn-soft" data-close>Cancelar</button><button class="btn btn-primary report-download-btn" id="generateRespReport">📄 Gerar relatório</button></div>`);
-  $$("[data-close]").forEach(x=>x.onclick=closeModal);
+  $("[data-close]").forEach(x=>x.onclick=closeModal);
   $("#generateRespReport").onclick=async()=>{
     const d=Object.fromEntries(new FormData($("#respReportForm")).entries()),signature=d.MODELO==="assinatura";
-    const list=rs.map(r=>({r,a:studentById[String(r.ID_ALUNO)]||{}})).filter(x=>!d.SERIE||String(x.a["SÉRIE"]||"")===d.SERIE).sort((x,y)=>String(x.a.NOME_COMPLETO||"").localeCompare(String(y.a.NOME_COMPLETO||""),"pt-BR")||String(x.r.NOME_COMPLETO||"").localeCompare(String(y.r.NOME_COMPLETO||""),"pt-BR"));
+    const list=source.filter(x=>!d.SERIE||String(x.a["SÉRIE"]||"")===d.SERIE).sort((x,y)=>String(x.a.NOME_COMPLETO||"").localeCompare(String(y.a.NOME_COMPLETO||""),"pt-BR")||String(x.r.NOME_COMPLETO||"").localeCompare(String(y.r.NOME_COMPLETO||""),"pt-BR"));
     const cols=signature?[
       {key:"n",label:"Nº",width:.4,align:"center"},{key:"responsavel",label:"Responsável",width:2.2},{key:"aluno",label:"Aluno",width:2.1},{key:"parentesco",label:"Parentesco",width:1.1},{key:"assinatura",label:"Assinatura",width:2.8}
     ]:[
