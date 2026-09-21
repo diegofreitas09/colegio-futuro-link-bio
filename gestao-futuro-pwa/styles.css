@@ -531,3 +531,25 @@ body.home-active .shell{filter:blur(2px) saturate(.8);pointer-events:none;user-s
   .student-analytics-filters{grid-template-columns:1fr}
   .student-analytics-filters #clearStudentAnalytics{grid-column:auto;width:100%}
 }
+
+
+/* Projeção financeira de mensalidades */
+.rev-hero{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:16px;padding:24px 26px;border-radius:22px;background:linear-gradient(120deg,#0d4c99,#0a3474 62%,#082552);color:#fff;box-shadow:0 16px 36px rgba(8,42,92,.14)}
+.rev-hero small{font-size:9px;font-weight:900;letter-spacing:.16em;color:#acd2ff}.rev-hero h2{margin:5px 0 6px;font-size:29px}.rev-hero p{margin:0;max-width:760px;color:#dceaff;font-size:12px;line-height:1.5}
+.rev-hero-badge{min-width:110px;height:84px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);border-radius:18px;display:grid;place-items:center;text-align:center;font-size:12px;font-weight:900;letter-spacing:.05em}.rev-hero-badge small{display:block;font-size:8px;letter-spacing:.04em}
+.rev-filters{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;align-items:end;margin-bottom:14px;padding:16px}
+.rev-search-field{grid-column:span 2}.rev-filter-actions{display:flex;gap:8px;align-items:end;grid-column:span 2}
+.rev-filter-actions .btn{flex:1}
+.rev-warning{display:flex;gap:12px;align-items:flex-start;margin-bottom:14px;padding:12px 14px;border:1px solid #eadc9e;background:#fff9e5;border-radius:14px;color:#6d5b20}
+.rev-warning b{white-space:nowrap}.rev-warning span{font-size:11px;line-height:1.45}
+.rev-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:15px}
+.rev-kpis>div{padding:15px 16px;border:1px solid #dce6f2;border-radius:16px;background:#fff;box-shadow:0 8px 24px rgba(18,59,118,.06)}
+.rev-kpis>div.net{background:linear-gradient(180deg,#f4fbf6,#fff);border-color:#cfe7d6}
+.rev-kpis small{display:block;font-size:8.5px;font-weight:900;letter-spacing:.07em;color:#718197}.rev-kpis strong{display:block;margin:4px 0 3px;font-size:22px;color:#0f447e}.rev-kpis span{font-size:10px;color:#718197}
+.rev-charts{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:15px}
+.rev-chart-card{padding:16px;border:1px solid #dbe6f2;border-radius:18px;background:#fff;box-shadow:0 8px 24px rgba(18,59,118,.06)}
+.rev-chart-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:14px}.rev-chart-head small{display:block;font-size:8px;font-weight:900;color:#78879a;letter-spacing:.08em}.rev-chart-head h3{margin:3px 0 0;color:#143f76;font-size:17px}.rev-chart-head>b{font-size:11px;color:#0f447e;background:#edf5ff;border-radius:999px;padding:7px 10px;white-space:nowrap}
+.rev-bars{display:grid;gap:8px}.rev-bar-row{display:grid;grid-template-columns:100px 1fr 110px;align-items:center;gap:8px}.rev-bar-row>span{font-size:10px;font-weight:800;color:#4a5a70;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rev-bar-row>div{height:12px;background:#edf2f7;border-radius:999px;overflow:hidden}.rev-bar-row i{display:block;height:100%;min-width:2px;background:linear-gradient(90deg,#0d4f9e,#2e77c5);border-radius:999px}.rev-bars.students .rev-bar-row i{background:linear-gradient(90deg,#2b7a53,#55a978)}.rev-bar-row>b{font-size:10px;color:#123b76}
+.rev-summary-card,.rev-students-card{margin-top:14px}.rev-summary-card h3,.rev-students-card h3{margin:0;color:#143f76}
+@media(max-width:980px){.rev-filters{grid-template-columns:1fr 1fr}.rev-search-field,.rev-filter-actions{grid-column:span 2}.rev-kpis{grid-template-columns:1fr 1fr}.rev-charts{grid-template-columns:1fr}}
+@media(max-width:640px){.rev-hero{align-items:flex-start;padding:19px}.rev-hero h2{font-size:24px}.rev-hero-badge{min-width:76px;height:70px;font-size:9px}.rev-filters{grid-template-columns:1fr}.rev-search-field,.rev-filter-actions{grid-column:span 1}.rev-filter-actions{flex-direction:column}.rev-filter-actions .btn{width:100%}.rev-kpis{grid-template-columns:1fr}.rev-bar-row{grid-template-columns:76px 1fr 90px}.rev-warning{flex-direction:column}}
