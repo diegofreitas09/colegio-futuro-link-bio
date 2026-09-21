@@ -22,7 +22,7 @@ async function verify(role:string,token:string){
   if(!token)return false;
   try{
     const body=role==="admin"?{action:"listarCaixa",token,modo:"PRODUCAO"}:{action:"bootstrapSecretaria",token,modo:"PRODUCAO"};
-    const r=await fetch(APPS_SCRIPT_URL,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)});
+    const r=await fetch(SITE_URL+"/api/gf",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body),redirect:"follow"});
     const x=await r.json().catch(()=>null) as any;
     return !!(r.ok&&x?.ok);
   }catch{return false}
