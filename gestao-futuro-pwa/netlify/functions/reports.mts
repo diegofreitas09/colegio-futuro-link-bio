@@ -69,85 +69,165 @@ async function makePdf(body:ReportBody){
       chartRatio=chartImg.width/chartImg.height||2.6;
     }
   }catch{}
+
   const landscape=body.orientation!=="portrait";
   const PAGE=landscape?[841.89,595.28]:[595.28,841.89];
-  const margin=34, headerH=82, footerH=24;
+  const W=PAGE[0],H=PAGE[1];
+  const margin=34,footerH=28;
   const cols=Array.isArray(body.columns)?body.columns.slice(0,14):[];
   const rows=Array.isArray(body.rows)?body.rows.slice(0,5000):[];
-  const weightSum=cols.reduce((s,c)=>s+Math.max(1,Number(c.width||1)),0)||1;
-  const avail=PAGE[0]-margin*2;
+  const weightSum=cols.reduce((sum,c)=>sum+Math.max(1,Number(c.width||1)),0)||1;
+  const avail=W-margin*2;
   const widths=cols.map(c=>avail*Math.max(1,Number(c.width||1))/weightSum);
   const generated=new Intl.DateTimeFormat("pt-BR",{dateStyle:"short",timeStyle:"short",timeZone:"America/Fortaleza"}).format(new Date());
-  let page:any,y=0,pageNo=0;
+  const navy=rgb(0.035,0.19,0.43),blue=rgb(.08,.30,.59),ink=rgb(.12,.16,.22),muted=rgb(.39,.45,.54),line=rgb(.84,.87,.91);
+  let page:any,y=0;
   const pages:any[]=[];
-  const drawHeader=()=>{
-    page=pdf.addPage(PAGE as [number,number]);pages.push(page);pageNo++;
-    const H=PAGE[1],W=PAGE[0];
-    page.drawRectangle({x:0,y:H-72,width:W,height:72,color:rgb(0.035,0.19,0.43)});
-    if(logo){const d=logo.scale(1);const h=48,w=48*(d.width/d.height);page.drawRectangle({x:margin,y:H-60,width:52,height:52,color:rgb(1,1,1)});page.drawImage(logo,{x:margin+2,y:H-58,width:48,height:48})}
-    const tx=logo?margin+65:margin;
-    page.drawText("COLÉGIO FUTURO",{x:tx,y:H-29,size:9,font:bold,color:rgb(.72,.84,1)});
-    page.drawText(clean(body.title),{x:tx,y:H-49,size:18,font:bold,color:rgb(1,1,1),maxWidth:W-tx-margin-170});
-    if(body.subtitle)page.drawText(clean(body.subtitle),{x:tx,y:H-64,size:8.5,font:regular,color:rgb(.88,.93,1),maxWidth:W-tx-margin-170});
-    page.drawText("Gestão Futuro • Relatório institucional",{x:W-margin-170,y:H-28,size:8,font:bold,color:rgb(.8,.88,1)});
-    page.drawText("Gerado em "+generated,{x:W-margin-170,y:H-43,size:7.5,font:regular,color:rgb(.85,.9,1)});
-    y=H-headerH;
+
+  const titleText=clean(body.title||"Relatório");
+  const subtitleText=clean(body.subtitle||"");
+  const headerHeight=landscape?82:94;
+
+  function drawHeader(){
+    page=pdf.addPage(PAGE as [number,number]);pages.push(page);
+    page.drawRectangle({x:0,y:H-headerHeight,width:W,height:headerHeight,color:navy});
+
+    const logoBox=landscape?50:54;
+    if(logo){
+      const ratio=logo.width/logo.height||1;
+      const max=logoBox-6;
+      let iw=max,ih=iw/ratio;
+      if(ih>max){ih=max;iw=ih*ratio}
+      page.drawRectangle({x:margin,y:H-headerHeight+14,width:logoBox,height:logoBox,color:rgb(1,1,1),borderColor:rgb(.82,.88,.96),borderWidth:.5});
+      page.drawImage(logo,{x:margin+(logoBox-iw)/2,y:H-headerHeight+14+(logoBox-ih)/2,width:iw,height:ih});
+    }
+
+    const tx=logo?margin+logoBox+14:margin;
+    const rightW=landscape?170:140;
+    const rightX=W-margin-rightW;
+    const titleMax=Math.max(150,rightX-tx-14);
+
+    page.drawText("COLÉGIO FUTURO",{x:tx,y:H-24,size:8.2,font:bold,color:rgb(.72,.84,1)});
+    let tSize=landscape?16.5:15.2;
+    let titleLines=wrap(titleText,bold,tSize,titleMax);
+    if(titleLines.length>2){tSize-=1.2;titleLines=wrap(titleText,bold,tSize,titleMax)}
+    titleLines=titleLines.slice(0,2);
+    let ty=H-43;
+    for(const ln of titleLines){
+      page.drawText(ln,{x:tx,y:ty,size:tSize,font:bold,color:rgb(1,1,1)});
+      ty-=tSize+2;
+    }
+
+    if(subtitleText){
+      const subLines=wrap(subtitleText,regular,7.4,titleMax).slice(0,2);
+      let sy=ty-1;
+      for(const ln of subLines){
+        page.drawText(ln,{x:tx,y:sy,size:7.4,font:regular,color:rgb(.87,.93,1)});
+        sy-=9;
+      }
+    }
+
+    page.drawText("Gestão Futuro",{x:rightX,y:H-26,size:8,font:bold,color:rgb(.83,.90,1)});
+    page.drawText("Relatório institucional",{x:rightX,y:H-38,size:7.3,font:regular,color:rgb(.83,.90,1)});
+    page.drawText("Gerado em "+generated,{x:rightX,y:H-52,size:6.9,font:regular,color:rgb(.78,.86,.96),maxWidth:rightW});
+
+    y=H-headerHeight-12;
     if(body.meta?.length){
-      const line=body.meta.map(m=>clean(m.label)+": "+clean(m.value)).join("   |   ");
-      const lines=wrap(line,regular,7.5,W-margin*2);
-      for(const l of lines.slice(0,2)){page.drawText(l,{x:margin,y,size:7.5,font:regular,color:rgb(.25,.31,.4)});y-=10}
-      y-=3;
+      const metaParts=body.meta.map(m=>clean(m.label)+": "+clean(m.value));
+      const metaLines=wrap(metaParts.join("   |   "),regular,7.2,avail).slice(0,3);
+      for(const ln of metaLines){
+        page.drawText(ln,{x:margin,y,size:7.2,font:regular,color:muted});
+        y-=9;
+      }
+      y-=4;
     }
+
     if(body.summary?.length){
-      const gap=6,n=Math.min(body.summary.length,4),w=(avail-gap*(n-1))/n;
-      body.summary.slice(0,4).forEach((s,i)=>{
+      const items=body.summary.slice(0,4),gap=6,n=items.length,w=(avail-gap*Math.max(0,n-1))/Math.max(1,n);
+      items.forEach((item,i)=>{
         const x=margin+i*(w+gap);
-        page.drawRectangle({x,y:y-31,width:w,height:31,color:rgb(.96,.975,.995),borderColor:rgb(.82,.87,.94),borderWidth:.6});
-        page.drawText(clean(s.label).slice(0,36),{x:x+7,y:y-11,size:6.7,font:bold,color:rgb(.35,.42,.52)});
-        page.drawText(clean(s.value).slice(0,38),{x:x+7,y:y-24,size:10,font:bold,color:rgb(.04,.25,.53)});
+        page.drawRectangle({x,y:y-34,width:w,height:34,color:rgb(.96,.975,.995),borderColor:rgb(.82,.87,.94),borderWidth:.6});
+        const labs=wrap(clean(item.label),bold,6.4,w-14).slice(0,2);
+        let ly=y-10;
+        for(const ln of labs){page.drawText(ln,{x:x+7,y:ly,size:6.4,font:bold,color:rgb(.35,.42,.52)});ly-=7}
+        const value=clean(item.value);
+        let vSize=value.length>24?8.5:10.2;
+        page.drawText(value,{x:x+7,y:y-28,size:vSize,font:bold,color:rgb(.04,.25,.53),maxWidth:w-14});
       });
-      y-=39;
+      y-=42;
     }
-  };
-  const drawTableHead=()=>{
-    const h=22;let x=margin;
-    page.drawRectangle({x:margin,y:y-h,width:avail,height:h,color:rgb(.08,.30,.59)});
-    cols.forEach((c,i)=>{page.drawText(clean(c.label).slice(0,30),{x:x+4,y:y-14,size:7,font:bold,color:rgb(1,1,1),maxWidth:widths[i]-8});x+=widths[i]});
-    y-=h;
-  };
-  drawHeader();
-  if(chartImg){
-    const title=clean(body.chartTitle||"Distribuição");
-    if(title){page.drawText(title,{x:margin,y,size:8.5,font:bold,color:rgb(.04,.25,.53)});y-=12}
-    const maxW=avail,maxH=165,w=maxW,h=Math.min(maxH,w/chartRatio);
-    const drawW=h*chartRatio;
-    if(y-h<footerH+margin){drawHeader()}
-    page.drawRectangle({x:margin,y:y-h,width:avail,height:h,color:rgb(.985,.99,1),borderColor:rgb(.84,.88,.94),borderWidth:.6});
-    page.drawImage(chartImg,{x:margin+(avail-drawW)/2,y:y-h,width:drawW,height:h});
-    y-=h+10;
   }
-  drawTableHead();
-  rows.forEach((row,ri)=>{
-    const cellLines=cols.map((c,i)=>wrap(val(row,c.key),regular,7,widths[i]-8).slice(0,body.signature&&c.key==="assinatura"?1:4));
-    const maxLines=Math.max(1,...cellLines.map(a=>a.length));
-    const rowH=Math.max(body.signature?28:18,Math.min(48,maxLines*9+7));
-    if(y-rowH<footerH+margin){
-      drawHeader();drawTableHead();
+
+  function drawTableHead(){
+    if(!cols.length)return;
+    const labels=cols.map((c,i)=>wrap(clean(c.label),bold,6.7,widths[i]-8).slice(0,2));
+    const maxLines=Math.max(1,...labels.map(x=>x.length));
+    const h=Math.max(22,11+maxLines*7);
+    let x=margin;
+    page.drawRectangle({x:margin,y:y-h,width:avail,height:h,color:blue});
+    cols.forEach((c,i)=>{
+      let yy=y-12;
+      for(const ln of labels[i]){
+        page.drawText(ln,{x:x+4,y:yy,size:6.7,font:bold,color:rgb(1,1,1),maxWidth:widths[i]-8});
+        yy-=7.2;
+      }
+      x+=widths[i];
+    });
+    y-=h;
+  }
+
+  function ensureSpace(required:number,withTableHead=true){
+    if(y-required<footerH+margin){
+      drawHeader();
+      if(withTableHead)drawTableHead();
     }
+  }
+
+  drawHeader();
+
+  if(chartImg){
+    const chartTitle=clean(body.chartTitle||"Distribuição");
+    if(chartTitle){
+      ensureSpace(20,false);
+      page.drawText(chartTitle,{x:margin,y,size:8.8,font:bold,color:rgb(.04,.25,.53)});y-=13;
+    }
+    const maxW=avail,maxH=landscape?150:175;
+    let drawW=maxW,drawH=drawW/chartRatio;
+    if(drawH>maxH){drawH=maxH;drawW=drawH*chartRatio}
+    ensureSpace(drawH+14,false);
+    page.drawRectangle({x:margin,y:y-drawH,width:avail,height:drawH,color:rgb(.985,.99,1),borderColor:rgb(.84,.88,.94),borderWidth:.6});
+    page.drawImage(chartImg,{x:margin+(avail-drawW)/2,y:y-drawH,width:drawW,height:drawH});
+    y-=drawH+12;
+  }
+
+  drawTableHead();
+
+  rows.forEach((row,ri)=>{
+    const cellLines=cols.map((c,i)=>{
+      if(body.signature&&c.key==="assinatura")return [""];
+      const limit=body.signature?3:5;
+      return wrap(val(row,c.key),regular,7,widths[i]-8).slice(0,limit);
+    });
+    const maxLines=Math.max(1,...cellLines.map(a=>a.length));
+    const rowH=Math.max(body.signature?34:20,Math.min(body.signature?48:58,maxLines*9+8));
+    ensureSpace(rowH+2,true);
+
     if(ri%2===1)page.drawRectangle({x:margin,y:y-rowH,width:avail,height:rowH,color:rgb(.975,.982,.992)});
-    page.drawLine({start:{x:margin,y:y-rowH},end:{x:margin+avail,y:y-rowH},thickness:.35,color:rgb(.84,.87,.91)});
+    page.drawLine({start:{x:margin,y:y-rowH},end:{x:margin+avail,y:y-rowH},thickness:.35,color:line});
+
     let x=margin;
     cols.forEach((c,i)=>{
-      const lines=cellLines[i]; let yy=y-11;
       if(body.signature&&c.key==="assinatura"){
-        page.drawLine({start:{x:x+8,y:y-rowH/2-4},end:{x:x+widths[i]-8,y:y-rowH/2-4},thickness:.45,color:rgb(.45,.48,.52)});
+        const sy=y-rowH/2-2;
+        page.drawLine({start:{x:x+9,y:sy},end:{x:x+widths[i]-9,y:sy},thickness:.5,color:rgb(.42,.47,.54)});
       }else{
-        for(const line of lines){
+        const lines=cellLines[i];let yy=y-12;
+        for(const ln of lines){
+          const tw=regular.widthOfTextAtSize(ln,7);
           let dx=x+4;
-          const tw=regular.widthOfTextAtSize(line,7);
           if(c.align==="right")dx=x+widths[i]-4-tw;
           else if(c.align==="center")dx=x+(widths[i]-tw)/2;
-          page.drawText(line,{x:Math.max(x+3,dx),y:yy,size:7,font:regular,color:rgb(.12,.16,.22),maxWidth:widths[i]-8});
+          page.drawText(ln,{x:Math.max(x+3,dx),y:yy,size:7,font:regular,color:ink,maxWidth:widths[i]-8});
           yy-=9;
         }
       }
@@ -155,15 +235,26 @@ async function makePdf(body:ReportBody){
     });
     y-=rowH;
   });
+
   if(!rows.length){
-    page.drawText("Nenhum registro encontrado para os filtros selecionados.",{x:margin,y:y-24,size:9,font:regular,color:rgb(.4,.45,.52)});
+    ensureSpace(64,false);
+    page.drawRectangle({x:margin,y:y-52,width:avail,height:52,color:rgb(.98,.985,.992),borderColor:rgb(.86,.89,.93),borderWidth:.6});
+    page.drawText("Nenhum registro encontrado",{x:margin+12,y:y-21,size:10,font:bold,color:rgb(.23,.31,.43)});
+    page.drawText("Não existem dados cadastrados para os filtros escolhidos neste relatório.",{x:margin+12,y:y-37,size:7.8,font:regular,color:muted,maxWidth:avail-24});
+    y-=60;
   }
+
   pages.forEach((p,i)=>{
-    p.drawLine({start:{x:margin,y:22},end:{x:PAGE[0]-margin,y:22},thickness:.4,color:rgb(.82,.85,.89)});
-    p.drawText("Colégio Futuro • Gestão Futuro",{x:margin,y:9,size:6.7,font:regular,color:rgb(.45,.49,.55)});
+    p.drawLine({start:{x:margin,y:24},end:{x:W-margin,y:24},thickness:.4,color:rgb(.82,.85,.89)});
+    p.drawText("Colégio Futuro • Gestão Futuro • PDF Solução Educacional",{x:margin,y:10,size:6.4,font:regular,color:rgb(.45,.49,.55)});
     const txt="Página "+(i+1)+" de "+pages.length;
-    p.drawText(txt,{x:PAGE[0]-margin-regular.widthOfTextAtSize(txt,6.7),y:9,size:6.7,font:regular,color:rgb(.45,.49,.55)});
+    p.drawText(txt,{x:W-margin-regular.widthOfTextAtSize(txt,6.4),y:10,size:6.4,font:regular,color:rgb(.45,.49,.55)});
   });
+
+  pdf.setTitle(titleText);
+  pdf.setAuthor("Colégio Futuro");
+  pdf.setSubject(subtitleText||"Relatório institucional");
+  pdf.setCreator("Gestão Futuro");
   return Buffer.from(await pdf.save());
 }
 
