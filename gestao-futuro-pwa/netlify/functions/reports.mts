@@ -11,6 +11,8 @@ type ReportBody = {
   title:string; subtitle?:string; filename?:string; orientation?:"portrait"|"landscape";
   columns:Col[]; rows:Record<string,unknown>[]; meta?:{label:string;value:string}[];
   summary?:{label:string;value:string}[]; signature?:boolean;
+  chartDataUrl?:string; chartTitle?:string;
+  extraSheets?:{name:string;columns:string[];rows:(string|number)[][]}[];
 };
 
 function j(data:unknown,status=200){return new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store"}})}
@@ -54,10 +56,18 @@ async function makePdf(body:ReportBody){
   const pdf=await PDFDocument.create();
   const regular=await pdf.embedFont(StandardFonts.Helvetica);
   const bold=await pdf.embedFont(StandardFonts.HelveticaBold);
-  let logo:any=null;
+  let logo:any=null,chartImg:any=null,chartRatio=2.6;
   try{
     const r=await fetch(SITE_URL+"/assets/app-icon-512.png",{cache:"no-store"});
     if(r.ok)logo=await pdf.embedPng(await r.arrayBuffer());
+  }catch{}
+  try{
+    const raw=String(body.chartDataUrl||"");
+    if(raw.startsWith("data:image/png;base64,")){
+      const bytes=Buffer.from(raw.split(",")[1],"base64");
+      chartImg=await pdf.embedPng(bytes);
+      chartRatio=chartImg.width/chartImg.height||2.6;
+    }
   }catch{}
   const landscape=body.orientation!=="portrait";
   const PAGE=landscape?[841.89,595.28]:[595.28,841.89];
@@ -105,7 +115,18 @@ async function makePdf(body:ReportBody){
     cols.forEach((c,i)=>{page.drawText(clean(c.label).slice(0,30),{x:x+4,y:y-14,size:7,font:bold,color:rgb(1,1,1),maxWidth:widths[i]-8});x+=widths[i]});
     y-=h;
   };
-  drawHeader();drawTableHead();
+  drawHeader();
+  if(chartImg){
+    const title=clean(body.chartTitle||"Distribuição");
+    if(title){page.drawText(title,{x:margin,y,size:8.5,font:bold,color:rgb(.04,.25,.53)});y-=12}
+    const maxW=avail,maxH=165,w=maxW,h=Math.min(maxH,w/chartRatio);
+    const drawW=h*chartRatio;
+    if(y-h<footerH+margin){drawHeader()}
+    page.drawRectangle({x:margin,y:y-h,width:avail,height:h,color:rgb(.985,.99,1),borderColor:rgb(.84,.88,.94),borderWidth:.6});
+    page.drawImage(chartImg,{x:margin+(avail-drawW)/2,y:y-h,width:drawW,height:h});
+    y-=h+10;
+  }
+  drawTableHead();
   rows.forEach((row,ri)=>{
     const cellLines=cols.map((c,i)=>wrap(val(row,c.key),regular,7,widths[i]-8).slice(0,body.signature&&c.key==="assinatura"?1:4));
     const maxLines=Math.max(1,...cellLines.map(a=>a.length));
@@ -165,6 +186,16 @@ function makeXlsx(body:ReportBody){
     ws["!autofilter"]={ref:XLSX.utils.encode_range({r:headerRow,c:0},{r:headerRow+rows.length,c:Math.max(0,cols.length-1)})};
   }
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Relatório");
+  for(const sh of (body.extraSheets||[])){
+    const name=clean(sh.name||"Resumo").slice(0,31)||"Resumo";
+    const data=[(sh.columns||[]).map(clean),...((sh.rows||[]).map(r=>r.map(v=>typeof v==="number"?v:clean(v))))];
+    const ex=XLSX.utils.aoa_to_sheet(data);
+    if((sh.columns||[]).length){
+      ex["!cols"]=(sh.columns||[]).map(()=>({wch:22}));
+      ex["!autofilter"]={ref:XLSX.utils.encode_range({r:0,c:0},{r:Math.max(0,data.length-1),c:Math.max(0,(sh.columns||[]).length-1)})};
+    }
+    XLSX.utils.book_append_sheet(wb,ex,name);
+  }
   return XLSX.write(wb,{bookType:"xlsx",type:"buffer"});
 }
 
