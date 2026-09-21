@@ -156,7 +156,12 @@ function openProductForm(p){
 }
 
 
-function revNum(v){return Number(String(v??0).replace(/\./g,"").replace(",","."))||0}
+function revNum(v){
+  if(typeof v==="number")return Number.isFinite(v)?v:0;
+  const raw=String(v??"").trim();if(!raw)return 0;
+  const normalized=raw.includes(",")?raw.replace(/\./g,"").replace(",","."):raw;
+  return Number(normalized.replace(/[^0-9.-]/g,""))||0;
+}
 function revNorm(v){return String(v||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim()}
 function revSeriesRank(v){
   const s=revNorm(v),inf=s.match(/infantil\s*(\d+)/);if(inf)return Number(inf[1])-10;
