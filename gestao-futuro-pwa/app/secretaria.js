@@ -69,7 +69,7 @@ function openStudentForm(a={}){
     <div class="field"><label>Cor/Raça</label><input name="COR_RACA" value="${esc(a.COR_RACA||"")}"></div><div class="field"><label>Religião</label><input name="RELIGIAO" value="${esc(a.RELIGIAO||"")}"></div><div class="field span-2"><label>Link/Pasta de documentos</label><input name="LINK_DOCUMENTOS" value="${esc(a.LINK_DOCUMENTOS||"")}"></div>
     <div class="field span-3"><label>Observações</label><textarea name="OBSERVAÇÕES">${esc(a["OBSERVAÇÕES"]||"")}</textarea></div>
   </form></div><div class="modal-foot">${a.ID_ALUNO?`<button class="btn btn-report" id="studentDocsBtn">📁 Documentos</button>`:""}<button class="btn btn-soft" data-close>Cancelar</button><button class="btn btn-primary" id="saveStudent">Salvar aluno</button></div>`);
-  $$('[data-close]').forEach(x=>x.onclick=closeModal);
+  $$$('[data-close]').forEach(x=>x.onclick=closeModal);
   const syncNext=()=>{const n=gfNextSeries($("#studentSeries").value);$("#nextSeriesHidden").value=n;if($("#nextSeriesCard"))$("#nextSeriesCard").textContent=n||"—"};
   $("#studentSeries").onchange=syncNext;
   if($("#studentDocsBtn"))$("#studentDocsBtn").onclick=()=>{state.docsStudentId=a.ID_ALUNO;closeModal();navigate("documentos")};
@@ -90,7 +90,7 @@ async function renderResponsaveis(){
 function openRespForm(alunos){
   const lookup=alunos.map(a=>`<option value="${esc(a.NOME_COMPLETO+" — "+(a["SÉRIE"]||"")+" — "+(a.MATRICULA_ORIGEM||a.ID_ALUNO||""))}"></option>`).join("");
   modal(`<div class="modal-head"><h3>Novo responsável</h3><button class="icon-btn" data-close>✕</button></div><div class="modal-body"><form id="respForm" class="form-grid"><div class="field span-2"><label>Aluno *</label><input id="respStudentSearch" list="respStudentList" autocomplete="off" placeholder="Digite as primeiras letras…" required><datalist id="respStudentList">${lookup}</datalist><input type="hidden" name="ID_ALUNO" id="respStudentId"></div><div class="field"><label>Parentesco</label><input name="PARENTESCO"></div><div class="field span-2"><label>Nome completo *</label><input name="NOME_COMPLETO" required></div><div class="field"><label>CPF</label><input name="CPF"></div><div class="field"><label>Telefone</label><input name="TELEFONE"></div><div class="field"><label>E-mail</label><input type="email" name="EMAIL"></div><div class="field"><label>Responsável financeiro</label><select name="RESPONSAVEL_FINANCEIRO"><option>Não</option><option>Sim</option></select></div><div class="field"><label>CEP</label><input name="CEP"></div><div class="field span-2"><label>Endereço</label><input name="ENDERECO"></div></form></div><div class="modal-foot"><button class="btn btn-soft" data-close>Cancelar</button><button class="btn btn-primary" id="saveResp">Salvar</button></div>`);
-  $('[data-close]').forEach(x=>x.onclick=closeModal);
+  $$('[data-close]').forEach(x=>x.onclick=closeModal);
   const resolveAluno=()=>{const q=gfStudentNorm($("#respStudentSearch").value),a=alunos.find(x=>gfStudentNorm(x.NOME_COMPLETO+" — "+(x["SÉRIE"]||"")+" — "+(x.MATRICULA_ORIGEM||x.ID_ALUNO||""))===q)||gfStudentSearchRows(alunos,$("#respStudentSearch").value,1)[0];$("#respStudentId").value=a?.ID_ALUNO||"";return a};
   $("#respStudentSearch").onchange=resolveAluno;
   $("#saveResp").onclick=async()=>{const f=$("#respForm");const a=resolveAluno();if(!a){showToast("Selecione um aluno da lista.","error");return}if(!f.reportValidity())return;const data=Object.fromEntries(new FormData(f).entries());try{await api("salvarResponsavel",{token:tokenFor("staff"),data});state.bootstrap=null;closeModal();await renderResponsaveis();}catch(e){alert(e.message)}};
@@ -124,7 +124,7 @@ function openMatForm(b){
     <div class="field span-3"><label>Observação</label><textarea name="OBSERVAÇÃO"></textarea></div>
   </form></div><div class="modal-foot"><button class="btn btn-soft" data-close>Cancelar</button><button class="btn btn-primary" id="saveMat">Criar matrícula</button></div>`);
 
-  $$('[data-close]').forEach(x=>x.onclick=closeModal);
+  $$$('[data-close]').forEach(x=>x.onclick=closeModal);
 
   const refreshPlans=()=>{
     const year=Number($("#matYear").value),serie=$("#matSerie").value||"";
@@ -231,7 +231,7 @@ async function renderDocumentos(){
         <div class="field span-2"><label>Link do arquivo/pasta</label><input type="url" name="LINK_DRIVE" placeholder="https://..."></div>
         <div class="field span-3"><label>Observação</label><textarea name="OBSERVACAO"></textarea></div>
       </form></div><div class="modal-foot"><button class="btn btn-soft" data-close>Cancelar</button><button class="btn btn-primary" id="saveNewDoc">Salvar documento</button></div>`);
-    $$('[data-close]').forEach(x=>x.onclick=closeModal);
+    $$$('[data-close]').forEach(x=>x.onclick=closeModal);
     $("#saveNewDoc").onclick=async()=>{
       const form=$("#addDocForm");if(!form.reportValidity())return;
       const data=Object.fromEntries(new FormData(form).entries());data.ID_ALUNO=aluno.ID_ALUNO;
