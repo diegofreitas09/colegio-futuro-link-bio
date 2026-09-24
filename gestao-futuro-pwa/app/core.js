@@ -571,12 +571,27 @@ async function loadCatalogProducts(){
   return state.catalogPromise;
 }
 
+const GF_BOOTSTRAP_LOCAL_KEY="gestao_futuro_bootstrap_local_v1";
+function gfReadBootstrapLocal(){try{return JSON.parse(localStorage.getItem(GF_BOOTSTRAP_LOCAL_KEY)||"null")}catch(e){return null}}
+function gfWriteBootstrapLocal(data){try{if(data)localStorage.setItem(GF_BOOTSTRAP_LOCAL_KEY,JSON.stringify({at:Date.now(),data:data}))}catch(e){}}
 async function loadBootstrap(){
   if(state.bootstrap) return state.bootstrap;
   const token=tokenFor("staff");
   if(!token) throw new Error("Acesso da Secretaria necessário.");
-  state.bootstrap=await api("bootstrapSecretaria",{token});
-  return state.bootstrap;
+  const cached=gfReadBootstrapLocal();
+  try{
+    state.bootstrap=await api("bootstrapSecretaria",{token});
+    gfWriteBootstrapLocal(state.bootstrap);
+    return state.bootstrap;
+  }catch(e){
+    if(cached&&cached.data){
+      state.bootstrap=cached.data;
+      state.bootstrapOffline=true;
+      setNotice("Servidor lento. Atendimento aberto com a última base salva neste dispositivo; novos dados ficarão pendentes de sincronização.","error");
+      return state.bootstrap;
+    }
+    throw e;
+  }
 }
 
 async function navigate(view){
