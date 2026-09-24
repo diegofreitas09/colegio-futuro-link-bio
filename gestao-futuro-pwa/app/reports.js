@@ -79,7 +79,7 @@ function openCashReport(list=[]){
     <div class="field"><label>Formato</label><select name="FORMAT">${gfReportFormatOptions()}</select></div>
   </form></div>
   <div class="modal-foot"><button class="btn btn-soft" data-close>Cancelar</button><button class="btn btn-primary report-download-btn" id="generateCashReport">📄 Gerar relatório</button></div>`);
-  $$("[data-close]").forEach(x=>x.onclick=closeModal);
+  $$$("[data-close]").forEach(x=>x.onclick=closeModal);
   $("#generateCashReport").onclick=async()=>{
     const f=$("#cashReportForm"),d=Object.fromEntries(new FormData(f).entries());
     const ini=new Date(d.INI+"T00:00:00"),fim=new Date(d.FIM+"T23:59:59");
@@ -115,7 +115,7 @@ function openStudentReport(alunos=[],kind="cadastro"){
     <div class="field"><label>Formato</label><select name="FORMAT">${gfReportFormatOptions()}</select></div>
   </form></div>
   <div class="modal-foot"><button class="btn btn-soft" data-close>Cancelar</button><button class="btn btn-primary report-download-btn" id="generateStudentReport">📄 Gerar relatório</button></div>`);
-  $$("[data-close]").forEach(x=>x.onclick=closeModal);
+  $$$("[data-close]").forEach(x=>x.onclick=closeModal);
   $("#generateStudentReport").onclick=async()=>{
     const d=Object.fromEntries(new FormData($("#studentReportForm")).entries());
     const list=alunos.filter(a=>(!d.SERIE||String(a["SÉRIE"]||"")===d.SERIE)&&(!d.STATUS||String(a.STATUS||"")===d.STATUS)).sort((a,b)=>String(a.NOME_COMPLETO||"").localeCompare(String(b.NOME_COMPLETO||""),"pt-BR"));
@@ -151,7 +151,7 @@ function openResponsibleReport(rs=[],alunos=[],kind="cadastro"){
     <div class="field"><label>Formato</label><select name="FORMAT">${gfReportFormatOptions()}</select></div>
   </form></div>
   <div class="modal-foot"><button class="btn btn-soft" data-close>Cancelar</button><button class="btn btn-primary report-download-btn" id="generateRespReport">📄 Gerar relatório</button></div>`);
-  $("[data-close]").forEach(x=>x.onclick=closeModal);
+  $$("[data-close]").forEach(x=>x.onclick=closeModal);
   $("#generateRespReport").onclick=async()=>{
     const d=Object.fromEntries(new FormData($("#respReportForm")).entries()),signature=d.MODELO==="assinatura";
     const list=source.filter(x=>!d.SERIE||String(x.a["SÉRIE"]||"")===d.SERIE).sort((x,y)=>String(x.a.NOME_COMPLETO||"").localeCompare(String(y.a.NOME_COMPLETO||""),"pt-BR")||String(x.r.NOME_COMPLETO||"").localeCompare(String(y.r.NOME_COMPLETO||""),"pt-BR"));
@@ -182,7 +182,7 @@ function openMatriculaReport(mats=[],alunos=[]){
     <div class="field"><label>Status</label><select name="STATUS"><option value="">Todos</option><option>Ativa</option><option>Cancelada</option></select></div>
     <div class="field"><label>Formato</label><select name="FORMAT">${gfReportFormatOptions()}</select></div>
   </form></div><div class="modal-foot"><button class="btn btn-soft" data-close>Cancelar</button><button class="btn btn-primary report-download-btn" id="generateMatReport">📄 Gerar relatório</button></div>`);
-  $$("[data-close]").forEach(x=>x.onclick=closeModal);
+  $$$("[data-close]").forEach(x=>x.onclick=closeModal);
   $("#generateMatReport").onclick=async()=>{
     const d=Object.fromEntries(new FormData($("#matReportForm")).entries());
     const list=mats.filter(m=>(!d.ANO||String(m.ANO_LETIVO||"")===d.ANO)&&(!d.SERIE||String(m["SÉRIE"]||"")===d.SERIE)&&(!d.STATUS||String(m.STATUS||"")===d.STATUS));
@@ -203,7 +203,7 @@ function openReceivablesReport(list=[]){
     <div class="field"><label>Status</label><select name="STATUS"><option value="">Todos</option><option>Pago</option><option>Pendente</option><option>Vencido</option></select></div>
     <div class="field"><label>Formato</label><select name="FORMAT">${gfReportFormatOptions()}</select></div>
   </form></div><div class="modal-foot"><button class="btn btn-soft" data-close>Cancelar</button><button class="btn btn-primary report-download-btn" id="generateRecReport">📄 Gerar relatório</button></div>`);
-  $$("[data-close]").forEach(x=>x.onclick=closeModal);
+  $$$("[data-close]").forEach(x=>x.onclick=closeModal);
   $("#generateRecReport").onclick=async()=>{
     const d=Object.fromEntries(new FormData($("#recReportForm")).entries()),statusOf=r=>String(r.STATUS_CALCULADO||r.STATUS||"");
     const rows=list.filter(r=>!d.STATUS||statusOf(r)===d.STATUS);
@@ -229,7 +229,7 @@ function openAttendanceReport(list=[]){
     <div class="field"><label>Status</label><select name="STATUS"><option value="">Todos</option><option>Em andamento</option><option>Concluído</option><option>Cancelado</option></select></div>
     <div class="field"><label>Formato</label><select name="FORMAT">${gfReportFormatOptions()}</select></div>
   </form></div><div class="modal-foot"><button class="btn btn-soft" data-close>Cancelar</button><button class="btn btn-primary report-download-btn" id="generateAttReport">📄 Gerar relatório</button></div>`);
-  $$("[data-close]").forEach(x=>x.onclick=closeModal);
+  $$$("[data-close]").forEach(x=>x.onclick=closeModal);
   $("#generateAttReport").onclick=async()=>{
     const d=Object.fromEntries(new FormData($("#attReportForm")).entries());
     const rows=list.filter(a=>(!d.ANO||String(a.ANO_LETIVO||"")===d.ANO)&&(!d.SERIE||String(a.SERIE_PRETENDIDA||"")===d.SERIE)&&(!d.STATUS||String(a.STATUS||"")===d.STATUS));
@@ -250,7 +250,7 @@ function openDocumentsReport(student={},docs=[]){
   <div class="modal-body"><div class="report-intro"><b>${esc(student.NOME_COMPLETO||"Aluno")}</b><span>${esc(student["SÉRIE"]||"")} ${student.TURMA?"• "+esc(student.TURMA):""}</span></div>
   <div class="field"><label>Formato</label><select id="docsReportFormat">${gfReportFormatOptions()}</select></div></div>
   <div class="modal-foot"><button class="btn btn-soft" data-close>Cancelar</button><button class="btn btn-primary report-download-btn" id="generateDocsReport">📄 Gerar relatório</button></div>`);
-  $$("[data-close]").forEach(x=>x.onclick=closeModal);
+  $$$("[data-close]").forEach(x=>x.onclick=closeModal);
   $("#generateDocsReport").onclick=async()=>{
     const fmt=$("#docsReportFormat").value,delivered=docs.filter(d=>String(d.STATUS)==="Entregue").length;
     await gfDownloadReport({
@@ -268,7 +268,7 @@ function openClosingReport(f={}){
   const headers=f.headers||[],row=f.atual||[];
   const items=headers.map((h,i)=>({campo:h,valor:row[i]||"—"}));
   modal(`<div class="modal-head"><h3>Relatório de fechamento</h3><button class="icon-btn" data-close>✕</button></div><div class="modal-body"><div class="field"><label>Formato</label><select id="closeReportFormat">${gfReportFormatOptions()}</select></div></div><div class="modal-foot"><button class="btn btn-soft" data-close>Cancelar</button><button class="btn btn-primary report-download-btn" id="generateCloseReport">📄 Gerar relatório</button></div>`);
-  $$("[data-close]").forEach(x=>x.onclick=closeModal);
+  $$$("[data-close]").forEach(x=>x.onclick=closeModal);
   $("#generateCloseReport").onclick=async()=>{
     await gfDownloadReport({
       format:$("#closeReportFormat").value,title:"Fechamento Financeiro",subtitle:state.runMode==="TESTE"?"Ambiente de Teste / Simulação":"Ambiente de Produção",
