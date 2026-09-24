@@ -82,7 +82,7 @@ function gfAutoStage(){
 function gfRefreshStage(auto){
   if(auto){var next=gfAutoStage(),cur=GF_STAGES.indexOf(state.attendanceStage),ni=GF_STAGES.indexOf(next);if(ni>cur||cur<0)state.attendanceStage=next}
   var pct=GF_PCT[state.attendanceStage]||0;
-  $("#stageFlow [data-stage]").forEach(function(b){var bi=GF_STAGES.indexOf(b.dataset.stage),ci=GF_STAGES.indexOf(state.attendanceStage);b.classList.toggle("active",b.dataset.stage===state.attendanceStage);b.classList.toggle("done",bi>=0&&ci>=0&&bi<ci)});
+  $$("#stageFlow [data-stage]").forEach(function(b){var bi=GF_STAGES.indexOf(b.dataset.stage),ci=GF_STAGES.indexOf(state.attendanceStage);b.classList.toggle("active",b.dataset.stage===state.attendanceStage);b.classList.toggle("done",bi>=0&&ci>=0&&bi<ci)});
   if($("#stagePct"))$("#stagePct").textContent=pct+"%";
   if($("#stageBar"))$("#stageBar").style.width=pct+"%";
   gfSaveAttendanceDraft();
@@ -470,7 +470,7 @@ async function renderAtendimento(){
   }
   $("#attSerie").onchange=function(){gfSaveAttendanceDraft();drawCatalog()};
   $("#attYear").onchange=function(){gfSaveAttendanceDraft();drawCatalog()};
-  $("#stageFlow [data-stage]").forEach(function(x){
+  $$("#stageFlow [data-stage]").forEach(function(x){
     x.classList.toggle("active",x.dataset.stage===state.attendanceStage);
     x.onclick=function(){state.attendanceStage=x.dataset.stage;gfRefreshStage(false)}
   });
