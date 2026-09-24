@@ -64,6 +64,29 @@ function gfFlyerPlanMeta(p,list){
 }
 function gfOptions(sel){return GF_SERIES.map(function(s){return "<option "+(s===sel?"selected":"")+">"+esc(s)+"</option>"}).join("")}
 function gfStageButtons(){return GF_STAGES.map(function(s,i){return "<button type='button' data-stage='"+esc(s)+"'><i>"+(i+1)+"</i><span>"+esc(s)+"</span></button>"}).join("")+"<button type='button' class='loss' data-stage='Não converteu'><i>×</i><span>Não converteu</span></button>"}
+function gfAutoStage(){
+  var f=$("#attForm");if(!f)return state.attendanceStage||"Contato";
+  var d=Object.fromEntries(new FormData(f).entries()),stage="Contato";
+  var hasContact=String(d.RESPONSAVEL||"").trim()&&(String(d.TELEFONE||"").trim()||String(d.EMAIL||"").trim());
+  var hasProfile=String(d.NOME_ALUNO||"").trim()&&String(d.TIPO_ALUNO||"").trim();
+  var hasInterest=String(d.SERIE_PRETENDIDA||"").trim()&&String(d.ANO_LETIVO||"").trim();
+  var hasProposal=Number(d.TOTAL_PLANO||0)>0||(state.attendanceItems&&state.attendanceItems.size>0);
+  if(hasContact)stage="Perfil";
+  if(hasContact&&hasProfile)stage="Interesse";
+  if(hasContact&&hasProfile&&hasInterest)stage="Visita";
+  if(hasContact&&hasProfile&&hasInterest&&hasProposal)stage="Proposta";
+  if(state.currentAttendanceId&&!String(state.currentAttendanceId).startsWith("LOCAL-")&&hasProposal)stage="Decisão";
+  if(state.attendanceStage==="Matriculado"||state.attendanceStage==="Não converteu")stage=state.attendanceStage;
+  return stage;
+}
+function gfRefreshStage(auto){
+  if(auto){var next=gfAutoStage(),cur=GF_STAGES.indexOf(state.attendanceStage),ni=GF_STAGES.indexOf(next);if(ni>cur||cur<0)state.attendanceStage=next}
+  var pct=GF_PCT[state.attendanceStage]||0;
+  $("#stageFlow [data-stage]").forEach(function(b){var bi=GF_STAGES.indexOf(b.dataset.stage),ci=GF_STAGES.indexOf(state.attendanceStage);b.classList.toggle("active",b.dataset.stage===state.attendanceStage);b.classList.toggle("done",bi>=0&&ci>=0&&bi<ci)});
+  if($("#stagePct"))$("#stagePct").textContent=pct+"%";
+  if($("#stageBar"))$("#stageBar").style.width=pct+"%";
+  gfSaveAttendanceDraft();
+}
 
 
 const GF_ATT_DRAFT_KEY="gestao_futuro_atendimento_rascunho_v1";
@@ -447,10 +470,11 @@ async function renderAtendimento(){
   }
   $("#attSerie").onchange=function(){gfSaveAttendanceDraft();drawCatalog()};
   $("#attYear").onchange=function(){gfSaveAttendanceDraft();drawCatalog()};
-  $$("#stageFlow [data-stage]").forEach(function(x){
+  $("#stageFlow [data-stage]").forEach(function(x){
     x.classList.toggle("active",x.dataset.stage===state.attendanceStage);
-    x.onclick=function(){state.attendanceStage=x.dataset.stage;$$("#stageFlow [data-stage]").forEach(function(b){b.classList.toggle("active",b===x)});$("#stagePct").textContent=GF_PCT[state.attendanceStage]+"%";$("#stageBar").style.width=GF_PCT[state.attendanceStage]+"%";gfSaveAttendanceDraft()}
+    x.onclick=function(){state.attendanceStage=x.dataset.stage;gfRefreshStage(false)}
   });
+  gfRefreshStage(true);
   $("#attStudent").onchange=function(){var a=students.find(function(x){return x.ID_ALUNO===$("#attStudent").value});if(a){$("#attName").value=a.NOME_COMPLETO||"";$("#attType").value="Veterano";$("#attSerie").value=a["SÉRIE"]||"";if($("#attStudentSearch"))$("#attStudentSearch").value=a.NOME_COMPLETO+" — "+(a["SÉRIE"]||"");drawCatalog()}gfSaveAttendanceDraft()};
   if($("#attStudentSearch")){
     const pickStudentFromSearch=function(){
@@ -459,8 +483,8 @@ async function renderAtendimento(){
     };
     $("#attStudentSearch").onchange=pickStudentFromSearch;
   }
-  $("#attForm").addEventListener("input",function(){clearTimeout(state.attDraftTimer);state.attDraftTimer=setTimeout(function(){gfSaveAttendanceDraft();var el=$("#autosaveStatus");if(el){el.textContent="Rascunho salvo agora";setTimeout(function(){if($("#autosaveStatus"))$("#autosaveStatus").textContent="Rascunho automático ativo"},1200)}},350)});
-  $("#attForm").addEventListener("change",gfSaveAttendanceDraft);
+  $("#attForm").addEventListener("input",function(){clearTimeout(state.attDraftTimer);state.attDraftTimer=setTimeout(function(){gfRefreshStage(true);var el=$("#autosaveStatus");if(el){el.textContent="Salvo ✓";el.className="autosave-status sync-saved";setTimeout(function(){var x=$("#autosaveStatus");if(x){x.textContent="Rascunho automático ativo";x.className="muted autosave-status"}},1200)}},350)});
+  $("#attForm").addEventListener("change",function(){gfRefreshStage(true)});
   $("#clearAttend").onclick=function(){state.currentAttendanceId="";state.resumeAttendance=null;state.resumeItems=[];state.attendanceItems=new Set();state.attendanceStage="Contato";gfClearAttendanceDraft();renderAtendimento()};
   $("#restoreDraft")?.addEventListener("click",function(){var d=gfLoadAttendanceDraft();if(!d)return;state.currentAttendanceId=d.ID_ATENDIMENTO||"";state.resumeAttendance=d;state.resumeItems=(d.ITENS||[]).map(function(id){return {ID_PRODUTO:id,SELECIONADO:"Sim"}});state.attendanceItems=new Set(d.ITENS||[]);state.attendanceStage=d.ETAPA||"Contato";renderAtendimento()});
   $("#discardDraft")?.addEventListener("click",function(){gfClearAttendanceDraft();$("#restoreDraft")?.closest(".draft-bar")?.remove()});
