@@ -1,4 +1,4 @@
-const CACHE = "gestao-futuro-shell-v64";
+const CACHE = "gestao-futuro-shell-v65";
 const SHELL = [
   "/", "/index.html", "/styles.css", "/manifest.webmanifest",
   "/assets/app-icon-192.png", "/assets/app-icon-512.png", "/assets/logo-futuro.png", "/assets/hero-futuro.webp", "/assets/agenda-online-gestor.png", "/assets/gestor-escolar.svg", "/assets/fardamento/farda-infantil.png","/assets/fardamento/farda-anos-iniciais.png","/assets/fardamento/farda-anos-finais.png","/assets/fardamento/farda-esportes-iniciais.png","/assets/fardamento/farda-esportes-finais.png","/assets/fardamento/farda-lancamentos.png", "/assets/gestor-escolar-icon.svg",
@@ -6,7 +6,15 @@ const SHELL = [
 ];
 
 self.addEventListener("install", event => {
-  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting()));
+  event.waitUntil(caches.open(CACHE).then(async cache => {
+    const results = await Promise.allSettled(SHELL.map(url => cache.add(url)));
+    const critical = ["/", "/index.html", "/styles.css", "/app/core.js", "/app/start.js"];
+    const failedCritical = critical.filter(url => {
+      const i = SHELL.indexOf(url);
+      return i >= 0 && results[i].status === "rejected";
+    });
+    if (failedCritical.length) throw new Error("Falha ao instalar shell crítico: "+failedCritical.join(", "));
+  }).then(() => self.skipWaiting()));
 });
 
 self.addEventListener("activate", event => {
