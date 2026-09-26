@@ -116,3 +116,35 @@ test('dashboard tuition table derives exact installment values and preserves his
   assert.equal(x.run('GF_TUITION_HISTORY[2025].finais.annual'),5740.80);
  }finally{x.dom.window.close()}
 });
+
+
+test('commercial plan uses official first payment and catalog recurring value',()=>{
+ const x=setup();try{
+  x.w.__products=[
+   {ID_PRODUTO:'ANU-INF-2027',ANO_LETIVO:2027,PRODUTO:'Anuidade 2027 - Educação Infantil',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Anuidade',ATIVO:'Sim',VALOR_BASE:6270.40,QTD_PARCELAS:1,'SEGMENTO_SÉRIE':'Infantil 2 ao 5'},
+   {ID_PRODUTO:'MEN-INF-12-2027',ANO_LETIVO:2027,PRODUTO:'Mensalidade regular - Infantil',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Plano 12 parcelas',ATIVO:'Sim',VALOR_BASE:482.12,VALOR_PARCELA:482.12,QTD_PARCELAS:12,'SEGMENTO_SÉRIE':'Infantil 2 ao 5'},
+   {ID_PRODUTO:'MEN-INF-11-2027',ANO_LETIVO:2027,PRODUTO:'Mensalidade regular - Infantil',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Plano 11 parcelas',ATIVO:'Sim',VALOR_BASE:525.95,VALOR_PARCELA:525.95,QTD_PARCELAS:11,'SEGMENTO_SÉRIE':'Infantil 2 ao 5'}
+  ];
+  x.w.__plan=x.run('gfPlanCalc(window.__products,12,0,0)');
+  assert.equal(x.w.__plan.firstBase,484.92);
+  assert.equal(x.w.__plan.recurringBase,482.12);
+  assert.equal(x.w.__plan.annualValue,6270.40);
+  assert.equal(x.w.__plan.total,6270.36);
+ }finally{x.dom.window.close()}
+});
+
+test('dashboard prefers explicit official installment values when catalog has them',()=>{
+ const x=setup();try{
+  x.w.__products=[
+   {ID_PRODUTO:'ANU-INF-2026',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Anuidade',PRODUTO:'Anuidade 2026 - Educação Infantil','SEGMENTO_SÉRIE':'Infantil 2 ao 5',VALOR_BASE:5805.93,'VALOR_PÓS_VENCIMENTO':6111.57,ANO_LETIVO:2026,ATIVO:'Sim'},
+   {ID_PRODUTO:'MEN-INF-12-2026',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Plano 12 parcelas',PRODUTO:'Mensalidade regular - Infantil','SEGMENTO_SÉRIE':'Infantil 2 ao 5',VALOR_BASE:446.41,VALOR_PARCELA:446.41,'VALOR_PÓS_VENCIMENTO':471.05,QTD_PARCELAS:12,ANO_LETIVO:2026,ATIVO:'Sim'},
+   {ID_PRODUTO:'MEN-INF-11-2026',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Plano 11 parcelas',PRODUTO:'Mensalidade regular - Infantil','SEGMENTO_SÉRIE':'Infantil 2 ao 5',VALOR_BASE:487.90,VALOR_PARCELA:487.90,'VALOR_PÓS_VENCIMENTO':513.87,QTD_PARCELAS:11,ANO_LETIVO:2026,ATIVO:'Sim'}
+  ];
+  const r=x.run('dashTuitionRowsForYear(window.__products,2026)[0]');
+  assert.equal(r.first,449);
+  assert.equal(r.plan12,446.41);
+  assert.equal(r.plan12Post,471.05);
+  assert.equal(r.plan11,487.90);
+  assert.equal(r.plan11Post,513.87);
+ }finally{x.dom.window.close()}
+});
