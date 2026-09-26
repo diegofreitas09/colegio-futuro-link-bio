@@ -40,13 +40,14 @@ function gfRound2(v){return Math.round((Number(v||0)+Number.EPSILON)*100)/100}
 function gfAnnualProduct(list){return (list||[]).find(function(p){return p.CATEGORIA==="Mensalidade"&&(gfNorm(p.SUBCATEGORIA).includes("anuidade")||gfNorm(p.PRODUTO).includes("anuidade")||Number(p.QTD_PARCELAS)===1)})||null}
 function gfRecurringProduct(list,n){return (list||[]).find(function(p){return p.CATEGORIA==="Mensalidade"&&Number(p.QTD_PARCELAS)===Number(n)})||null}
 function gfPlanCalc(list,n,discFirst,discRecurring){
-  n=Number(n||12);discFirst=Math.max(0,Math.min(100,Number(discFirst||0)));discRecurring=Math.max(0,Math.min(100,Number(discRecurring||0)));
-  var annual=gfAnnualProduct(list),annualValue=Number(annual&&annual.VALOR_BASE||0),monthly=gfRecurringProduct(list,n),recurringBase=Number(monthly&&monthly.VALOR_BASE||0);
-  if(!recurringBase&&annualValue)recurringBase=gfRound2(annualValue/(n+1));
-  var firstBase=annualValue?gfRound2(annualValue-(recurringBase*n)):recurringBase;
-  if(firstBase<=0)firstBase=recurringBase;
-  var firstFinal=gfRound2(firstBase*(1-discFirst/100)),recurringFinal=gfRound2(recurringBase*(1-discRecurring/100));
-  var total=gfRound2(firstFinal+(recurringFinal*n)),economy=gfRound2(Math.max(0,annualValue-total));
+  n=Math.max(1,Math.trunc(Number(n||12)));discFirst=Math.max(0,Math.min(100,Number(discFirst||0)));discRecurring=Math.max(0,Math.min(100,Number(discRecurring||0)));
+  var annual=gfAnnualProduct(list),annualCents=Math.round(Number(annual&&annual.VALOR_BASE||0)*100),annualValue=annualCents/100,monthly=gfRecurringProduct(list,n);
+  var recurringCents=annualCents?Math.round(annualCents/(n+1)):Math.round(Number(monthly&&monthly.VALOR_BASE||0)*100);
+  var firstCents=annualCents-(recurringCents*n);
+  if(firstCents<=0){firstCents=recurringCents;annualCents=firstCents+(recurringCents*n);annualValue=annualCents/100}
+  var firstBase=firstCents/100,recurringBase=recurringCents/100;
+  var firstFinalCents=Math.round(firstCents*(100-discFirst)/100),recurringFinalCents=Math.round(recurringCents*(100-discRecurring)/100);
+  var firstFinal=firstFinalCents/100,recurringFinal=recurringFinalCents/100,totalCents=firstFinalCents+(recurringFinalCents*n),total=totalCents/100,economy=Math.max(0,(annualCents-totalCents)/100);
   return {n:n,annual:annual,annualValue:annualValue,monthly:monthly,firstBase:firstBase,recurringBase:recurringBase,discFirst:discFirst,discRecurring:discRecurring,firstFinal:firstFinal,recurringFinal:recurringFinal,total:total,economy:economy};
 }
 function gfPlanSummary(plan){return "1ª parcela "+money(plan.firstFinal)+" + "+plan.n+"x de "+money(plan.recurringFinal)}
