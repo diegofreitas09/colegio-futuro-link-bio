@@ -377,6 +377,7 @@ function salvarAtendimentoPwa_(token,data,itens,modo,sessao){
   pwaStaff_(token);data=data||{};itens=Array.isArray(itens)?itens:[];
   if(!data.NOME_ALUNO||!data.ANO_LETIVO||!data.SERIE_PRETENDIDA)throw new Error("Aluno, ano letivo e série são obrigatórios.");
   return pwaWithLock_(function(){
+    var prior=pwaOperationCache_("atendimento",data.CLIENT_REQUEST_ID);if(prior)return prior;
     var id=String(data.ID_ATENDIMENTO||"").trim(),old=id?findById_(GF_TABS.ATENDIMENTOS,"ID_ATENDIMENTO",id):null,now=new Date();
     if(old)pwaAssertRowMode_(old,modo,"Atendimento");
     var extrasTotal=itens.filter(function(x){return x.CATEGORIA!=="Mensalidade"}).reduce(function(s,x){return s+pwaNum_(x.VALOR_APRESENTADO||x.VALOR_TABELA)*Math.max(1,pwaNum_(x.QTD)||1)},0);
@@ -435,7 +436,7 @@ function salvarAtendimentoPwa_(token,data,itens,modo,sessao){
       if(ex)updateById_(GF_TABS.ITENS_ATENDIMENTO,"ID_ITEM_ATENDIMENTO",iid,item);else append_(GF_TABS.ITENS_ATENDIMENTO,item);
     });
     audit_("Atendimento",old?"EDITAR":"CRIAR","Atendimento",id,old?JSON.stringify(old):"",JSON.stringify(rec));
-    SpreadsheetApp.flush();return {ok:true,id:id,total:rec.TOTAL_PROPOSTA};
+    SpreadsheetApp.flush();var result={ok:true,id:id,total:rec.TOTAL_PROPOSTA};pwaOperationCache_("atendimento",data.CLIENT_REQUEST_ID,result);return result;
   });
 }
 
