@@ -46,11 +46,21 @@ function rotacionarGatewayPwa(){
 }
 function pwaRequireGateway_(key){var exp=pwaGatewayKey_();if(!exp)throw new Error("Gateway da PWA ainda não foi configurado.");if(!pwaSafeEqual_(key,exp))throw new Error("Gateway não autorizado.")}
 function pwaNewSession_(role){var token=Utilities.getUuid()+Utilities.getUuid();CacheService.getScriptCache().put("gf:"+token,role,PWA_SESSION_TTL);return {ok:true,token:token,role:role,expiresIn:PWA_SESSION_TTL}}
+function pwaCheckLoginLimit_(role){
+  var cache=CacheService.getScriptCache(),key="gf_login_fail_"+role,n=Number(cache.get(key)||0);
+  if(n>=10)throw new Error("Muitas tentativas de acesso. Aguarde 5 minutos.");
+}
+function pwaRecordLogin_(role,ok){
+  var cache=CacheService.getScriptCache(),key="gf_login_fail_"+role;
+  if(ok){cache.remove(key);return}
+  var n=Number(cache.get(key)||0)+1;cache.put(key,String(n),300);
+}
 function loginSecretaria(password){
+  pwaCheckLoginLimit_("secretaria");
   var props=PropertiesService.getScriptProperties(),expected=props.getProperty(PWA_STAFF_HASH_PROP)||(typeof ADMIN_PASSWORD_SHA256!=="undefined"?ADMIN_PASSWORD_SHA256:"");
   if(!expected)throw new Error("Senha da Secretaria ainda não foi configurada.");
-  if(!pwaSafeEqual_(sha256_(password),expected)){audit_("Secretaria","LOGIN_NEGADO","Sessão","","","");return {ok:false,message:"Senha inválida."}}
-  var s=pwaNewSession_("secretaria");audit_("Secretaria","LOGIN_OK","Sessão","","","");return s;
+  if(!pwaSafeEqual_(sha256_(password),expected)){audit_("Secretaria","LOGIN_NEGADO","Sessão","","","");pwaRecordLogin_("secretaria",false);return {ok:false,message:"Senha inválida."}}
+  pwaRecordLogin_("secretaria",true);var s=pwaNewSession_("secretaria");audit_("Secretaria","LOGIN_OK","Sessão","","","");return s;
 }
 function pwaRole_(token){
   if(!token)throw new Error("Sessão ausente.");
