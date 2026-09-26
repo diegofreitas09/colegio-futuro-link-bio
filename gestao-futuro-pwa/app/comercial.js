@@ -343,6 +343,43 @@ function gfApplyAttendanceForm(rec){
   });
   if($("#attStudent")&&rec.ID_ALUNO)$("#attStudent").value=rec.ID_ALUNO;
 }
+function gfCurrentAttendanceSnapshot(products){
+  var f=$("#attForm");if(!f)return null;
+  var rec=Object.fromEntries(new FormData(f).entries());
+  rec.ID_ALUNO=$("#attStudent")?.value||rec.ID_ALUNO||"";
+  rec.ID_ATENDIMENTO=String(state.currentAttendanceId||rec.ID_ATENDIMENTO||"");
+  rec.NOME_ALUNO=$("#attName")?.value||rec.NOME_ALUNO||"";
+  rec.ETAPA=state.attendanceStage||rec.ETAPA||"Contato";
+  rec.STATUS=rec.ETAPA==="Matriculado"?"Matriculado":rec.ETAPA==="Não converteu"?"Perdido":"Em andamento";
+  rec.MODO_REGISTRO=currentRunMode();
+  rec.SESSAO_TESTE=state.runMode==="TESTE"?ensureTestSession():"";
+
+  var list=gfCatalog(products||[],Number(rec.ANO_LETIVO),rec.SERIE_PRETENDIDA);
+  var monthly=list.filter(function(p){return p.CATEGORIA==="Mensalidade"});
+  var others=list.filter(function(p){return p.CATEGORIA!=="Mensalidade"});
+  var n=Number($("#planCount")?.value ?? rec.PLANO_PARCELAS ?? 12);
+  var d1=Number($("#planDiscFirst")?.value ?? rec["DESCONTO_PRIMEIRA_%"] ?? 0);
+  var dr=Number($("#planDiscRecurring")?.value ?? rec["DESCONTO_PARCELAS_%"] ?? 0);
+  var plan=gfPlanCalc(monthly,n,d1,dr);
+
+  rec.PLANO_PARCELAS=plan.n;
+  rec.VALOR_ANUIDADE=plan.annualValue;
+  rec.VALOR_PRIMEIRA_BASE=plan.firstBase;
+  rec["DESCONTO_PRIMEIRA_%"]=plan.discFirst;
+  rec.VALOR_PRIMEIRA_FINAL=plan.firstFinal;
+  rec.VALOR_PARCELA_BASE=plan.recurringBase;
+  rec["DESCONTO_PARCELAS_%"]=plan.discRecurring;
+  rec.VALOR_PARCELA_FINAL=plan.recurringFinal;
+  rec.TOTAL_PLANO=plan.total;
+  rec.ECONOMIA_PLANO=plan.economy;
+
+  var selected=others.filter(function(p){return state.attendanceItems&&state.attendanceItems.has(p.ID_PRODUTO)}).map(function(p){
+    return {ID_PRODUTO:p.ID_PRODUTO,PRODUTO:p.PRODUTO,CATEGORIA:p.CATEGORIA,SERIE:rec.SERIE_PRETENDIDA,QTD:1,VALOR_TABELA:parseMoney(p.VALOR_BASE),DESCONTO:0,VALOR_APRESENTADO:parseMoney(p.VALOR_BASE),SELECIONADO:"Sim",OBSERVACAO:p["DESCRIÇÃO"]||p["OBSERVAÇÃO"]||""};
+  });
+  var extras=selected.reduce(function(sum,p){return sum+parseMoney(p.VALOR_APRESENTADO||p.VALOR_TABELA)},0);
+  rec.TOTAL_PROPOSTA=gfRound2(plan.total+extras);
+  return {rec:rec,selected:selected,plan:plan};
+}
 async function gfResumeAttendance(id,fallback){
   var rec=fallback||null,items=[];var local=gfReadCachedAttendance(id);if(local){rec=local.atendimento||rec;items=local.itens||items;}
   const pending=gfLocalAttendances().find(x=>x.id===id);
@@ -576,24 +613,21 @@ async function renderAtendimento(){
     if(String(state.currentAttendanceId).startsWith("LOCAL-")&&currentRunMode()!=="TESTE")return alert("Sincronize o atendimento antes de gerar o PDF.");
     var btn=$("#downloadAttendancePdf");btn.disabled=true;var old=btn.textContent;btn.textContent="Gerando PDF…";
     try{
-      var f=$("#attForm"),rec=Object.assign({},state.resumeAttendance||{},Object.fromEntries(new FormData(f).entries()));
-      rec.ID_ATENDIMENTO=state.currentAttendanceId;rec.NOME_ALUNO=$("#attName").value;rec.ETAPA=state.attendanceStage;rec.STATUS=state.attendanceStage==="Matriculado"?"Matriculado":state.attendanceStage==="Não converteu"?"Perdido":"Em andamento";
-      rec.MODO_REGISTRO=currentRunMode();rec.TOTAL_PROPOSTA=Number(String($("#attTotal").textContent||"0").replace(/[^0-9,.-]/g,"").replace(/\./g,"").replace(",", "."))||0;
-      var list=gfCatalog(products,Number(rec.ANO_LETIVO),rec.SERIE_PRETENDIDA);
-      var selected=list.filter(function(p){return p.CATEGORIA!=="Mensalidade"&&state.attendanceItems.has(p.ID_PRODUTO)}).map(function(p){return {ID_PRODUTO:p.ID_PRODUTO,PRODUTO:p.PRODUTO,CATEGORIA:p.CATEGORIA,VALOR_TABELA:parseMoney(p.VALOR_BASE),VALOR_APRESENTADO:parseMoney(p.VALOR_BASE),OBSERVACAO:p["DESCRIÇÃO"]||p["OBSERVAÇÃO"]||""}});
-      await gfDownloadAttendancePdf(rec,selected);showToast("PDF do atendimento gerado.","ok");
+      var snap=gfCurrentAttendanceSnapshot(products);if(!snap)throw new Error("Não foi possível ler os dados atuais do atendimento.");
+      await gfDownloadAttendancePdf(snap.rec,snap.selected);
+      showToast("PDF gerado com os valores atuais exibidos na tela.","ok");
     }catch(e){alert(e.message)}
     btn.disabled=false;btn.textContent=old;
   };
   $("#saveAttendance").onclick=async function(){
     if(gfLocalAttendances().some(x=>x.id===state.currentAttendanceId)){setNotice("Sincronize a versão pendente antes de salvar novas alterações.","error");return;}
     var f=$("#attForm");if(!f.reportValidity())return;
-    var data=Object.fromEntries(new FormData(f).entries());data.ID_ALUNO=$("#attStudent").value||"";data.ETAPA=state.attendanceStage;data.MODO_REGISTRO=currentRunMode();data.SESSAO_TESTE=state.runMode==="TESTE"?ensureTestSession():"";data.PROGRESSO=GF_PCT[state.attendanceStage];data.STATUS=state.attendanceStage==="Matriculado"?"Matriculado":state.attendanceStage==="Não converteu"?"Perdido":"Em andamento";
-    var selected=gfCatalog(products,Number(data.ANO_LETIVO),data.SERIE_PRETENDIDA).filter(function(p){return p.CATEGORIA!=="Mensalidade"&&state.attendanceItems.has(p.ID_PRODUTO)}).map(function(p){return {ID_PRODUTO:p.ID_PRODUTO,PRODUTO:p.PRODUTO,CATEGORIA:p.CATEGORIA,SERIE:data.SERIE_PRETENDIDA,QTD:1,VALOR_TABELA:parseMoney(p.VALOR_BASE),DESCONTO:0,VALOR_APRESENTADO:parseMoney(p.VALOR_BASE),SELECIONADO:"Sim",OBSERVACAO:p["OBSERVAÇÃO"]||""}});
+    var snap=gfCurrentAttendanceSnapshot(products);if(!snap)return;
+    var data=snap.rec,selected=snap.selected;data.PROGRESSO=GF_PCT[state.attendanceStage];
     var btn=$("#saveAttendance");btn.disabled=true;btn.textContent="Salvando…";
     var localId=data.ID_ATENDIMENTO||("LOCAL-"+crypto.randomUUID());
     data.ID_ATENDIMENTO=localId;data.CLIENT_REQUEST_ID="SAVE-"+crypto.randomUUID();
-    data.TOTAL_PROPOSTA=parseMoney($("#attTotal").textContent);
+    data.TOTAL_PROPOSTA=snap.rec.TOTAL_PROPOSTA;
     try{gfUpsertLocalAttendance(Object.assign({},data),selected,"Pendente");gfClearAttendanceDraft();}
     catch(e){setNotice(e.message,"error");btn.disabled=false;btn.textContent="Salvar atendimento";return;}
     try{
