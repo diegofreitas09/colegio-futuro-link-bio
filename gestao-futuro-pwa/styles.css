@@ -696,3 +696,26 @@ body.home-active .shell{filter:blur(2px) saturate(.8);pointer-events:none;user-s
   .sti-chart-grid{grid-template-columns:1fr;padding:10px}
   .school-chart-legend{gap:9px}
 }
+
+
+/* Ticket médio e indicadores de reajuste */
+.tuition-kpis,.catalog-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:0 0 14px}
+.tuition-kpis>div,.catalog-kpis>div{background:linear-gradient(180deg,#f8fbff,#eef5fd);border:1px solid #d3e0ee;border-radius:12px;padding:11px 12px;display:grid;gap:3px;min-width:0}
+.tuition-kpis small,.catalog-kpis small{font-size:8px;font-weight:950;letter-spacing:.07em;color:#657b93}
+.tuition-kpis b,.catalog-kpis b{font-size:20px;color:#123b76;white-space:nowrap}
+.tuition-kpis span,.catalog-kpis span{font-size:9px;color:#6a7c90;line-height:1.3}
+.catalog-kpis{margin:0 0 14px}
+.adjustment-badge{display:inline-flex;align-items:center;justify-content:center;width:max-content;min-width:50px;margin:4px auto 0;padding:3px 7px;border-radius:999px;font-size:8px;font-weight:950;letter-spacing:.015em}
+.adjustment-badge.up{background:#e7f7ee;color:#187443;border:1px solid #b9e3c9}
+.adjustment-badge.down{background:#fff0f0;color:#b33a3a;border:1px solid #efc0c0}
+.adjustment-badge.flat{background:#eef2f7;color:#607187;border:1px solid #d8e0e9}
+.school-price-table .adjustment-badge{margin-top:3px}
+#prodTable .adjustment-badge{margin:0}
+@media(max-width:900px){
+  .tuition-kpis,.catalog-kpis{grid-template-columns:1fr 1fr}
+}
+@media(max-width:520px){
+  .tuition-kpis,.catalog-kpis{gap:7px}
+  .tuition-kpis>div,.catalog-kpis>div{padding:9px}
+  .tuition-kpis b,.catalog-kpis b{font-size:17px}
+}
