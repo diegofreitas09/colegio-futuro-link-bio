@@ -326,7 +326,7 @@ function pwaCriarMatricula_(token,data,modo,sessao){
     try{services=JSON.parse(String(data.SERVICOS_ADICIONAIS||"[]"))}catch(e){services=[]}
     if(id&&Array.isArray(services)&&services.length){
       services.forEach(function(s){
-        var p=findById_(S.PRODUTOS,"ID_PRODUTO",s.ID_PRODUTO)||{},iid=nextId_("ITC-","ITENS_CONTRATO","ID_ITEM"),qtd=1,unit=pwaNum_(s.VALOR||p.VALOR_BASE);
+        var p=findById_(S.PRODUTOS,"ID_PRODUTO",s.ID_PRODUTO);if(!p)throw new Error("Produto/serviço adicional não encontrado.");var iid=nextId_("ITC-","ITENS_CONTRATO","ID_ITEM"),qtd=1,unit=pwaMoneyChecked_(p.VALOR_BASE,"Valor do produto/serviço");
         append_("ITENS_CONTRATO",{
           ID_ITEM:iid,
           "ID_MATRÍCULA":id,
