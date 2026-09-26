@@ -863,6 +863,16 @@ function dashTuitionDownloadModal(products,currentView){
       columns=[{key:"segmento",label:"Segmento",width:2.2},{key:"a26",label:"Anuidade 2026",width:1.3,align:"right"},{key:"a27",label:"Anuidade 2027",width:1.3,align:"right"},{key:"pct",label:"Reajuste",width:1},{key:"p12",label:"Plano +12",width:1.8},{key:"p11",label:"Plano +11",width:1.8}];
       const b26=Object.fromEntries(y26.map(x=>[x.key,x]));
       y27.forEach(r=>{const a=b26[r.key]||{},pct=a.annual?dashPct(a.annual,r.annual):0;rows.push({segmento:r.label+" • "+r.series,a26:money(a.annual),a27:money(r.annual),pct:pct.toLocaleString("pt-BR",{maximumFractionDigits:2})+"%",p12:money(a.plan12)+" → "+money(r.plan12),p11:money(a.plan11)+" → "+money(r.plan11)})});
+    }else if(scope==="sti2026"||scope==="sti2027"){
+      const year=scope==="sti2026"?2026:2027,arr=dashStiFromCatalog(products,year);
+      title="S.T.I. - Sistema de Tempo Integral "+year;subtitle="Colégio Futuro • Adicional ao tempo regular";
+      columns=[{key:"segmento",label:"Segmento",width:2.2},{key:"regular",label:"Regular",width:1.3,align:"right"},{key:"sti",label:"S.T.I.",width:1.3,align:"right"},{key:"final",label:"Valor final",width:1.4,align:"right"},{key:"apos",label:"Após vencimento",width:1.5,align:"right"}];
+      rows=arr.map(r=>({segmento:r.label+" • "+r.series,regular:money(r.regular),sti:money(r.sti),final:money(r.total),apos:money(r.totalPost)}));
+    }else if(scope==="sticompare"){
+      title="Comparativo S.T.I. 2026 × 2027";subtitle="Colégio Futuro • Investimento adicional";
+      columns=[{key:"segmento",label:"Segmento",width:2.2},{key:"s26",label:"S.T.I. 2026",width:1.3,align:"right"},{key:"s27",label:"S.T.I. 2027",width:1.3,align:"right"},{key:"pct",label:"Reajuste",width:1},{key:"f26",label:"Final 2026",width:1.4,align:"right"},{key:"f27",label:"Final 2027",width:1.4,align:"right"}];
+      const a=Object.fromEntries(dashStiFromCatalog(products,2026).map(x=>[x.key,x])),b=Object.fromEntries(dashStiFromCatalog(products,2027).map(x=>[x.key,x]));
+      rows=["infantil","iniciais"].map(key=>{const x=a[key]||{},y=b[key]||{},pct=x.sti&&y.sti?dashPct(x.sti,y.sti):0;return {segmento:(y.label||x.label||key)+" • "+(y.series||x.series||""),s26:money(x.sti||0),s27:money(y.sti||0),pct:pct.toLocaleString("pt-BR",{maximumFractionDigits:2})+"%",f26:money(x.total||0),f27:money(y.total||0)}});
     }else{
       title="Panorama de Anuidades 2024–2027";subtitle="Colégio Futuro • Evolução histórica até o vencimento";
       columns=[{key:"segmento",label:"Segmento",width:2.2},{key:"y24",label:"2024",width:1.2,align:"right"},{key:"y25",label:"2025",width:1.2,align:"right"},{key:"y26",label:"2026",width:1.2,align:"right"},{key:"y27",label:"2027",width:1.2,align:"right"},{key:"pct",label:"24→27",width:1}];
