@@ -118,6 +118,10 @@ function gfUpsertLocalAttendance(rec,itens,status){
   gfWriteLocalAttendances(list);gfCacheSavedAttendance(id,rec,itens||[]);return id;
 }
 function gfRemoveLocalAttendance(id){gfWriteLocalAttendances(gfLocalAttendances().filter(function(x){return x.id!==id}))}
+function gfRemoveAttendanceCache(id){
+  try{localStorage.removeItem(gfSavedAttendanceKey(id))}catch(e){}
+  var d=gfLoadAttendanceDraft();if(d&&String(d.ID_ATENDIMENTO||"")===String(id||""))gfClearAttendanceDraft();
+}
 async function gfEnsureJsPdf(){
   if(window.jspdf&&window.jspdf.jsPDF)return window.jspdf.jsPDF;
   await new Promise(function(resolve,reject){
@@ -357,6 +361,44 @@ async function gfResumeAttendance(id,fallback){
   setNotice("Atendimento retomado. Você pode continuar de onde parou e salvar novamente.","ok");
   window.scrollTo({top:0,behavior:"smooth"});
 }
+function gfOpenDeleteAttendance(row){
+  var a=row&&row.a||{},id=String(a.ID_ATENDIMENTO||row&&row.id||"").trim(),local=!!(row&&row.local);
+  if(!id)return;
+  modal("<div class='modal-head'><h3>Excluir atendimento</h3><button class='icon-btn' data-close>✕</button></div>"+
+    "<div class='modal-body'><div class='notice error'><b>Ação permanente.</b> O atendimento <b>"+esc(id)+"</b> de <b>"+esc(a.NOME_ALUNO||"Aluno")+"</b> será removido"+(local?" deste dispositivo.":" do banco, junto com os itens e solicitações de desconto vinculadas.")+"</div>"+
+    "<div class='field'><label>Autorização da Direção • senha da Gestão</label><input id='deleteAttendancePass' type='password' autocomplete='current-password' placeholder='Digite a senha da Gestão'></div>"+
+    "<p class='muted'>A Secretaria não consegue excluir sem a senha da Direção. A autorização vale somente para esta exclusão.</p></div>"+
+    "<div class='modal-foot'><button class='btn btn-soft' data-close>Cancelar</button><button class='btn btn-danger' id='confirmDeleteAttendance'>🗑️ Excluir definitivamente</button></div>");
+  $("[data-close]").forEach(function(x){x.onclick=closeModal});
+  var pass=$("#deleteAttendancePass"),btn=$("#confirmDeleteAttendance");
+  btn.onclick=async function(){
+    var password=pass.value;if(!password){pass.focus();return}
+    var old=btn.textContent,tempToken="";btn.disabled=true;btn.textContent="Validando autorização…";
+    try{
+      var auth=await api("loginGestao",{password:password});
+      if(!auth?.ok||!auth.token)throw new Error(auth?.message||"Senha da Gestão inválida.");
+      tempToken=auth.token;btn.textContent="Excluindo…";
+      if(local){
+        gfRemoveLocalAttendance(id);
+      }else{
+        if(state.backendCaps.attendanceDelete!==true)throw new Error("A exclusão definitiva ainda não foi liberada no backend publicado.");
+        await api("excluirAtendimento",{token:tempToken,id:id});
+      }
+      gfRemoveAttendanceCache(id);clearApiCache();
+      if(String(state.currentAttendanceId||"")===id){
+        state.currentAttendanceId="";state.resumeAttendance=null;state.resumeItems=[];state.attendanceItems=new Set();state.attendanceStage="Contato";
+      }
+      closeModal();showToast("Atendimento "+id+" excluído com autorização da Direção ✓","ok");await renderAtendimento();
+    }catch(e){
+      showToast(e.message||"Não foi possível excluir o atendimento.","error");
+      btn.disabled=false;btn.textContent=old;pass.focus();
+    }finally{
+      if(tempToken){try{await api("logout",{token:tempToken})}catch(e){}}
+    }
+  };
+  pass.addEventListener("keydown",function(e){if(e.key==="Enter")btn.click()});
+  setTimeout(function(){pass?.focus()},50);
+}
 async function renderAtendimento(){
   var b=await loadBootstrap(),products=b.produtos||[],students=b.alunos||[],at=[];
   try{at=await api("listarAtendimentos",{token:tokenFor("staff")})||[]}catch(e){}
@@ -375,7 +417,8 @@ async function renderAtendimento(){
     var sync=row.local?"<br><span class='sync-pending'>Pendente de sincronização</span>":"";
     var retry=row.local?" <button class='btn btn-gold btn-sm' data-sync-att='"+esc(a.ID_ATENDIMENTO)+"'>Sincronizar</button>":"";
     var pdf=!row.local?" <button class='btn btn-soft btn-sm' data-pdf-att='"+esc(a.ID_ATENDIMENTO)+"'>PDF</button>":"";
-    return "<tr><td><b>"+esc(a.NOME_ALUNO||a.ID_ALUNO||"")+"</b><br><span class='muted'>"+esc(a.RESPONSAVEL||"")+"</span>"+sync+"</td><td>"+esc(a.ANO_LETIVO||"")+"</td><td>"+esc(a.SERIE_PRETENDIDA||"")+"</td><td>"+pill(a.ETAPA||"")+"</td><td>"+pill(a.STATUS||"")+"</td><td class='money'>"+money(a.TOTAL_PROPOSTA)+plan+"</td><td><button class='btn btn-soft btn-sm' data-resume-att='"+esc(a.ID_ATENDIMENTO)+"'>Continuar</button>"+pdf+retry+"</td></tr>";
+    var del=" <button class='trash-btn' data-delete-att='"+esc(a.ID_ATENDIMENTO)+"' title='Excluir atendimento com autorização da Direção' aria-label='Excluir atendimento "+esc(a.ID_ATENDIMENTO)+"'>🗑️</button>";
+    return "<tr><td><b>"+esc(a.NOME_ALUNO||a.ID_ALUNO||"")+"</b><br><span class='muted'>"+esc(a.RESPONSAVEL||"")+"</span>"+sync+"</td><td>"+esc(a.ANO_LETIVO||"")+"</td><td>"+esc(a.SERIE_PRETENDIDA||"")+"</td><td>"+pill(a.ETAPA||"")+"</td><td>"+pill(a.STATUS||"")+"</td><td class='money'>"+money(a.TOTAL_PROPOSTA)+plan+"</td><td class='attendance-actions'><button class='btn btn-soft btn-sm' data-resume-att='"+esc(a.ID_ATENDIMENTO)+"'>Continuar</button>"+pdf+retry+del+"</td></tr>";
   }).join("");
   var draft=(!resume&&!state.currentAttendanceId)?gfLoadAttendanceDraft():null;
   var draftBar=draft&&draft.NOME_ALUNO?("<div class='draft-bar'><div><b>Rascunho encontrado</b><span>"+esc(draft.NOME_ALUNO)+" • "+esc(draft.SERIE_PRETENDIDA||"sem série")+" • salvo automaticamente</span></div><div><button class='btn btn-primary btn-sm' id='restoreDraft'>Retomar rascunho</button><button class='btn btn-soft btn-sm' id='discardDraft'>Descartar</button></div></div>"):"";
@@ -503,7 +546,7 @@ async function renderAtendimento(){
     if(!rec){var lr=gfLocalAttendances().find(function(x){return x.id===id});if(lr){rec=lr.atendimento;gfCacheSavedAttendance(id,lr.atendimento,lr.itens||[])}}
     gfResumeAttendance(id,rec)
   }});
-  $$("[data-pdf-att]").forEach(function(btn){btn.onclick=async function(){
+  $("[data-pdf-att]").forEach(function(btn){btn.onclick=async function(){
     btn.disabled=true;var old=btn.textContent;btn.textContent="Gerando…";
     try{
       var id=btn.dataset.pdfAtt,d=await api("getAtendimento",{token:tokenFor("staff"),id:id});
@@ -512,7 +555,11 @@ async function renderAtendimento(){
     }catch(e){alert(e.message)}
     btn.disabled=false;btn.textContent=old;
   }});
-  $$("[data-sync-att]").forEach(function(btn){btn.onclick=async function(){
+  $("[data-delete-att]").forEach(function(btn){btn.onclick=function(){
+    var id=btn.dataset.deleteAtt,row=combined.find(function(x){return String(x.a&&x.a.ID_ATENDIMENTO||"")===String(id)});
+    if(row)gfOpenDeleteAttendance(row);
+  }});
+  $("[data-sync-att]").forEach(function(btn){btn.onclick=async function(){
     var row=gfLocalAttendances().find(function(x){return x.id===btn.dataset.syncAtt});if(!row)return;
     btn.disabled=true;btn.textContent="Sincronizando…";
     try{
