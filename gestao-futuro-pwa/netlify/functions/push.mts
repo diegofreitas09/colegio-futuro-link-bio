@@ -32,7 +32,7 @@ async function verifyAdmin(token: string) {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ action: "dashboardGestao", token, gatewayKey, modo: "PRODUCAO" }),
-      redirect: "follow"
+      redirect: "follow", signal: AbortSignal.timeout(20000)
     });
     const out = await r.json() as any;
     return !!(r.ok && out?.ok);

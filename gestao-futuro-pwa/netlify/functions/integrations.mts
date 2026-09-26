@@ -44,7 +44,7 @@ async function verifyAdmin(token:string){
   try{
     const r=await fetch(APPS_SCRIPT_URL,{
       method:"POST",headers:{"content-type":"application/json"},
-      body:JSON.stringify({action:"dashboardGestao",token,gatewayKey,modo:"PRODUCAO"}),redirect:"follow"
+      body:JSON.stringify({action:"dashboardGestao",token,gatewayKey,modo:"PRODUCAO"}),redirect:"follow",signal:AbortSignal.timeout(20000)
     });
     const out=await r.json() as any;
     return !!(r.ok&&out?.ok);
@@ -178,7 +178,7 @@ async function commitJob(job:Job,token:string){
   }
   job.status="PROCESSING";await saveJob(job);
   const r=await fetch(APPS_SCRIPT_URL,{
-    method:"POST",headers:{"content-type":"application/json"},redirect:"follow",
+    method:"POST",headers:{"content-type":"application/json"},redirect:"follow",signal:AbortSignal.timeout(20000),
     body:JSON.stringify({
       action:"importarLoteIntegracao",token,gatewayKey,
       modo:job.environment,sessaoTeste:job.environment==="TESTE"?job.id:"",
@@ -276,7 +276,7 @@ export default async(req:Request,_context:Context)=>{
         const url=safeRemoteUrl(String(body.url||""));
         const headers:Record<string,string>={accept:"application/json,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"};
         if(body.authorization)headers.authorization=String(body.authorization);
-        const rr=await fetch(url,{headers,redirect:"follow"});
+        const rr=await fetch(url,{headers,redirect:"follow",signal:AbortSignal.timeout(20000)});
         if(!rr.ok)throw new Error("API remota respondeu "+rr.status+".");
         const remoteType=rr.headers.get("content-type")||"";
         let rows:Row[]=[];

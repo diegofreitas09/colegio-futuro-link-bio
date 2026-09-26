@@ -3,7 +3,7 @@ import { getStore } from "@netlify/blobs";
 import webpush from "web-push";
 
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwzZJUloa6YdIfJZdCmYw5ch_GkjuS20gUa5zyhulMiAiQj9pH9B3BOE7UU5jZvb_svig/exec";
-const UPSTREAM_TIMEOUT_MS = 12000;
+const UPSTREAM_TIMEOUT_MS = 20000;
 const ALLOWED_ACTIONS = new Set(["loginGestao","loginSecretaria","logout","bootstrapSecretaria","salvarAluno","salvarResponsavel","criarMatriculaCompleta","atualizarDocumento","listarDocumentosAluno","adicionarDocumentoAluno","listarRecebimentosAluno","listarProdutosPublicos","dashboardPublico","dashboardGestao","listarRecebimentos","listarCaixa","listarProdutosGestao","atualizarProduto","criarProdutoServico","aplicarReajusteIndividual","listarBeneficios","listarCategorias","listarAtendimentos","getAtendimento","salvarAtendimento","solicitarDesconto","listarSolicitacoesDesconto","decidirSolicitacaoDesconto","getPanfletoSerie","salvarPanfletoSerie","registrarPagamento","salvarMovimentoCaixa","excluirMovimentoCaixa","getFechamento","aplicarReajusteCatalogo","limparDadosTeste","limparAutorizacoesTeste","importarLoteIntegracao"]);
 async function upstreamFetch(body: Record<string, unknown>) {
   const controller = new AbortController();
@@ -11,7 +11,8 @@ async function upstreamFetch(body: Record<string, unknown>) {
   const started = Date.now();
   try {
     const response = await fetch(APPS_SCRIPT_URL, { method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify(body), redirect:"follow", signal:controller.signal });
-    return { response, durationMs: Date.now()-started };
+    const text = await response.text();
+    return { response, text, durationMs: Date.now()-started };
   } finally { clearTimeout(timer); }
 }
 
@@ -76,8 +77,7 @@ function discountPush(body: Record<string, unknown>) {
 export default async (req: Request, _context: Context) => {
   if (req.method === "GET") {
     try {
-      const { response: upstream, durationMs } = await upstreamFetch({ action: "health" });
-      const text = await upstream.text();
+      const { response: upstream, text, durationMs } = await upstreamFetch({ action: "health" });
       let data: unknown;
       try { data = JSON.parse(text); } catch { data = { ok: false, error: "Resposta inválida do backend." }; }
       return json({ ...(data as any), _gateway: { durationMs } }, upstream.ok ? 200 : 502);
@@ -100,6 +100,7 @@ export default async (req: Request, _context: Context) => {
     return json({ ok: false, error: "JSON inválido." }, 400);
   }
 
+  if (!body || typeof body !== "object" || Array.isArray(body)) return json({ ok:false, error:"Objeto JSON obrigatório." },400);
   const action = typeof body.action === "string" ? body.action.trim() : "";
   if (!action) return json({ ok: false, error: "Ação não informada." }, 400);
   if (!ALLOWED_ACTIONS.has(action)) return json({ ok: false, error: "Ação não permitida." }, 400);
@@ -107,8 +108,7 @@ export default async (req: Request, _context: Context) => {
   const upstreamBody = { ...body, gatewayKey };
 
   try {
-    const { response: upstream, durationMs } = await upstreamFetch(upstreamBody);
-    const text = await upstream.text();
+    const { response: upstream, text, durationMs } = await upstreamFetch(upstreamBody);
     let data: unknown;
     try {
       data = JSON.parse(text);
@@ -117,8 +117,8 @@ export default async (req: Request, _context: Context) => {
     }
 
     if (upstream.ok && (data as any)?.ok) {
-      if (action === "criarMatriculaCompleta") await notifyDirector(enrollmentPush(body));
-      if (action === "solicitarDesconto") await notifyDirector(discountPush(body));
+      if (action === "criarMatriculaCompleta") _context.waitUntil(notifyDirector(enrollmentPush(body)));
+      if (action === "solicitarDesconto") _context.waitUntil(notifyDirector(discountPush(body)));
     }
 
     return json({ ...(data as any), _gateway: { action, durationMs } }, upstream.ok ? 200 : 502);

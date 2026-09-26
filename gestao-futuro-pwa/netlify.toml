@@ -1,6 +1,6 @@
 [build]
   command = "npm run build"
-  publish = "."
+  publish = "dist"
 
 [functions]
   directory = "netlify/functions"
@@ -19,11 +19,6 @@
   for = "/service-worker.js"
   [headers.values]
     Cache-Control = "no-cache"
-
-[[redirects]]
-  from = "/app/*"
-  to = "/index.html"
-  status = 200
 
 [[headers]]
   for = "/app/*"

@@ -1,8 +1,8 @@
-const CACHE = "gestao-futuro-shell-v65";
+const CACHE = "gestao-futuro-shell-v66";
 const SHELL = [
   "/", "/index.html", "/styles.css", "/manifest.webmanifest",
   "/assets/app-icon-192.png", "/assets/app-icon-512.png", "/assets/logo-futuro.png", "/assets/hero-futuro.webp", "/assets/agenda-online-gestor.png", "/assets/gestor-escolar.svg", "/assets/fardamento/farda-infantil.png","/assets/fardamento/farda-anos-iniciais.png","/assets/fardamento/farda-anos-finais.png","/assets/fardamento/farda-esportes-iniciais.png","/assets/fardamento/farda-esportes-finais.png","/assets/fardamento/farda-lancamentos.png", "/assets/gestor-escolar-icon.svg",
-  "/app/brand.js", "/app/core.js", "/app/reports.js", "/app/secretaria.js", "/app/gestao.js", "/app/comercial.js", "/app/integracoes.js", "/app/start.js"
+  "/vendor/jspdf.umd.min.js", "/app/brand.js", "/app/core.js", "/app/reports.js", "/app/secretaria.js", "/app/gestao.js", "/app/comercial.js", "/app/integracoes.js", "/app/start.js"
 ];
 
 self.addEventListener("install", event => {
@@ -23,13 +23,15 @@ self.addEventListener("activate", event => {
 
 self.addEventListener("fetch", event => {
   const url = new URL(event.request.url);
-  if (url.pathname.startsWith("/api/")) return;
+  if (url.origin !== self.location.origin || url.pathname.startsWith("/api/")) return;
   if (event.request.method !== "GET") return;
   event.respondWith(fetch(event.request).then(response => {
-    const copy = response.clone();
-    caches.open(CACHE).then(cache => cache.put(event.request, copy));
+    if(response.ok && response.type !== "opaque"){
+      const copy = response.clone();
+      event.waitUntil(caches.open(CACHE).then(cache => cache.put(event.request, copy)).catch(()=>{}));
+    }
     return response;
-  }).catch(() => caches.match(event.request).then(hit => {
+  }).catch(() => caches.match(event.request,{ignoreSearch:true}).then(hit => {
     if (hit) return hit;
     const accepts = event.request.headers.get("accept") || "";
     if (event.request.mode === "navigate" || accepts.includes("text/html")) return caches.match("/index.html");

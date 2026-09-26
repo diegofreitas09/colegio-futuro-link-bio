@@ -28,7 +28,7 @@ function resetHomeIdle(){
 async function enterHomeRole(role){
   const active=activeInterfaceRole();
   if((role==="staff"&&active==="staff"&&state.staffToken)||(role==="admin"&&active==="admin"&&state.adminToken)){
-    setRunMode("PRODUCAO");
+    if(!state.runMode)setRunMode("PRODUCAO");
     hideHomeScreen();
     ensureEntryNotifications().catch(()=>{});
     await navigate("dashboard");
@@ -93,12 +93,3 @@ setTimeout(()=>{ if(document.visibilityState==="visible"&&typeof pollApprovals==
 
 // Catálogo pré-carregado somente quando o navegador estiver ocioso.
 runIdle(()=>{ if(typeof loadCatalogProducts==="function") loadCatalogProducts().catch(()=>{}); });
-
-// Limpeza única dos rascunhos locais antigos usados durante a implantação.
-try{
-  if(!localStorage.getItem("gf_test_reset_20260917")){
-    localStorage.removeItem("gestao_futuro_atendimentos_locais_v1");
-    localStorage.removeItem("gestao_futuro_atendimento_rascunho_v1");
-    localStorage.setItem("gf_test_reset_20260917","1");
-  }
-}catch(e){}

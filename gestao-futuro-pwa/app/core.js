@@ -196,11 +196,18 @@ function refreshModeButton(){
   }
 }
 function setRunMode(mode){
+  const previousMode=currentRunMode();
   state.runMode=mode==="TESTE"?"TESTE":"PRODUCAO";
   sessionStorage.setItem("gf_run_mode",state.runMode);
   if(state.runMode==="TESTE") ensureTestSession();
   else { state.testSession=""; sessionStorage.removeItem("gf_test_session"); }
-  state.bootstrap=null;
+  clearApiCache();
+  state.bootstrapOffline=false;
+  if(previousMode!==currentRunMode()){
+    clearTimeout(state.attDraftTimer);
+    state.currentAttendanceId="";state.resumeAttendance=null;state.resumeItems=[];
+    state.attendanceItems=new Set();state.attendanceStage="Contato";
+  }
   refreshModeButton();
 }
 function resetRunModeForEntry(){
@@ -369,7 +376,7 @@ function apiCacheKey(action,payload,meta){
   const safe={...payload}; if(safe.password)safe.password="***";
   return action+"|"+meta.modo+"|"+JSON.stringify(safe);
 }
-function clearApiCache(){state.apiCache.clear();state.bootstrap=null}
+function clearApiCache(){state.cacheGeneration=(state.cacheGeneration||0)+1;state.apiCache.clear();state.apiInflight.clear();state.bootstrap=null;state.catalogPromise=null;state.catalogProducts=null;state.flyerCache={}}
 async function api(action, payload={}) {
   const writeActions=["salvarAluno","salvarResponsavel","criarMatriculaCompleta","atualizarDocumento","adicionarDocumentoAluno","registrarPagamento","salvarMovimentoCaixa","excluirMovimentoCaixa","salvarAtendimento","solicitarDesconto","decidirSolicitacaoDesconto","salvarPanfletoSerie","atualizarProduto","criarProdutoServico","aplicarReajusteIndividual","aplicarReajusteCatalogo","limparDadosTeste","limparAutorizacoesTeste"];
   const productionOnly=["salvarPanfletoSerie","atualizarProduto","criarProdutoServico","aplicarReajusteIndividual","aplicarReajusteCatalogo"];
@@ -382,23 +389,24 @@ async function api(action, payload={}) {
     if(hit&&(Date.now()-hit.at)<ttl)return hit.data;
     if(state.apiInflight.has(key))return state.apiInflight.get(key);
   }
+  const generation=state.cacheGeneration||0;
   const request=(async()=>{
-    const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),15000);
+    const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),25000);
     try{
       const r=await fetch(API,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action,...meta,...payload}),signal:ctrl.signal});
       let out;try{out=await r.json()}catch{throw new Error("Resposta inválida do servidor.")}
       if(!r.ok||!out.ok){
         const msg=String(out.error||"Falha no servidor.");
         if(/^Ação não reconhecida:/i.test(msg))throw new Error("Este comando ainda não está disponível nesta versão do servidor.");
-        throw new Error(msg);
+        const error=new Error(msg);error.status=r.status;error.serverRejected=r.status<500;throw error;
       }
-      if(ttl)state.apiCache.set(key,{at:Date.now(),data:out.data});
+      if(ttl&&generation===(state.cacheGeneration||0))state.apiCache.set(key,{at:Date.now(),data:out.data});
       if(writeActions.includes(action))clearApiCache();
       return out.data;
     }catch(e){
-      if(e?.name==="AbortError")throw new Error("O servidor demorou demais para responder. Tente novamente.");
+      if(e?.name==="AbortError")throw new Error("O servidor demorou demais para responder. A gravação pode ter ocorrido; consulte ou sincronize o registro antes de repetir.");
       throw e;
-    }finally{clearTimeout(timer);if(ttl)state.apiInflight.delete(key)}
+    }finally{clearTimeout(timer);if(ttl&&generation===(state.cacheGeneration||0))state.apiInflight.delete(key)}
   })();
   if(ttl)state.apiInflight.set(key,request);
   return request;
@@ -407,7 +415,7 @@ async function api(action, payload={}) {
 async function checkApi() {
   const dot=$("#apiDot"), text=$("#apiStatus");
   try {
-    const r = await fetch(API, {cache:"no-store"});
+    const r = await fetch(API, {cache:"no-store",signal:AbortSignal.timeout(25000)});
     const data = await r.json();
     if (r.ok && data.ok) {
       state.backendVersion=String(data.version||"");
@@ -558,7 +566,9 @@ function authModal(targetRole="staff") {
 async function logoutAll(){
   try{ if(state.adminToken) await api("logout",{token:state.adminToken}); }catch{}
   try{ if(state.staffToken && state.staffToken!==state.adminToken) await api("logout",{token:state.staffToken}); }catch{}
-  state.staffToken=""; state.adminToken=""; state.role=""; state.bootstrap=null;
+  state.staffToken=""; state.adminToken=""; state.role=""; clearApiCache();
+  localStorage.removeItem(GF_BOOTSTRAP_LOCAL_KEY);
+  state.currentAttendanceId="";state.resumeAttendance=null;state.resumeItems=[];state.attendanceItems=new Set();
   sessionStorage.removeItem("gf_staff_token");sessionStorage.removeItem("gf_admin_token");sessionStorage.removeItem("gf_role");
   resetRunModeForEntry();closeModeGate();applyRoleInterface();refreshSessionButton();closeModal();navigate("dashboard");if(typeof showHomeScreen==="function")showHomeScreen("logout");
 }
@@ -584,7 +594,8 @@ async function requireRole(view){
 async function loadCatalogProducts(){
   if(state.catalogProducts) return state.catalogProducts;
   if(state.catalogPromise) return state.catalogPromise;
-  state.catalogPromise=api("listarProdutosPublicos").then(function(rows){state.catalogProducts=rows||[];return state.catalogProducts}).finally(function(){state.catalogPromise=null});
+  const generation=state.cacheGeneration||0;
+  state.catalogPromise=api("listarProdutosPublicos").then(function(rows){if(generation===(state.cacheGeneration||0))state.catalogProducts=rows||[];return rows||[]}).finally(function(){if(generation===(state.cacheGeneration||0))state.catalogPromise=null});
   return state.catalogPromise;
 }
 
@@ -596,13 +607,17 @@ async function loadBootstrap(){
   const token=tokenFor("staff");
   if(!token) throw new Error("Acesso da Secretaria necessário.");
   const cached=gfReadBootstrapLocal();
+  const mode=currentRunMode(),generation=state.cacheGeneration||0;
   try{
-    state.bootstrap=await api("bootstrapSecretaria",{token});
-    gfWriteBootstrapLocal(state.bootstrap);
+    const loaded=await api("bootstrapSecretaria",{token});
+    if(generation!==(state.cacheGeneration||0))throw new Error("O ambiente mudou durante a consulta. Abra a tela novamente.");
+    state.bootstrap=loaded;
+    state.bootstrapOffline=false;
+    gfWriteBootstrapLocal({mode,bootstrap:state.bootstrap});
     return state.bootstrap;
   }catch(e){
-    if(cached&&cached.data){
-      state.bootstrap=cached.data;
+    if(generation===(state.cacheGeneration||0)&&!e.serverRejected&&cached?.data?.mode===mode&&cached.data.bootstrap){
+      state.bootstrap=cached.data.bootstrap;
       state.bootstrapOffline=true;
       setNotice("Servidor lento. Atendimento aberto com a última base salva neste dispositivo; novos dados ficarão pendentes de sincronização.","error");
       return state.bootstrap;
@@ -727,9 +742,11 @@ async function renderDashboard(){
     <div class="dashboard-brand-caption"><span>${heroLabel}</span></div>
   </section>
   <div class="cards grid">${["Alunos ativos","Matrículas ativas","Documentos pendentes","Status"].map(x=>`<div class="card metric"><div class="label">${x}</div><div class="value">…</div><div class="hint">atualizando</div></div>`).join("")}</div>`;
-  let publicData={};
-  try{ publicData=await api("dashboardPublico"); }catch(e){ setNotice(`Conexão da PWA pendente: ${esc(e.message)}`,"error"); }
-  const vals=[publicData?.["Alunos ativos"]??0, publicData?.["Matrículas ativas"]??0, publicData?.["Documentos pendentes"]??0, "Online"];
+  const dashboardSeq=state.navSeq;
+  let publicData={},dashboardOnline=true;
+  try{ publicData=await api("dashboardPublico"); }catch(e){ dashboardOnline=false;setNotice(`Conexão da PWA pendente: ${esc(e.message)}`,"error"); }
+  if(dashboardSeq!==state.navSeq)return;
+  const vals=[publicData?.["Alunos ativos"]??0, publicData?.["Matrículas ativas"]??0, publicData?.["Documentos pendentes"]??0, dashboardOnline?"Online":"Indisponível"];
   $$(".metric .value").forEach((el,i)=>el.textContent=vals[i]);
   $$(".metric .hint").forEach((el,i)=>el.textContent=i===3?"Apps Script + Google Sheets":"visão operacional");
 
@@ -739,6 +756,7 @@ async function renderDashboard(){
         api("dashboardGestao",{token:state.adminToken}).catch(()=>({})),
         api("listarProdutosGestao",{token:state.adminToken}).catch(()=>([]))
       ]);
+      if(dashboardSeq!==state.navSeq)return;
       const cards=Object.entries(d).slice(0,8).map(([k,v])=>`<div class="card metric"><div class="label">${esc(k)}</div><div class="value" style="font-size:22px">${esc(v)}</div><div class="hint">Gestão</div></div>`).join("");
       if(cards)$("#view").insertAdjacentHTML("beforeend",`<div class="section-head"><h2>Indicadores financeiros</h2></div><div class="cards grid">${cards}</div>`);
       $("#view").insertAdjacentHTML("beforeend",`<div class="card director-push-card"><div><b>📲 Avisos no celular do diretor</b><span>Receba notificações mesmo com a PWA fechada quando houver matrícula realizada ou solicitação de desconto.</span></div><button class="btn btn-gold" id="directorPushBtn">Ativar notificações</button></div>`);

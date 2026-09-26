@@ -23,7 +23,7 @@ async function verify(role:string,token:string){
   if(!token)return false;
   try{
     const body=role==="admin"?{action:"listarCaixa",token,modo:"PRODUCAO"}:{action:"bootstrapSecretaria",token,modo:"PRODUCAO"};
-    const r=await fetch(SITE_URL+"/api/gf",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body),redirect:"follow"});
+    const r=await fetch(SITE_URL+"/api/gf",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body),redirect:"follow",signal:AbortSignal.timeout(20000)});
     const x=await r.json().catch(()=>null) as any;
     return !!(r.ok&&x?.ok);
   }catch{return false}
@@ -59,7 +59,7 @@ async function makePdf(body:ReportBody){
   const bold=await pdf.embedFont(StandardFonts.HelveticaBold);
   let logo:any=null,chartImg:any=null,chartRatio=2.6;
   try{
-    const r=await fetch(SITE_URL+"/assets/app-icon-512.png",{cache:"no-store"});
+    const r=await fetch(SITE_URL+"/assets/app-icon-512.png",{cache:"no-store",signal:AbortSignal.timeout(5000)});
     if(r.ok)logo=await pdf.embedPng(await r.arrayBuffer());
   }catch{}
   try{

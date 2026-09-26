@@ -69,7 +69,7 @@ function openStudentForm(a={}){
     <div class="field"><label>Cor/Raça</label><input name="COR_RACA" value="${esc(a.COR_RACA||"")}"></div><div class="field"><label>Religião</label><input name="RELIGIAO" value="${esc(a.RELIGIAO||"")}"></div><div class="field span-2"><label>Link/Pasta de documentos</label><input name="LINK_DOCUMENTOS" value="${esc(a.LINK_DOCUMENTOS||"")}"></div>
     <div class="field span-3"><label>Observações</label><textarea name="OBSERVAÇÕES">${esc(a["OBSERVAÇÕES"]||"")}</textarea></div>
   </form></div><div class="modal-foot">${a.ID_ALUNO?`<button class="btn btn-report" id="studentDocsBtn">📁 Documentos</button>`:""}<button class="btn btn-soft" data-close>Cancelar</button><button class="btn btn-primary" id="saveStudent">Salvar aluno</button></div>`);
-  $$$('[data-close]').forEach(x=>x.onclick=closeModal);
+  $$('[data-close]').forEach(x=>x.onclick=closeModal);
   const syncNext=()=>{const n=gfNextSeries($("#studentSeries").value);$("#nextSeriesHidden").value=n;if($("#nextSeriesCard"))$("#nextSeriesCard").textContent=n||"—"};
   $("#studentSeries").onchange=syncNext;
   if($("#studentDocsBtn"))$("#studentDocsBtn").onclick=()=>{state.docsStudentId=a.ID_ALUNO;closeModal();navigate("documentos")};
@@ -125,7 +125,7 @@ function openMatForm(b){
     <div class="field span-3"><label>Observação</label><textarea name="OBSERVAÇÃO"></textarea></div>
   </form></div><div class="modal-foot"><button class="btn btn-soft" data-close>Cancelar</button><button class="btn btn-primary" id="saveMat">Criar matrícula</button></div>`);
 
-  $$$('[data-close]').forEach(x=>x.onclick=closeModal);
+  $$('[data-close]').forEach(x=>x.onclick=closeModal);
 
   const refreshPlans=()=>{
     const year=Number($("#matYear").value),serie=$("#matSerie").value||"";
@@ -232,7 +232,7 @@ async function renderDocumentos(){
         <div class="field span-2"><label>Link do arquivo/pasta</label><input type="url" name="LINK_DRIVE" placeholder="https://..."></div>
         <div class="field span-3"><label>Observação</label><textarea name="OBSERVACAO"></textarea></div>
       </form></div><div class="modal-foot"><button class="btn btn-soft" data-close>Cancelar</button><button class="btn btn-primary" id="saveNewDoc">Salvar documento</button></div>`);
-    $$$('[data-close]').forEach(x=>x.onclick=closeModal);
+    $$('[data-close]').forEach(x=>x.onclick=closeModal);
     $("#saveNewDoc").onclick=async()=>{
       const form=$("#addDocForm");if(!form.reportValidity())return;
       const data=Object.fromEntries(new FormData(form).entries());data.ID_ALUNO=aluno.ID_ALUNO;
