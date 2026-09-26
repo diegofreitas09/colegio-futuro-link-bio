@@ -760,22 +760,15 @@ function dashTuitionFromCatalog(products,year){
   const rows=(products||[]).filter(p=>dashYear(p)===Number(year)&&p.ATIVO!=="Não"&&p.CATEGORIA==="Mensalidade");
   return specs.map(s=>{
     const bySeries=p=>dashNorm(p&&p["SEGMENTO_SÉRIE"])===dashNorm(s.series);
-    const annual=rows.find(p=>bySeries(p)&&dashNorm(p.SUBCATEGORIA+" "+p.PRODUTO).includes("anuidade"));
+    const annual=rows.find(p=>bySeries(p)&&dashNorm(p.SUBCATEGORIA).includes("anuidade"));
     const p12=rows.find(p=>bySeries(p)&&Number(p.QTD_PARCELAS)===12);
     const p11=rows.find(p=>bySeries(p)&&Number(p.QTD_PARCELAS)===11);
-    const firstProduct=rows.find(p=>bySeries(p)&&/(primeira|1a parcela|1 parcela)/.test(dashNorm(p.SUBCATEGORIA+" "+p.PRODUTO)));
     const anu=Number(annual?.VALOR_BASE||0),anuPost=Number(annual?.["VALOR_PÓS_VENCIMENTO"]||0);
-    const referenceFirst=Number(GF_FIRST_REFERENCE[Number(year)]?.[s.key]||0);
-    const first=Number(firstProduct?.VALOR_PARCELA||firstProduct?.VALOR_BASE||0)||referenceFirst;
     const calc12=dashPlanFromAnnual(anu,12),calc12Post=dashPlanFromAnnual(anuPost,12),calc11=dashPlanFromAnnual(anu,11),calc11Post=dashPlanFromAnnual(anuPost,11);
-    const explicit12=Number(p12?.VALOR_PARCELA||p12?.VALOR_BASE||0),explicit12Post=Number(p12?.["VALOR_PÓS_VENCIMENTO"]||0);
-    const explicit11=Number(p11?.VALOR_PARCELA||p11?.VALOR_BASE||0),explicit11Post=Number(p11?.["VALOR_PÓS_VENCIMENTO"]||0);
-    const v12=explicit12||(anu&&first?dashRound2((anu-first)/12):calc12.recurring);
-    const v12Post=explicit12Post||(anuPost&&first?dashRound2((anuPost-first)/12):calc12Post.recurring);
-    const v11=explicit11||(anu&&first?dashRound2((anu-first)/11):calc11.recurring);
-    const v11Post=explicit11Post||(anuPost&&first?dashRound2((anuPost-first)/11):calc11Post.recurring);
-    return {...s,year:Number(year),annual:anu,annualPost:anuPost,first:first,plan12:v12,plan12Post:v12Post,plan11:v11,plan11Post:v11Post,
-      first12:first||calc12.first,first12Post:first||calc12Post.first,first11:first||calc11.first,first11Post:first||calc11Post.first
+    const v12=calc12.recurring||Number(p12?.VALOR_BASE||0),v12Post=calc12Post.recurring||Number(p12?.["VALOR_PÓS_VENCIMENTO"]||0);
+    const v11=calc11.recurring||Number(p11?.VALOR_BASE||0),v11Post=calc11Post.recurring||Number(p11?.["VALOR_PÓS_VENCIMENTO"]||0);
+    return {...s,year:Number(year),annual:anu,annualPost:anuPost,plan12:v12,plan12Post:v12Post,plan11:v11,plan11Post:v11Post,
+      first12:calc12.first,first12Post:calc12Post.first,first11:calc11.first,first11Post:calc11Post.first
     };
   });
 }
@@ -800,7 +793,21 @@ function dashTuitionFromHistory(year){
   });
 }
 function dashTuitionRowsForYear(products,year){
-  return GF_TUITION_HISTORY[Number(year)]?dashTuitionFromHistory(year):dashTuitionFromCatalog(products,year);
+  const y=Number(year);
+  if(GF_TUITION_HISTORY[y])return dashTuitionFromHistory(y);
+  const rows=dashTuitionFromCatalog(products,y);
+  const refs=GF_FIRST_REFERENCE[y];
+  if(!refs)return rows;
+  return rows.map(r=>{
+    const first=Number(refs[r.key]||0);
+    if(!first||!r.annual)return {...r,first:r.first12||0};
+    return {...r,first:first,first12:first,first12Post:first,first11:first,first11Post:first,
+      plan12:dashRound2((Number(r.annual)-first)/12),
+      plan12Post:dashRound2((Number(r.annualPost)-first)/12),
+      plan11:dashRound2((Number(r.annual)-first)/11),
+      plan11Post:dashRound2((Number(r.annualPost)-first)/11)
+    };
+  });
 }
 function dashTuitionHistoryRows(products){
   const y26=Object.fromEntries(dashTuitionFromCatalog(products,2026).map(x=>[x.key,x]));
