@@ -836,7 +836,7 @@ const GF_STI_HISTORY = Object.freeze({
   }
 });
 function dashStiFromCatalog(products,year){
-  const regular=Object.fromEntries(dashTuitionFromCatalog(products,year).map(x=>[x.key,x]));
+  const regular=Object.fromEntries(dashTuitionRowsForYear(products,year).map(x=>[x.key,x]));
   const specs=[
     {key:"infantil",label:"Educação Infantil",series:"Infantil 2 ao 5"},
     {key:"iniciais",label:"Ensino Fundamental I",series:"1º ao 5º Ano"}
