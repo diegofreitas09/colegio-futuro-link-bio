@@ -777,7 +777,7 @@ const GF_FIRST_REFERENCE = Object.freeze({
   2024:{infantil:390,iniciais:399.60,finais:409.20},
   2025:{infantil:420,iniciais:420,finais:420},
   2026:{infantil:449,iniciais:459,finais:469},
-  2027:{infantil:599,iniciais:599,finais:599}
+  2027:{infantil:484.92,iniciais:495.72,finais:506.52}
 });
 
 function dashTuitionFromHistory(year){
@@ -809,6 +809,42 @@ function dashTuitionRowsForYear(products,year){
     };
   });
 }
+
+function dashTuitionRowsWithMetrics(products,year){
+  const y=Number(year),rows=dashTuitionRowsForYear(products,y);
+  const previous=y>2024?Object.fromEntries(dashTuitionRowsForYear(products,y-1).map(x=>[x.key,x])):{};
+  return rows.map(r=>{
+    const p=previous[r.key]||{};
+    const pct=(a,b)=>Number(b||0)?dashPct(Number(b||0),Number(a||0)):null;
+    return {...r,
+      pctAnnual:pct(r.annual,p.annual),
+      pctAnnualPost:pct(r.annualPost,p.annualPost),
+      pctFirst:pct(r.first||r.first12,p.first||p.first12),
+      pct12:pct(r.plan12,p.plan12),
+      pct12Post:pct(r.plan12Post,p.plan12Post),
+      pct11:pct(r.plan11,p.plan11),
+      pct11Post:pct(r.plan11Post,p.plan11Post)
+    };
+  });
+}
+function dashAdjustmentBadge(v){
+  if(v===null||v===undefined||!Number.isFinite(Number(v)))return "";
+  const n=Number(v),cls=n>0?"up":n<0?"down":"flat";
+  return "<span class='adjustment-badge "+cls+"'>"+(n>0?"+":"")+n.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})+"%</span>";
+}
+function dashTuitionKpis(rows,year){
+  const avg=arr=>{const v=arr.map(Number).filter(x=>Number.isFinite(x)&&x>0);return v.length?v.reduce((a,b)=>a+b,0)/v.length:0};
+  const ticket12=avg(rows.map(r=>r.plan12)),annual=avg(rows.map(r=>r.annual)),first=avg(rows.map(r=>r.first||r.first12));
+  const pcts=rows.map(r=>r.pctAnnual).filter(v=>v!==null&&v!==undefined&&Number.isFinite(Number(v)));
+  const avgPct=pcts.length?pcts.reduce((a,b)=>a+Number(b),0)/pcts.length:null;
+  return "<div class='tuition-kpis'>"+
+    "<div><small>TICKET MÉDIO DE TABELA</small><b>"+money(ticket12)+"</b><span>plano de 12 parcelas</span></div>"+
+    "<div><small>ANUIDADE MÉDIA</small><b>"+money(annual)+"</b><span>média dos segmentos</span></div>"+
+    "<div><small>1ª PARCELA MÉDIA</small><b>"+money(first)+"</b><span>matrícula / entrada</span></div>"+
+    "<div><small>REAJUSTE MÉDIO</small><b>"+(avgPct===null?"—":((avgPct>0?"+":"")+avgPct.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})+"%"))+"</b><span>"+(Number(year)>2024?"comparado a "+(Number(year)-1):"ano base")+"</span></div>"+
+  "</div>";
+}
+
 function dashTuitionHistoryRows(products){
   const y26=Object.fromEntries(dashTuitionFromCatalog(products,2026).map(x=>[x.key,x]));
   const y27=Object.fromEntries(dashTuitionFromCatalog(products,2027).map(x=>[x.key,x]));
@@ -872,21 +908,21 @@ function dashStiCompareTable(products){
     "</tbody></table></div>";
 }
 function dashTuitionYearTable(rows,year){
-  const valuePair=(a,b)=>{
+  const valuePair=(a,b,pctA,pctB)=>{
     const main=Number(a||0),post=Number(b||0);
     if(!main&&!post)return "<span class='school-value-empty'>—</span>";
-    return "<div class='school-value-stack'><strong>"+money(main)+"</strong><small>(até o vencimento)</small>"+
-      (post?"<strong>"+money(post)+"</strong><small>(após o vencimento)</small>":"")+"</div>";
+    return "<div class='school-value-stack'><strong>"+money(main)+"</strong><small>(até o vencimento)</small>"+dashAdjustmentBadge(pctA)+
+      (post?"<strong>"+money(post)+"</strong><small>(após o vencimento)</small>"+dashAdjustmentBadge(pctB):"")+"</div>";
   };
   const body=(rows||[]).map(r=>{
     const first=Number(r.first||GF_FIRST_REFERENCE[Number(year)]?.[r.key]||r.first12||0);
     return "<tr><td><b>"+esc(r.label)+"</b><small>"+esc(r.series)+"</small></td>"+
-      "<td>"+valuePair(r.annual,r.annualPost)+"</td>"+
-      "<td><div class='school-first-payment'><strong>"+money(first)+"</strong><small>à vista ou<br>3x no cartão</small></div></td>"+
-      "<td>"+valuePair(r.plan12,r.plan12Post)+"</td>"+
-      "<td>"+valuePair(r.plan11,r.plan11Post)+"</td></tr>";
+      "<td>"+valuePair(r.annual,r.annualPost,r.pctAnnual,r.pctAnnualPost)+"</td>"+
+      "<td><div class='school-first-payment'><strong>"+money(first)+"</strong><small>à vista ou<br>3x no cartão</small>"+dashAdjustmentBadge(r.pctFirst)+"</div></td>"+
+      "<td>"+valuePair(r.plan12,r.plan12Post,r.pct12,r.pct12Post)+"</td>"+
+      "<td>"+valuePair(r.plan11,r.plan11Post,r.pct11,r.pct11Post)+"</td></tr>";
   }).join("");
-  return "<div class='school-table-title'>TABELA DE VALORES "+year+"</div>"+
+  return dashTuitionKpis(rows,year)+"<div class='school-table-title'>TABELA DE VALORES "+year+"</div>"+
     "<div class='tuition-table-wrap'><table class='tuition-table school-price-table'><thead><tr><th>SEGMENTO</th><th>ANUIDADE</th><th>1ª PARCELA</th><th>12 PARCELAS</th><th>11 PARCELAS</th></tr></thead><tbody>"+body+"</tbody></table></div>"+
     "<div class='school-important-note'><b>OBSERVAÇÃO IMPORTANTE</b><span>A primeira parcela será paga no ato da matrícula e as parcelas restantes no dia 5 de cada mês.</span></div>";
 }
@@ -1000,7 +1036,7 @@ function dashMountTuitionDashboard(products){
       $("#tuitionSelectionTitle").textContent="Comparativo completo 2024–2027";
       $("#tuitionSelectionHint").textContent="Anuidades e S.T.I. lado a lado para leitura de evolução e tomada de decisão.";
     }else{
-      const year=Number(current),rows=dashTuitionRowsForYear(products,year);
+      const year=Number(current),rows=dashTuitionRowsWithMetrics(products,year);
       $("#tuitionDashboardBody").innerHTML=dashTuitionYearTable(rows,year)+dashStiYearTable(products,year);
       $("#tuitionSelectionTitle").textContent="Tabela oficial "+year;
       $("#tuitionSelectionHint").textContent=year<=2025?"Histórico oficial do Colégio Futuro.":"Valores conectados ao catálogo oficial da Gestão Futuro, com referência visual do padrão da escola.";
