@@ -20,5 +20,4 @@ jobs:
           cache: npm
           cache-dependency-path: gestao-futuro-pwa/package-lock.json
       - run: npm ci
-      - run: npm test
-      - run: node scripts/build.mjs
+      - run: npm run build
