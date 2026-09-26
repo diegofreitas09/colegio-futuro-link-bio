@@ -369,7 +369,7 @@ function gfOpenDeleteAttendance(row){
     "<div class='field'><label>Autorização da Direção • senha da Gestão</label><input id='deleteAttendancePass' type='password' autocomplete='current-password' placeholder='Digite a senha da Gestão'></div>"+
     "<p class='muted'>A Secretaria não consegue excluir sem a senha da Direção. A autorização vale somente para esta exclusão.</p></div>"+
     "<div class='modal-foot'><button class='btn btn-soft' data-close>Cancelar</button><button class='btn btn-danger' id='confirmDeleteAttendance'>🗑️ Excluir definitivamente</button></div>");
-  $("[data-close]").forEach(function(x){x.onclick=closeModal});
+  $$("[data-close]").forEach(function(x){x.onclick=closeModal});
   var pass=$("#deleteAttendancePass"),btn=$("#confirmDeleteAttendance");
   btn.onclick=async function(){
     var password=pass.value;if(!password){pass.focus();return}
@@ -546,7 +546,7 @@ async function renderAtendimento(){
     if(!rec){var lr=gfLocalAttendances().find(function(x){return x.id===id});if(lr){rec=lr.atendimento;gfCacheSavedAttendance(id,lr.atendimento,lr.itens||[])}}
     gfResumeAttendance(id,rec)
   }});
-  $("[data-pdf-att]").forEach(function(btn){btn.onclick=async function(){
+  $$("[data-pdf-att]").forEach(function(btn){btn.onclick=async function(){
     btn.disabled=true;var old=btn.textContent;btn.textContent="Gerando…";
     try{
       var id=btn.dataset.pdfAtt,d=await api("getAtendimento",{token:tokenFor("staff"),id:id});
@@ -555,11 +555,11 @@ async function renderAtendimento(){
     }catch(e){alert(e.message)}
     btn.disabled=false;btn.textContent=old;
   }});
-  $("[data-delete-att]").forEach(function(btn){btn.onclick=function(){
+  $$("[data-delete-att]").forEach(function(btn){btn.onclick=function(){
     var id=btn.dataset.deleteAtt,row=combined.find(function(x){return String(x.a&&x.a.ID_ATENDIMENTO||"")===String(id)});
     if(row)gfOpenDeleteAttendance(row);
   }});
-  $("[data-sync-att]").forEach(function(btn){btn.onclick=async function(){
+  $$("[data-sync-att]").forEach(function(btn){btn.onclick=async function(){
     var row=gfLocalAttendances().find(function(x){return x.id===btn.dataset.syncAtt});if(!row)return;
     btn.disabled=true;btn.textContent="Sincronizando…";
     try{
