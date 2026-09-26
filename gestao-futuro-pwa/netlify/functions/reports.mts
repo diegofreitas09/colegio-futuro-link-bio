@@ -17,6 +17,7 @@ type ReportBody = {
 
 function j(data:unknown,status=200){return new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store"}})}
 function clean(v:unknown){return String(v??"").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim()}
+function safeSpreadsheetCell(v:unknown){const s=clean(v);const first=s.charAt(0);return ["=","+","-","@"].includes(first)?"'"+s:s}
 function safeName(v:string){return (v||"relatorio").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-zA-Z0-9._-]+/g,"-").replace(/-+/g,"-").replace(/^-|-$/g,"").slice(0,90)||"relatorio"}
 async function verify(role:string,token:string){
   if(!token)return false;
@@ -269,7 +270,7 @@ function makeXlsx(body:ReportBody){
   aoa.push([]);
   const headerRow=aoa.length;
   aoa.push(cols.map(c=>clean(c.label)));
-  for(const r of rows)aoa.push(cols.map(c=>clean((r as any)[c.key])));
+  for(const r of rows)aoa.push(cols.map(c=>safeSpreadsheetCell((r as any)[c.key])));
   const ws=XLSX.utils.aoa_to_sheet(aoa);
   if(cols.length){
     ws["!merges"]=[{s:{r:0,c:0},e:{r:0,c:Math.max(0,cols.length-1)}},{s:{r:1,c:0},e:{r:1,c:Math.max(0,cols.length-1)}}];
@@ -279,7 +280,7 @@ function makeXlsx(body:ReportBody){
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Relatório");
   for(const sh of (body.extraSheets||[])){
     const name=clean(sh.name||"Resumo").slice(0,31)||"Resumo";
-    const data=[(sh.columns||[]).map(clean),...((sh.rows||[]).map(r=>r.map(v=>typeof v==="number"?v:clean(v))))];
+    const data=[(sh.columns||[]).map(safeSpreadsheetCell),...((sh.rows||[]).map(r=>r.map(v=>typeof v==="number"?v:safeSpreadsheetCell(v))))];
     const ex=XLSX.utils.aoa_to_sheet(data);
     if((sh.columns||[]).length){
       ex["!cols"]=(sh.columns||[]).map(()=>({wch:22}));
