@@ -372,7 +372,7 @@ async function api(action, payload={}) {
     if(state.apiInflight.has(key))return state.apiInflight.get(key);
   }
   const request=(async()=>{
-    const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),25000);
+    const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),15000);
     try{
       const r=await fetch(API,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action,...meta,...payload}),signal:ctrl.signal});
       let out;try{out=await r.json()}catch{throw new Error("Resposta inválida do servidor.")}
