@@ -1,3 +1,30 @@
+function prodAdjustmentPct(p){
+  const raw=p&&p["REAJUSTE_%"];
+  const direct=Number(raw);
+  if(String(raw??"").trim()!==""&&Number.isFinite(direct))return direct;
+  const origin=Number(p&&p.VALOR_ORIGEM||0),current=Number(p&&p.VALOR_BASE||0);
+  return origin&&current?((current/origin)-1)*100:null;
+}
+function prodAdjustmentBadge(p){
+  const v=prodAdjustmentPct(p);
+  if(v===null||!Number.isFinite(v))return "<span class='adjustment-badge flat'>Base</span>";
+  const cls=v>0?"up":v<0?"down":"flat";
+  return "<span class='adjustment-badge "+cls+"'>"+(v>0?"+":"")+v.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})+"%</span>";
+}
+function prodMetricsHtml(rows,year){
+  const active=(rows||[]).filter(p=>String(p.ATIVO||"Sim")!=="Não");
+  const avg=arr=>{const v=arr.map(Number).filter(x=>Number.isFinite(x)&&x>0);return v.length?v.reduce((a,b)=>a+b,0)/v.length:0};
+  const monthly=active.filter(p=>p.CATEGORIA==="Mensalidade"&&[11,12].includes(Number(p.QTD_PARCELAS||0))).map(p=>Number(p.VALOR_PARCELA||p.VALOR_BASE||0));
+  const annual=active.filter(p=>p.CATEGORIA==="Mensalidade"&&String(p.SUBCATEGORIA||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().includes("anuidade")).map(p=>Number(p.VALOR_BASE||0));
+  const adjusted=active.map(prodAdjustmentPct).filter(v=>v!==null&&Number.isFinite(v));
+  const avgAdj=adjusted.length?adjusted.reduce((a,b)=>a+b,0)/adjusted.length:null;
+  return "<div class='catalog-kpis'>"+
+    "<div><small>TICKET MÉDIO MENSAL</small><b>"+money(avg(monthly))+"</b><span>mensalidades 11x e 12x • "+year+"</span></div>"+
+    "<div><small>ANUIDADE MÉDIA</small><b>"+money(avg(annual))+"</b><span>mensalidades regulares</span></div>"+
+    "<div><small>PRODUTOS REAJUSTADOS</small><b>"+adjusted.length+"</b><span>de "+active.length+" produtos ativos</span></div>"+
+    "<div><small>REAJUSTE MÉDIO</small><b>"+(avgAdj===null?"—":((avgAdj>0?"+":"")+avgAdj.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})+"%"))+"</b><span>sobre o valor de origem</span></div>"+
+  "</div>";
+}
 async function renderProdutos(){
   const list=await api("listarProdutosGestao",{token:state.adminToken});
   const inferYear=p=>Number(p.ANO_LETIVO)||Number((String(p.ID_PRODUTO||"")+" "+String(p.PRODUTO||"")).match(/20\d{2}/)?.[0])||0;
@@ -13,6 +40,7 @@ async function renderProdutos(){
     <button class="btn btn-primary" id="newSchoolYear">Reajuste em lote</button>
   </div></div>
   <div class="card" style="margin-bottom:14px"><strong>Ano letivo: <span id="yearLabel">${defaultYear}</span></strong><br><span class="muted">Cada ano mantém seu próprio catálogo e seus próprios valores. O histórico dos anos anteriores não é apagado.</span></div>
+  <div id="prodMetrics"></div>
   <div id="prodTable"></div>`;
 
   const draw=()=>{
@@ -20,8 +48,10 @@ async function renderProdutos(){
     const year=Number($("#prodYear").value);
     state.productYear=year;
     $("#yearLabel").textContent=year;
-    const arr=list.filter(p=>inferYear(p)===year && [p.PRODUTO,p.CATEGORIA,p["SEGMENTO_SÉRIE"]].join(" ").toLowerCase().includes(q));
-    $("#prodTable").innerHTML=`<div class="table-wrap"><table><thead><tr><th>ID</th><th>Ano</th><th>Produto</th><th>Série</th><th>Valor base</th><th>Pós-vencimento</th><th>Parcelas</th><th>Publicado</th><th>Ativo</th><th></th></tr></thead><tbody>${arr.map(p=>`<tr><td>${esc(p.ID_PRODUTO)}</td><td><strong>${esc(inferYear(p)||"")}</strong></td><td><strong>${esc(p.PRODUTO)}</strong><br><span class="muted">${esc(p.CATEGORIA||"")}</span></td><td>${esc(p["SEGMENTO_SÉRIE"]||"")}</td><td class="money">${money(p.VALOR_BASE)}</td><td class="money">${money(p["VALOR_PÓS_VENCIMENTO"])}</td><td>${esc(p.QTD_PARCELAS||"")}</td><td>${pill(p.PUBLICADO_ATENDIMENTO||"Sim")}</td><td>${pill(p.ATIVO||"")}</td><td><button class="icon-btn" data-prod="${esc(p.ID_PRODUTO)}">Editar</button></td></tr>`).join("")||`<tr><td colspan="10" class="empty">Nenhum produto cadastrado para ${year}.</td></tr>`}</tbody></table></div>`;
+    const yearRows=list.filter(p=>inferYear(p)===year);
+    const arr=yearRows.filter(p=>[p.PRODUTO,p.CATEGORIA,p["SEGMENTO_SÉRIE"]].join(" ").toLowerCase().includes(q));
+    $("#prodMetrics").innerHTML=prodMetricsHtml(yearRows,year);
+    $("#prodTable").innerHTML=`<div class="table-wrap"><table><thead><tr><th>ID</th><th>Ano</th><th>Produto</th><th>Série</th><th>Valor base</th><th>Pós-vencimento</th><th>Parcelas</th><th>Reajuste</th><th>Publicado</th><th>Ativo</th><th></th></tr></thead><tbody>${arr.map(p=>`<tr><td>${esc(p.ID_PRODUTO)}</td><td><strong>${esc(inferYear(p)||"")}</strong></td><td><strong>${esc(p.PRODUTO)}</strong><br><span class="muted">${esc(p.CATEGORIA||"")}</span></td><td>${esc(p["SEGMENTO_SÉRIE"]||"")}</td><td class="money">${money(p.VALOR_BASE)}</td><td class="money">${money(p["VALOR_PÓS_VENCIMENTO"])}</td><td>${esc(p.QTD_PARCELAS||"")}</td><td>${prodAdjustmentBadge(p)}</td><td>${pill(p.PUBLICADO_ATENDIMENTO||"Sim")}</td><td>${pill(p.ATIVO||"")}</td><td><button class="icon-btn" data-prod="${esc(p.ID_PRODUTO)}">Editar</button></td></tr>`).join("")||`<tr><td colspan="11" class="empty">Nenhum produto cadastrado para ${year}.</td></tr>`}</tbody></table></div>`;
     $$('[data-prod]').forEach(x=>x.onclick=()=>openProductForm(list.find(p=>p.ID_PRODUTO===x.dataset.prod)));
   };
   $("#prodSearch").oninput=draw;
