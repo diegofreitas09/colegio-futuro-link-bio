@@ -376,7 +376,7 @@ function apiCacheKey(action,payload,meta){
   const safe={...payload}; if(safe.password)safe.password="***";
   return action+"|"+meta.modo+"|"+JSON.stringify(safe);
 }
-function clearApiCache(){state.cacheGeneration=(state.cacheGeneration||0)+1;state.apiCache.clear();state.apiInflight.clear();state.bootstrap=null;state.catalogPromise=null;state.catalogProducts=null;state.flyerCache={}}
+function clearApiCache(){state.cacheGeneration=(state.cacheGeneration||0)+1;state.apiCache.clear();state.apiInflight.clear();state.bootstrap=null;state.catalogPromise=null;state.catalogProducts=null;state.catalogLoadedAt=0;state.flyerCache={}}
 async function api(action, payload={}) {
   const writeActions=["salvarAluno","salvarResponsavel","criarMatriculaCompleta","atualizarDocumento","adicionarDocumentoAluno","registrarPagamento","salvarMovimentoCaixa","excluirMovimentoCaixa","salvarAtendimento","excluirAtendimento","solicitarDesconto","decidirSolicitacaoDesconto","salvarPanfletoSerie","atualizarProduto","criarProdutoServico","aplicarReajusteIndividual","aplicarReajusteCatalogo","limparDadosTeste","limparAutorizacoesTeste"];
   const productionOnly=["salvarPanfletoSerie","atualizarProduto","criarProdutoServico","aplicarReajusteIndividual","aplicarReajusteCatalogo"];
@@ -591,11 +591,16 @@ async function requireRole(view){
   return false;
 }
 
-async function loadCatalogProducts(){
-  if(state.catalogProducts) return state.catalogProducts;
-  if(state.catalogPromise) return state.catalogPromise;
+async function loadCatalogProducts(force=false){
+  const maxAge=300000,now=Date.now();
+  if(!force&&state.catalogProducts&&(now-Number(state.catalogLoadedAt||0))<maxAge)return state.catalogProducts;
+  if(state.catalogPromise)return state.catalogPromise;
+  if(force){state.apiCache.delete(apiCacheKey("listarProdutosPublicos",{}, {modo:currentRunMode()}));}
   const generation=state.cacheGeneration||0;
-  state.catalogPromise=api("listarProdutosPublicos").then(function(rows){if(generation===(state.cacheGeneration||0))state.catalogProducts=rows||[];return rows||[]}).finally(function(){if(generation===(state.cacheGeneration||0))state.catalogPromise=null});
+  state.catalogPromise=api("listarProdutosPublicos").then(function(rows){
+    if(generation===(state.cacheGeneration||0)){state.catalogProducts=rows||[];state.catalogLoadedAt=Date.now()}
+    return rows||[]
+  }).finally(function(){if(generation===(state.cacheGeneration||0))state.catalogPromise=null});
   return state.catalogPromise;
 }
 
@@ -765,8 +770,8 @@ function dashTuitionFromCatalog(products,year){
     const p11=rows.find(p=>bySeries(p)&&Number(p.QTD_PARCELAS)===11);
     const anu=Number(annual?.VALOR_BASE||0),anuPost=Number(annual?.["VALOR_PÓS_VENCIMENTO"]||0);
     const calc12=dashPlanFromAnnual(anu,12),calc12Post=dashPlanFromAnnual(anuPost,12),calc11=dashPlanFromAnnual(anu,11),calc11Post=dashPlanFromAnnual(anuPost,11);
-    const v12=calc12.recurring||Number(p12?.VALOR_BASE||0),v12Post=calc12Post.recurring||Number(p12?.["VALOR_PÓS_VENCIMENTO"]||0);
-    const v11=calc11.recurring||Number(p11?.VALOR_BASE||0),v11Post=calc11Post.recurring||Number(p11?.["VALOR_PÓS_VENCIMENTO"]||0);
+    const v12=Number(p12?.VALOR_PARCELA||p12?.VALOR_BASE||0)||calc12.recurring,v12Post=Number(p12?.["VALOR_PÓS_VENCIMENTO"]||0)||calc12Post.recurring;
+    const v11=Number(p11?.VALOR_PARCELA||p11?.VALOR_BASE||0)||calc11.recurring,v11Post=Number(p11?.["VALOR_PÓS_VENCIMENTO"]||0)||calc11Post.recurring;
     return {...s,year:Number(year),annual:anu,annualPost:anuPost,plan12:v12,plan12Post:v12Post,plan11:v11,plan11Post:v11Post,
       first12:calc12.first,first12Post:calc12Post.first,first11:calc11.first,first11Post:calc11Post.first
     };
@@ -802,10 +807,10 @@ function dashTuitionRowsForYear(products,year){
     const first=Number(refs[r.key]||0);
     if(!first||!r.annual)return {...r,first:r.first12||0};
     return {...r,first:first,first12:first,first12Post:first,first11:first,first11Post:first,
-      plan12:dashRound2((Number(r.annual)-first)/12),
-      plan12Post:dashRound2((Number(r.annualPost)-first)/12),
-      plan11:dashRound2((Number(r.annual)-first)/11),
-      plan11Post:dashRound2((Number(r.annualPost)-first)/11)
+      plan12:Number(r.plan12||0)||dashRound2((Number(r.annual)-first)/12),
+      plan12Post:Number(r.plan12Post||0)||dashRound2((Number(r.annualPost)-first)/12),
+      plan11:Number(r.plan11||0)||dashRound2((Number(r.annual)-first)/11),
+      plan11Post:Number(r.plan11Post||0)||dashRound2((Number(r.annualPost)-first)/11)
     };
   });
 }
@@ -867,8 +872,8 @@ const GF_STI_HISTORY = Object.freeze({
     iniciais:{key:"iniciais",label:"Ensino Fundamental I",series:"1º ao 5º Ano",regular:458.17,regularPost:484.30,sti:590,total:1048.17,totalPost:1074.30}
   },
   2027:{
-    infantil:{key:"infantil",label:"Educação Infantil",series:"Infantil 2 ao 5",regular:461.93,regularPost:486.02,sti:654.50,total:1116.43,totalPost:1140.52},
-    iniciais:{key:"iniciais",label:"Ensino Fundamental I",series:"1º ao 5º Ano",regular:496.05,regularPost:521.88,sti:654.50,total:1150.55,totalPost:1176.38}
+    infantil:{key:"infantil",label:"Educação Infantil",series:"Infantil 2 ao 5",regular:482.12,regularPost:509.63,sti:654.50,total:1136.62,totalPost:1164.13},
+    iniciais:{key:"iniciais",label:"Ensino Fundamental I",series:"1º ao 5º Ano",regular:494.82,regularPost:523.04,sti:654.50,total:1149.32,totalPost:1177.54}
   }
 });
 function dashStiFromCatalog(products,year){
