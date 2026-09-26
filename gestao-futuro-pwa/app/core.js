@@ -780,6 +780,36 @@ function dashTuitionHistoryRows(products){
     return {key,label:h24.label,series:h24.series,v2024:Number(h24.annual||0),v2025:Number(h25.annual||0),v2026:Number(h26.annual||0),v2027:Number(h27.annual||0)};
   });
 }
+function dashStiFromCatalog(products,year){
+  const regular=Object.fromEntries(dashTuitionFromCatalog(products,year).map(x=>[x.key,x]));
+  const specs=[
+    {key:"infantil",label:"Educação Infantil",series:"Infantil 2 ao 5"},
+    {key:"iniciais",label:"Ensino Fundamental I",series:"1º ao 5º Ano"}
+  ];
+  const rows=(products||[]).filter(p=>dashYear(p)===Number(year)&&p.ATIVO!=="Não"&&p.CATEGORIA==="Adicional"&&dashNorm(p.SUBCATEGORIA).includes("s.t.i"));
+  return specs.map(s=>{
+    const item=rows.find(p=>dashNorm(p["SEGMENTO_SÉRIE"])===dashNorm(s.series));
+    const reg=regular[s.key]||{},sti=Number(item?.VALOR_BASE||0);
+    return {...s,year:Number(year),regular:Number(reg.plan12||0),regularPost:Number(reg.plan12Post||0),sti,
+      total:dashRound2(Number(reg.plan12||0)+sti),totalPost:dashRound2(Number(reg.plan12Post||0)+sti)};
+  }).filter(x=>x.sti>0);
+}
+function dashStiYearTable(products,year){
+  const rows=dashStiFromCatalog(products,year);
+  if(!rows.length)return "";
+  return "<div class='tuition-year-caption sti-caption'><div><b>S.T.I. • SISTEMA DE TEMPO INTEGRAL • "+year+"</b><span>Adicional ao tempo regular • exibido separadamente</span></div><span class='tuition-source'>12 parcelas</span></div>"+
+    "<div class='tuition-table-wrap'><table class='tuition-table sti-table'><thead><tr><th>SEGMENTO</th><th>REGULAR</th><th>INVESTIMENTO S.T.I.</th><th>VALOR FINAL</th><th>APÓS VENCIMENTO</th></tr></thead><tbody>"+
+    rows.map(r=>"<tr><td><b>"+esc(r.label)+"</b><small>"+esc(r.series)+"</small></td><td>"+money(r.regular)+"</td><td>"+money(r.sti)+"</td><td><strong>"+money(r.total)+"</strong></td><td>"+money(r.totalPost)+"</td></tr>").join("")+
+    "</tbody></table></div><div class='tuition-legend'><b>S.T.I.:</b> valor adicional mensal somado ao plano regular de 12 parcelas. O valor final mostra regular + S.T.I.</div>";
+}
+function dashStiCompareTable(products){
+  const a=Object.fromEntries(dashStiFromCatalog(products,2026).map(x=>[x.key,x]));
+  const b=Object.fromEntries(dashStiFromCatalog(products,2027).map(x=>[x.key,x]));
+  return "<div class='tuition-year-caption sti-caption'><div><b>COMPARATIVO S.T.I. • 2026 × 2027</b><span>Investimento adicional e valor final mensal</span></div><span class='tuition-source'>Gestão Futuro</span></div>"+
+    "<div class='tuition-table-wrap'><table class='tuition-table tuition-compare sti-table'><thead><tr><th>SEGMENTO</th><th>S.T.I. 2026</th><th>S.T.I. 2027</th><th>REAJUSTE</th><th>FINAL 2026</th><th>FINAL 2027</th></tr></thead><tbody>"+
+    ["infantil","iniciais"].map(key=>{const x=a[key]||{},y=b[key]||{},pct=x.sti&&y.sti?dashPct(x.sti,y.sti):0;return "<tr><td><b>"+esc(y.label||x.label||key)+"</b><small>"+esc(y.series||x.series||"")+"</small></td><td>"+money(x.sti||0)+"</td><td>"+money(y.sti||0)+"</td><td><span class='variation "+(pct>0?"up":pct<0?"down":"")+"'>"+(pct>0?"+":"")+pct.toLocaleString("pt-BR",{maximumFractionDigits:2})+"%</span></td><td>"+money(x.total||0)+"</td><td>"+money(y.total||0)+"</td></tr>"}).join("")+
+    "</tbody></table></div>";
+}
 function dashTuitionYearTable(rows,year){
   const segment=r=>{
     const has=Number(r.annual||0)>0;
