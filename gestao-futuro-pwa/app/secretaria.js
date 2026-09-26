@@ -98,12 +98,13 @@ function openRespForm(alunos){
 }
 
 async function renderMatriculas(){
-  const b=await loadBootstrap();const mats=b.matriculas||[],alunos=b.alunos||[],itens=b.itensContrato||[];const names=Object.fromEntries(alunos.map(a=>[a.ID_ALUNO,a.NOME_COMPLETO]));
+  const loaded=await Promise.all([loadBootstrap(),loadCatalogProducts()]),b=loaded[0],catalog=loaded[1]||[];b.produtos=catalog;
+  const mats=b.matriculas||[],alunos=b.alunos||[],itens=b.itensContrato||[];const names=Object.fromEntries(alunos.map(a=>[a.ID_ALUNO,a.NOME_COMPLETO]));
   $("#view").innerHTML=`<div class="section-head"><h2>Matrículas</h2><div class="toolbar"><button class="btn btn-report" id="matReport">📄 Relatório</button><button class="btn btn-primary" id="newMat">+ Nova matrícula</button></div></div><div class="table-wrap"><table><thead><tr><th>Matrícula</th><th>Aluno</th><th>Ano</th><th>Série</th><th>Plano</th><th>Valor contratado</th><th>Produtos/serviços</th><th>Documentos</th><th>Status</th></tr></thead><tbody>${mats.map(m=>{const mid=m["ID_MATRÍCULA"]||"",mi=itens.filter(x=>x["ID_MATRÍCULA"]===mid&&x.STATUS!=="Cancelado");return `<tr><td>${esc(mid)}</td><td><strong>${esc(names[m.ID_ALUNO]||m.ID_ALUNO||"")}</strong></td><td>${esc(m.ANO_LETIVO||"")}</td><td>${esc(m["SÉRIE"]||"")}</td><td>${esc(m.PLANO_PARCELAS||"")}x</td><td class="money">${money(m.VALOR_ANUIDADE_CONTRATADO)}</td><td>${mi.length?`<b>${mi.length} item(ns)</b><br><span class="muted">${esc(mi.slice(0,3).map(x=>x.PRODUTO).join(" • "))}${mi.length>3?"…":""}</span>`:"—"}</td><td>${pill(m.STATUS_DOCUMENTOS||"Pendente",m.STATUS_DOCUMENTOS==="Concluído"?"ok":"warn")}</td><td>${pill(m.STATUS||"",m.STATUS==="Ativa"?"ok":"")}</td></tr>`}).join("")||`<tr><td colspan="9" class="empty">Nenhuma matrícula.</td></tr>`}</tbody></table></div>`;
   $("#matReport").onclick=()=>openMatriculaReport(mats,alunos); $("#newMat").onclick=()=>openMatForm(b);
 }
 function openMatForm(b){
-  const alunos=b.alunos||[], resp=b.responsaveis||[], prods=(b.produtos||[]).filter(p=>p.ATIVO==="Sim");
+  const alunos=b.alunos||[], resp=b.responsaveis||[], prods=(b.produtos||[]).filter(p=>p.ATIVO==="Sim"&&String(p.PUBLICADO_ATENDIMENTO||"Sim")!=="Não");
   const inferYear=p=>Number(p.ANO_LETIVO)||Number((String(p.ID_PRODUTO||"")+" "+String(p.PRODUTO||"")).match(/20\d{2}/)?.[0])||0;
   const years=[...new Set(prods.map(inferYear).filter(Boolean))].sort((a,b)=>b-a);
   const currentYear=years[0]||new Date().getFullYear();
@@ -116,8 +117,8 @@ function openMatForm(b){
     <div class="field"><label>Turno</label><select name="TURNO" id="matTurno"><option>Manhã</option><option>Tarde</option><option>Integral</option></select></div>
     <div class="field"><label>Tipo</label><select name="TIPO_MATRICULA"><option>Novato</option><option>Veterano</option></select></div>
     <div class="field span-2"><label>Plano / produto principal</label><select name="ID_PRODUTO_PLANO" id="matPlano"><option value="">Definir manualmente</option></select></div>
-    <div class="field"><label>Parcelas</label><input type="number" name="PLANO_PARCELAS" value="12" min="1"></div>
-    <div class="field"><label>Valor contratado</label><input type="number" step="0.01" name="VALOR_ANUIDADE_CONTRATADO" value="0"></div>
+    <div class="field"><label>Parcelas</label><input type="number" name="PLANO_PARCELAS" id="matPlanCount" value="12" min="1"></div>
+    <div class="field"><label>Valor contratado</label><input type="number" step="0.01" name="VALOR_ANUIDADE_CONTRATADO" id="matAnnualValue" value="0"></div>
     <div class="field"><label>Dia vencimento</label><input type="number" name="DIA_VENCIMENTO" id="matDueDay" value="5" min="1" max="31"></div>
     <div class="field"><label>Primeiro vencimento</label><input type="date" name="PRIMEIRO_VENCIMENTO" id="matFirstDue" value="${firstDue}"></div>
     <div class="field span-2"><label>Responsável financeiro</label><select name="ID_RESP_FINANCEIRO" id="matResp"><option value="">Selecione o aluno primeiro</option></select></div>
@@ -138,10 +139,23 @@ function openMatForm(b){
     refreshServiceTotal();
   };
   const refreshServiceTotal=()=>{
-    const ids=$$("[data-mat-service]:checked").map(x=>x.dataset.matService);
+    const ids=$("[data-mat-service]:checked").map(x=>x.dataset.matService);
     const total=prods.filter(p=>ids.includes(String(p.ID_PRODUTO))).reduce((s,p)=>s+Number(p.VALOR_BASE||0),0);
     $("#matServicesTotal").textContent=money(total);
     return {ids,total};
+  };
+  const syncSelectedPlan=()=>{
+    const id=$("#matPlano").value,p=prods.find(x=>String(x.ID_PRODUTO)===String(id));
+    if(!p)return;
+    const year=Number($("#matYear").value),serie=$("#matSerie").value||"";
+    const available=prods.filter(x=>inferYear(x)===year&&x.ATIVO==="Sim"&&(!serie||typeof gfApplies!=="function"||gfApplies(x,serie)));
+    const annual=available.find(x=>x.CATEGORIA==="Mensalidade"&&(String(x.SUBCATEGORIA||"").toLowerCase().includes("anuidade")||String(x.PRODUTO||"").toLowerCase().includes("anuidade")))||null;
+    const q=Number(p.QTD_PARCELAS||0);
+    if(q>1&&$("#matPlanCount"))$("#matPlanCount").value=q;
+    if($("#matAnnualValue")){
+      const v=annual?Number(annual.VALOR_BASE||0):(q===1?Number(p.VALOR_BASE||0):0);
+      if(v)$("#matAnnualValue").value=v.toFixed(2);
+    }
   };
   const syncFirstDue=()=>{
     const year=Number($("#matYear").value)||currentYear;
@@ -152,6 +166,7 @@ function openMatForm(b){
 
   $("#matYear").onchange=()=>{refreshPlans();syncFirstDue();};
   $("#matSerie").onchange=refreshPlans;
+  $("#matPlano").onchange=syncSelectedPlan;
   $("#matDueDay").onchange=syncFirstDue;
   $("#matAluno").onchange=()=>{
     const o=$("#matAluno").selectedOptions[0];
