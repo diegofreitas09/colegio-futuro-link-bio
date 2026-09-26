@@ -876,8 +876,8 @@ function dashMountTuitionDashboard(products){
   $("#view").insertAdjacentHTML("beforeend","<section class='card tuition-dashboard'><div class='tuition-dashboard-head'><div><small>GESTÃO • VALORES</small><h2>Tabela de anuidades</h2><p>Visão operacional reorganizada no modelo de tabela por segmento.</p></div><button class='btn btn-primary' id='downloadTuitionTable'>⬇ Baixar tabela</button></div><div class='tuition-tabs'><button class='active' data-tuition-view='2026'>2026</button><button data-tuition-view='2027'>2027</button><button data-tuition-view='compare'>Comparativo</button></div><div id='tuitionDashboardBody'></div></section>"+dashTuitionHistoryHtml(products));
   let current="2026";
   const draw=()=>{
-    $("#tuitionDashboardBody").innerHTML=current==="2026"?dashTuitionYearTable(y26,2026):current==="2027"?dashTuitionYearTable(y27,2027):dashTuitionCompareTable(y26,y27);
-    $$("[data-tuition-view]").forEach(b=>b.classList.toggle("active",b.dataset.tuitionView===current));
+    $("#tuitionDashboardBody").innerHTML=current==="2026"?(dashTuitionYearTable(y26,2026)+dashStiYearTable(products,2026)):current==="2027"?(dashTuitionYearTable(y27,2027)+dashStiYearTable(products,2027)):(dashTuitionCompareTable(y26,y27)+dashStiCompareTable(products));
+    $("[data-tuition-view]").forEach(b=>b.classList.toggle("active",b.dataset.tuitionView===current));
   };
   $$("[data-tuition-view]").forEach(b=>b.onclick=()=>{current=b.dataset.tuitionView;draw()});
   $("#downloadTuitionTable").onclick=()=>dashTuitionDownloadModal(products,current);
