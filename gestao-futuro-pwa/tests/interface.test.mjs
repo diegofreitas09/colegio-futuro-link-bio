@@ -51,6 +51,31 @@ test('save, edit, failed update and manual synchronization preserve latest atten
 for(const f of ['openStudentForm({})','openRespForm([])','openMatForm({alunos:[],responsaveis:[],produtos:[]})']){
  test('school registration dialog opens: '+f,()=>{const x=setup();try{x.run(f);assert.ok(x.w.document.querySelector('#modalRoot form'))}finally{x.dom.window.close()}});
 }
+test('attendance deletion requires management authorization and calls the protected endpoint',async()=>{
+ const x=setup();const calls=[];
+ x.w.fetch=async(url,opts)=>{
+  const b=JSON.parse(opts.body);calls.push(b);
+  if(b.action==='loginGestao')return Response.json({ok:true,data:{ok:true,token:'admin-once'}});
+  if(b.action==='excluirAtendimento')return Response.json({ok:true,data:{ok:true,id:b.id}});
+  if(b.action==='logout')return Response.json({ok:true,data:{ok:true}});
+  if(b.action==='bootstrapSecretaria')return Response.json({ok:true,data:{produtos:[],alunos:[],responsaveis:[]}});
+  if(b.action==='listarAtendimentos')return Response.json({ok:true,data:[]});
+  return Response.json({ok:true,data:[]});
+ };
+ try{
+  x.run('state.backendCaps={attendanceDelete:true}');
+  x.w.__row={a:{ID_ATENDIMENTO:'ATE-TESTE',NOME_ALUNO:'Aluno teste'},local:false};
+  x.run('gfOpenDeleteAttendance(window.__row)');
+  assert.ok(x.w.document.querySelector('#deleteAttendancePass'));
+  x.w.document.querySelector('#deleteAttendancePass').value='senha-direcao';
+  await x.w.document.querySelector('#confirmDeleteAttendance').onclick();
+  assert.equal(calls.find(v=>v.action==='loginGestao')?.password,'senha-direcao');
+  assert.equal(calls.find(v=>v.action==='excluirAtendimento')?.token,'admin-once');
+  assert.equal(calls.find(v=>v.action==='excluirAtendimento')?.id,'ATE-TESTE');
+  assert.ok(calls.some(v=>v.action==='logout'&&v.token==='admin-once'));
+ }finally{x.dom.window.close()}
+});
+
 test('attendance PDF generation uses the bundled library and keeps a typical proposal on one A4 page',async()=>{
  const x=setup();try{
   const {jsPDF}=await import('jspdf');
