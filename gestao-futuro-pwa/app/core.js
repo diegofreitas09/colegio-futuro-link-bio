@@ -731,6 +731,124 @@ function dashBarRows(rows,maxValue,formatter){
     return "<div class='compare-row'><div class='compare-label'><b>"+esc(r.label)+"</b><span>"+esc(r.sub||"")+"</span></div><div class='compare-bars'><div class='bar-line'><em>2026</em><i style='width:"+Math.max(2,(a/ma)*100)+"%'></i><strong>"+esc(formatter(a))+"</strong></div><div class='bar-line y2'><em>2027</em><i style='width:"+Math.max(2,(b/ma)*100)+"%'></i><strong>"+esc(formatter(b))+"</strong></div></div></div>";
   }).join("");
 }
+
+const GF_TUITION_HISTORY = Object.freeze({
+  2024:{
+    infantil:{label:"Educação Infantil",series:"Infantil 2 ao 5",annual:5053.68,annualPost:5459.16,first:390.00,plan12:388.64,plan12Post:422.43,plan11:423.97,plan11Post:460.83},
+    iniciais:{label:"Ensino Fundamental I",series:"1º ao 5º Ano",annual:5194.80,annualPost:5611.68,first:399.60,plan12:399.60,plan12Post:434.34,plan11:435.92,plan11Post:473.82},
+    finais:{label:"Ensino Fundamental II",series:"6º ao 9º Ano",annual:5335.92,annualPost:5764.32,first:409.20,plan12:410.56,plan12Post:446.26,plan11:447.88,plan11Post:486.82}
+  },
+  2025:{
+    infantil:{label:"Educação Infantil",series:"Infantil 2 ao 5",annual:5456.76,annualPost:5894.64,first:420.00,plan12:419.73,plan12Post:456.22,plan11:457.88,plan11Post:497.69},
+    iniciais:{label:"Ensino Fundamental I",series:"1º ao 5º Ano",annual:5598.72,annualPost:6049.08,first:420.00,plan12:431.56,plan12Post:469.09,plan11:470.79,plan11Post:511.73},
+    finais:{label:"Ensino Fundamental II",series:"6º ao 9º Ano",annual:5740.80,annualPost:6203.52,first:420.00,plan12:443.40,plan12Post:481.96,plan11:483.70,plan11Post:525.77}
+  }
+});
+function dashRound2(v){return Math.round((Number(v||0)+Number.EPSILON)*100)/100}
+function dashTuitionFromCatalog(products,year){
+  const specs=[
+    {key:"infantil",label:"Educação Infantil",series:"Infantil 2 ao 5"},
+    {key:"iniciais",label:"Ensino Fundamental I",series:"1º ao 5º Ano"},
+    {key:"finais",label:"Ensino Fundamental II",series:"6º ao 9º Ano"}
+  ];
+  const rows=(products||[]).filter(p=>dashYear(p)===Number(year)&&p.ATIVO!=="Não"&&p.CATEGORIA==="Mensalidade");
+  return specs.map(s=>{
+    const bySeries=p=>dashNorm(p&&p["SEGMENTO_SÉRIE"])===dashNorm(s.series);
+    const annual=rows.find(p=>bySeries(p)&&dashNorm(p.SUBCATEGORIA).includes("anuidade"));
+    const p12=rows.find(p=>bySeries(p)&&Number(p.QTD_PARCELAS)===12);
+    const p11=rows.find(p=>bySeries(p)&&Number(p.QTD_PARCELAS)===11);
+    const anu=Number(annual?.VALOR_BASE||0),anuPost=Number(annual?.["VALOR_PÓS_VENCIMENTO"]||0);
+    const v12=Number(p12?.VALOR_BASE||0),v12Post=Number(p12?.["VALOR_PÓS_VENCIMENTO"]||0);
+    const v11=Number(p11?.VALOR_BASE||0),v11Post=Number(p11?.["VALOR_PÓS_VENCIMENTO"]||0);
+    return {...s,year:Number(year),annual:anu,annualPost:anuPost,plan12:v12,plan12Post:v12Post,plan11:v11,plan11Post:v11Post,
+      first12:anu&&v12?dashRound2(anu-v12*12):0,
+      first12Post:anuPost&&v12Post?dashRound2(anuPost-v12Post*12):0,
+      first11:anu&&v11?dashRound2(anu-v11*11):0,
+      first11Post:anuPost&&v11Post?dashRound2(anuPost-v11Post*11):0
+    };
+  });
+}
+function dashTuitionHistoryRows(products){
+  const y26=Object.fromEntries(dashTuitionFromCatalog(products,2026).map(x=>[x.key,x]));
+  const y27=Object.fromEntries(dashTuitionFromCatalog(products,2027).map(x=>[x.key,x]));
+  return ["infantil","iniciais","finais"].map(key=>{
+    const h24=GF_TUITION_HISTORY[2024][key],h25=GF_TUITION_HISTORY[2025][key],h26=y26[key]||{},h27=y27[key]||{};
+    return {key,label:h24.label,series:h24.series,v2024:Number(h24.annual||0),v2025:Number(h25.annual||0),v2026:Number(h26.annual||0),v2027:Number(h27.annual||0)};
+  });
+}
+function dashTuitionYearTable(rows,year){
+  const segment=r=>{
+    const has=Number(r.annual||0)>0;
+    if(!has)return "<section class='tuition-segment'><div class='tuition-segment-title'>"+esc(r.label)+" <small>"+esc(r.series)+"</small></div><div class='empty'>Sem valores cadastrados para "+year+".</div></section>";
+    const firstCell=(a,b)=>"<span><b>P1 (+12)</b> "+money(a)+"</span><span><b>P2 (+11)</b> "+money(b)+"</span>";
+    return "<section class='tuition-segment'><div class='tuition-segment-title'>"+esc(r.label)+" <small>"+esc(r.series)+"</small></div>"+
+      "<div class='tuition-table-wrap'><table class='tuition-table'><thead><tr><th>VALOR</th><th>ANUIDADE</th><th>1ª PARCELA</th><th>PLANO 01<br><small>+12</small></th><th>PLANO 02<br><small>+11</small></th></tr></thead><tbody>"+
+      "<tr><td>ATÉ O VENCIMENTO</td><td>"+money(r.annual)+"</td><td class='tuition-first'>"+firstCell(r.first12,r.first11)+"</td><td>"+money(r.plan12)+"</td><td>"+money(r.plan11)+"</td></tr>"+
+      "<tr class='after'><td>APÓS O VENCIMENTO</td><td>"+money(r.annualPost)+"</td><td class='tuition-first'>"+firstCell(r.first12Post,r.first11Post)+"</td><td>"+money(r.plan12Post)+"</td><td>"+money(r.plan11Post)+"</td></tr>"+
+      "</tbody></table></div></section>";
+  };
+  return "<div class='tuition-year-caption'><div><b>VALORES DE ANUIDADE • "+year+"</b><span>Tempo regular • tabela oficial da Gestão Futuro</span></div><span class='tuition-source'>Valores do catálogo oficial</span></div>"+rows.map(segment).join("")+
+    "<div class='tuition-legend'><b>1ª parcela:</b> P1 corresponde ao plano com +12 parcelas e P2 ao plano com +11 parcelas. O valor é calculado para fechar exatamente a anuidade cadastrada.</div>";
+}
+function dashTuitionCompareTable(y26,y27){
+  const b26=Object.fromEntries(y26.map(x=>[x.key,x])),b27=Object.fromEntries(y27.map(x=>[x.key,x]));
+  return "<div class='tuition-year-caption'><div><b>COMPARATIVO • 2026 × 2027</b><span>Anuidade e planos regulares por segmento</span></div><span class='tuition-source'>Gestão Futuro</span></div>"+
+    "<div class='tuition-table-wrap'><table class='tuition-table tuition-compare'><thead><tr><th>SEGMENTO</th><th>2026<br><small>Anuidade</small></th><th>2027<br><small>Anuidade</small></th><th>REAJUSTE</th><th>+12<br><small>2026 → 2027</small></th><th>+11<br><small>2026 → 2027</small></th></tr></thead><tbody>"+
+    ["infantil","iniciais","finais"].map(key=>{
+      const a=b26[key]||{},b=b27[key]||{},pct=a.annual&&b.annual?dashPct(a.annual,b.annual):0;
+      return "<tr><td><b>"+esc(b.label||a.label||key)+"</b><small>"+esc(b.series||a.series||"")+"</small></td><td>"+money(a.annual||0)+"</td><td>"+money(b.annual||0)+"</td><td><span class='variation "+(pct>0?"up":pct<0?"down":"")+"'>"+(pct>0?"+":"")+pct.toLocaleString("pt-BR",{maximumFractionDigits:2})+"%</span></td><td>"+money(a.plan12||0)+" <i>→</i> "+money(b.plan12||0)+"</td><td>"+money(a.plan11||0)+" <i>→</i> "+money(b.plan11||0)+"</td></tr>";
+    }).join("")+"</tbody></table></div>";
+}
+function dashTuitionHistoryHtml(products){
+  const rows=dashTuitionHistoryRows(products);
+  const avg=(from,to)=>{const arr=rows.filter(r=>r[from]&&r[to]).map(r=>dashPct(r[from],r[to]));return arr.length?arr.reduce((a,b)=>a+b,0)/arr.length:0};
+  const p2425=avg("v2024","v2025"),p2526=avg("v2025","v2026"),p2627=avg("v2026","v2027"),p2427=avg("v2024","v2027");
+  return "<section class='card tuition-history'><div class='section-head compact'><div><h2>Panorama histórico • 2024 → 2027</h2><span class='muted'>Evolução da anuidade até o vencimento. 2024–2026: Guias oficiais; 2027: catálogo Gestão Futuro.</span></div></div>"+
+    "<div class='tuition-history-kpis'><div><small>2024 → 2025</small><b>+"+p2425.toLocaleString("pt-BR",{maximumFractionDigits:2})+"%</b><span>média dos segmentos</span></div><div><small>2025 → 2026</small><b>+"+p2526.toLocaleString("pt-BR",{maximumFractionDigits:2})+"%</b><span>média dos segmentos</span></div><div><small>2026 → 2027</small><b>+"+p2627.toLocaleString("pt-BR",{maximumFractionDigits:2})+"%</b><span>média dos segmentos</span></div><div class='cumulative'><small>2024 → 2027</small><b>+"+p2427.toLocaleString("pt-BR",{maximumFractionDigits:2})+"%</b><span>evolução acumulada média</span></div></div>"+
+    "<div class='tuition-table-wrap'><table class='tuition-table tuition-history-table'><thead><tr><th>SEGMENTO</th><th>2024</th><th>2025</th><th>2026</th><th>2027</th><th>EVOLUÇÃO 24→27</th></tr></thead><tbody>"+
+    rows.map(r=>{const total=r.v2024&&r.v2027?dashPct(r.v2024,r.v2027):0;return "<tr><td><b>"+esc(r.label)+"</b><small>"+esc(r.series)+"</small></td><td>"+money(r.v2024)+"</td><td>"+money(r.v2025)+"</td><td>"+money(r.v2026)+"</td><td>"+money(r.v2027)+"</td><td><span class='variation up'>+"+total.toLocaleString("pt-BR",{maximumFractionDigits:2})+"%</span></td></tr>"}).join("")+
+    "</tbody></table></div><div class='tuition-insight'><b>Leitura para a Gestão</b><span>O painel separa a evolução histórica das anuidades da operação atual. Assim, a direção enxerga rapidamente a trajetória de preço e, ao mesmo tempo, mantém 2026 e 2027 alinhados ao catálogo oficial usado no Atendimento.</span></div></section>";
+}
+function dashTuitionDownloadModal(products,currentView){
+  const y26=dashTuitionFromCatalog(products,2026),y27=dashTuitionFromCatalog(products,2027),history=dashTuitionHistoryRows(products);
+  modal("<div class='modal-head'><h3>Baixar tabela de anuidades</h3><button class='icon-btn' data-close>✕</button></div><div class='modal-body'><div class='report-intro'><b>⬇ Tabela de valores</b><span>Escolha o recorte que a Gestão precisa e baixe em PDF ou Excel.</span></div><form id='tuitionDownloadForm' class='form-grid'><div class='field'><label>Conteúdo</label><select name='SCOPE'><option value='2026' "+(currentView==="2026"?"selected":"")+">Tabela 2026</option><option value='2027' "+(currentView==="2027"?"selected":"")+">Tabela 2027</option><option value='compare' "+(currentView==="compare"?"selected":"")+">Comparativo 2026 × 2027</option><option value='history'>Panorama 2024–2027</option></select></div><div class='field'><label>Formato</label><select name='FORMAT'>"+gfReportFormatOptions()+"</select></div></form></div><div class='modal-foot'><button class='btn btn-soft' data-close>Cancelar</button><button class='btn btn-primary' id='generateTuitionDownload'>⬇ Baixar tabela</button></div>");
+  $$("[data-close]").forEach(x=>x.onclick=closeModal);
+  $("#generateTuitionDownload").onclick=async function(){
+    const d=Object.fromEntries(new FormData($("#tuitionDownloadForm")).entries()),scope=d.SCOPE,fmt=d.FORMAT;
+    let title="",subtitle="",rows=[],columns=[];
+    if(scope==="2026"||scope==="2027"){
+      const year=Number(scope),arr=year===2026?y26:y27;
+      title="Tabela de Anuidades "+year;subtitle="Colégio Futuro • Tempo regular";
+      columns=[{key:"segmento",label:"Segmento",width:2},{key:"condicao",label:"Condição",width:1.25},{key:"anuidade",label:"Anuidade",width:1.2,align:"right"},{key:"primeira",label:"1ª parcela",width:1.7},{key:"p12",label:"Plano +12",width:1.2,align:"right"},{key:"p11",label:"Plano +11",width:1.2,align:"right"}];
+      arr.forEach(r=>{
+        rows.push({segmento:r.label+" • "+r.series,condicao:"Até o vencimento",anuidade:money(r.annual),primeira:"P1 "+money(r.first12)+" / P2 "+money(r.first11),p12:money(r.plan12),p11:money(r.plan11)});
+        rows.push({segmento:r.label+" • "+r.series,condicao:"Após o vencimento",anuidade:money(r.annualPost),primeira:"P1 "+money(r.first12Post)+" / P2 "+money(r.first11Post),p12:money(r.plan12Post),p11:money(r.plan11Post)});
+      });
+    }else if(scope==="compare"){
+      title="Comparativo de Anuidades 2026 × 2027";subtitle="Colégio Futuro • Valores até o vencimento";
+      columns=[{key:"segmento",label:"Segmento",width:2.2},{key:"a26",label:"Anuidade 2026",width:1.3,align:"right"},{key:"a27",label:"Anuidade 2027",width:1.3,align:"right"},{key:"pct",label:"Reajuste",width:1},{key:"p12",label:"Plano +12",width:1.8},{key:"p11",label:"Plano +11",width:1.8}];
+      const b26=Object.fromEntries(y26.map(x=>[x.key,x]));
+      y27.forEach(r=>{const a=b26[r.key]||{},pct=a.annual?dashPct(a.annual,r.annual):0;rows.push({segmento:r.label+" • "+r.series,a26:money(a.annual),a27:money(r.annual),pct:pct.toLocaleString("pt-BR",{maximumFractionDigits:2})+"%",p12:money(a.plan12)+" → "+money(r.plan12),p11:money(a.plan11)+" → "+money(r.plan11)})});
+    }else{
+      title="Panorama de Anuidades 2024–2027";subtitle="Colégio Futuro • Evolução histórica até o vencimento";
+      columns=[{key:"segmento",label:"Segmento",width:2.2},{key:"y24",label:"2024",width:1.2,align:"right"},{key:"y25",label:"2025",width:1.2,align:"right"},{key:"y26",label:"2026",width:1.2,align:"right"},{key:"y27",label:"2027",width:1.2,align:"right"},{key:"pct",label:"24→27",width:1}];
+      rows=history.map(r=>({segmento:r.label+" • "+r.series,y24:money(r.v2024),y25:money(r.v2025),y26:money(r.v2026),y27:money(r.v2027),pct:dashPct(r.v2024,r.v2027).toLocaleString("pt-BR",{maximumFractionDigits:2})+"%"}));
+    }
+    await gfDownloadReport({format:fmt,title,subtitle,filename:gfReportFile("anuidades",[scope]),orientation:"landscape",meta:gfReportMeta([{label:"Fonte",value:scope==="history"?"Guias oficiais 2024–2026 + Gestão Futuro 2027":"Catálogo oficial Gestão Futuro"}]),columns,rows},$("#generateTuitionDownload"));
+  };
+}
+function dashMountTuitionDashboard(products){
+  const y26=dashTuitionFromCatalog(products,2026),y27=dashTuitionFromCatalog(products,2027);
+  $("#view").insertAdjacentHTML("beforeend","<section class='card tuition-dashboard'><div class='tuition-dashboard-head'><div><small>GESTÃO • VALORES</small><h2>Tabela de anuidades</h2><p>Visão operacional reorganizada no modelo de tabela por segmento.</p></div><button class='btn btn-primary' id='downloadTuitionTable'>⬇ Baixar tabela</button></div><div class='tuition-tabs'><button class='active' data-tuition-view='2026'>2026</button><button data-tuition-view='2027'>2027</button><button data-tuition-view='compare'>Comparativo</button></div><div id='tuitionDashboardBody'></div></section>"+dashTuitionHistoryHtml(products));
+  let current="2026";
+  const draw=()=>{
+    $("#tuitionDashboardBody").innerHTML=current==="2026"?dashTuitionYearTable(y26,2026):current==="2027"?dashTuitionYearTable(y27,2027):dashTuitionCompareTable(y26,y27);
+    $$("[data-tuition-view]").forEach(b=>b.classList.toggle("active",b.dataset.tuitionView===current));
+  };
+  $$("[data-tuition-view]").forEach(b=>b.onclick=()=>{current=b.dataset.tuitionView;draw()});
+  $("#downloadTuitionTable").onclick=()=>dashTuitionDownloadModal(products,current);
+  draw();
+}
 async function renderDashboard(){
   const roleNow=activeInterfaceRole();
   const heroLabel=roleNow==="admin"?"Gestão • Financeiro • Autorizações":roleNow==="staff"?"Secretaria • Atendimento • Matrículas":"Gestão escolar integrada";
@@ -763,37 +881,9 @@ async function renderDashboard(){
       $("#directorPushBtn").onclick=async function(){var b=this,old=b.textContent;b.disabled=true;b.textContent="Ativando…";try{await enableDirectorPush();b.textContent="Notificações ativas ✓";b.className="btn btn-production"}catch(e){showToast(e.message,"error");b.disabled=false;b.textContent=old}};
       refreshDirectorPushButton();
 
-      const p26=products.filter(p=>dashYear(p)===2026&&p.ATIVO!=="Não"),p27=products.filter(p=>dashYear(p)===2027&&p.ATIVO!=="Não");
-      const m26=new Map(p26.map(p=>[dashKey(p),p])),m27=new Map(p27.map(p=>[dashKey(p),p]));
-      const keys=[...new Set([...m26.keys(),...m27.keys()])];
-      const compare=keys.map(k=>{
-        const a=m26.get(k),b=m27.get(k),v26=Number(a?.VALOR_BASE||0),v27=Number(b?.VALOR_BASE||0);
-        return {key:k,a,b,label:b?.PRODUTO||a?.PRODUTO||"",cat:b?.CATEGORIA||a?.CATEGORIA||"Outros",serie:b?.["SEGMENTO_SÉRIE"]||a?.["SEGMENTO_SÉRIE"]||"",v26,v27,pct:v26&&v27?dashPct(v26,v27):null};
-      }).sort((x,y)=>(x.cat.localeCompare(y.cat)||x.label.localeCompare(y.label)));
-      const both=compare.filter(x=>x.v26&&x.v27),avg=both.length?both.reduce((s,x)=>s+x.pct,0)/both.length:0,new27=compare.filter(x=>!x.v26&&x.v27).length;
-      const cats=[...new Set(compare.map(x=>x.cat))].sort();
-      const countRows=cats.map(cat=>({label:cat,a:p26.filter(p=>(p.CATEGORIA||"Outros")===cat).length,b:p27.filter(p=>(p.CATEGORIA||"Outros")===cat).length}));
-      const valueRows=cats.map(cat=>({label:cat,a:p26.filter(p=>(p.CATEGORIA||"Outros")===cat).reduce((s,p)=>s+Number(p.VALOR_BASE||0),0),b:p27.filter(p=>(p.CATEGORIA||"Outros")===cat).reduce((s,p)=>s+Number(p.VALOR_BASE||0),0)}));
-      const pctRows=cats.map(cat=>{const arr=both.filter(x=>x.cat===cat);return {label:cat,a:0,b:arr.length?arr.reduce((s,x)=>s+x.pct,0)/arr.length:0,sub:arr.length+" item(ns) comparáveis"}});
-      const maxCount=Math.max(1,...countRows.flatMap(r=>[r.a,r.b])),maxValue=Math.max(1,...valueRows.flatMap(r=>[r.a,r.b])),maxPct=Math.max(1,...pctRows.map(r=>Math.abs(r.b)));
-      $("#view").insertAdjacentHTML("beforeend",
-        `<div class="section-head"><div><h2>Comparativo do catálogo • 2026 × 2027</h2><span class="muted">Produtos e serviços oficiais, incluindo mensalidades, materiais, fardamento e adicionais.</span></div><button class="btn btn-soft" data-go="produtos">Abrir catálogo</button></div>
-        <div class="cards grid comparison-kpis">
-          <div class="card metric"><div class="label">Itens 2026</div><div class="value">${p26.length}</div><div class="hint">ativos no catálogo</div></div>
-          <div class="card metric"><div class="label">Itens 2027</div><div class="value">${p27.length}</div><div class="hint">ativos no catálogo</div></div>
-          <div class="card metric"><div class="label">Reajuste médio</div><div class="value">${avg.toLocaleString("pt-BR",{maximumFractionDigits:2})}%</div><div class="hint">${both.length} itens equivalentes</div></div>
-          <div class="card metric"><div class="label">Novos em 2027</div><div class="value">${new27}</div><div class="hint">sem equivalente em 2026</div></div>
-        </div>
-        <div class="dashboard-chart-grid">
-          <section class="card chart-card"><div class="chart-title"><h3>Quantidade por categoria</h3><span>2026 × 2027</span></div>${dashBarRows(countRows,maxCount,v=>String(Math.round(v)))}</section>
-          <section class="card chart-card"><div class="chart-title"><h3>Soma dos valores cadastrados</h3><span>visão de catálogo, não receita</span></div>${dashBarRows(valueRows,maxValue,v=>money(v))}</section>
-          <section class="card chart-card"><div class="chart-title"><h3>Reajuste médio por categoria</h3><span>itens equivalentes</span></div>${pctRows.map(r=>`<div class="pct-row"><div><b>${esc(r.label)}</b><small>${esc(r.sub)}</small></div><div class="pct-track"><i style="width:${Math.min(100,Math.abs(r.b)/maxPct*100)}%"></i></div><strong>${Number(r.b).toLocaleString("pt-BR",{maximumFractionDigits:2})}%</strong></div>`).join("")}</section>
-        </div>
-        <div class="section-head"><h2>Todos os produtos e serviços comparados</h2><span class="muted">${compare.length} linhas</span></div>
-        <div class="table-wrap"><table class="comparison-table"><thead><tr><th>Categoria</th><th>Produto/serviço</th><th>Série</th><th>2026</th><th>2027</th><th>Variação</th></tr></thead><tbody>${compare.map(x=>`<tr><td>${esc(x.cat)}</td><td><strong>${esc(x.label)}</strong></td><td>${esc(x.serie)}</td><td class="money">${x.v26?money(x.v26):"—"}</td><td class="money">${x.v27?money(x.v27):"—"}</td><td>${x.pct==null?pill(x.v27?"Novo":"Sem 2027",x.v27?"ok":"warn"):`<span class="variation ${x.pct>0?"up":x.pct<0?"down":""}">${x.pct>0?"+":""}${x.pct.toLocaleString("pt-BR",{maximumFractionDigits:2})}%</span>`}</td></tr>`).join("")||`<tr><td colspan="6" class="empty">Sem dados comparativos.</td></tr>`}</tbody></table></div>`
-      );
+      dashMountTuitionDashboard(products);
     }catch(e){
-      $("#view").insertAdjacentHTML("beforeend",`<div class="notice error">Não foi possível montar o comparativo 2026 × 2027: ${esc(e.message)}</div>`);
+      $("#view").insertAdjacentHTML("beforeend",`<div class="notice error">Não foi possível montar a tabela de anuidades: ${esc(e.message)}</div>`);
     }
   }
   const role=activeInterfaceRole();
