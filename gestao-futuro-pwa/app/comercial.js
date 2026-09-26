@@ -820,37 +820,63 @@ function gfBindFlyerActions(y,s,cfg,list){
   $("#editFlyer")?.addEventListener("click",function(){editFlyerContent(y,s,cfg)});
 }
 async function renderPanfletos(){
+  const pageSeq=state.navSeq;
+  let requestSeq=0;
+  const activePage=()=>state.view==="panfletos"&&state.navSeq===pageSeq&&!!$("#flyerArea");
+
   var defaultYear=Number(state.flyerYear||2027),serie=state.flyerSeries||"Infantil 2";
-  $("#view").innerHTML="<div class='section-head'><div><h2>Panfleto por série</h2><span class='muted'>Modelo vertical A4 • uma página • pronto para família.</span></div><div class='toolbar'><select id='flyerYear' class='search'><option>"+defaultYear+"</option><option>"+(defaultYear-1)+"</option></select><select id='flyerSerie' class='search'>"+gfOptions(serie)+"</select><button class='btn btn-primary' id='generateFlyer'>Atualizar</button></div></div><div id='flyerArea'><div class='card flyer-loading'><b>Carregando panfleto…</b><span class='muted'>Abrindo a visualização imediatamente e atualizando os dados em segundo plano.</span></div></div>";
+  const view=$("#view");
+  if(!view)return;
+  view.innerHTML="<div class='section-head'><div><h2>Panfleto por série</h2><span class='muted'>Modelo vertical A4 • uma página • pronto para família.</span></div><div class='toolbar'><select id='flyerYear' class='search'><option>"+defaultYear+"</option><option>"+(defaultYear-1)+"</option></select><select id='flyerSerie' class='search'>"+gfOptions(serie)+"</select><button class='btn btn-primary' id='generateFlyer'>Atualizar</button></div></div><div id='flyerArea'><div class='card flyer-loading'><b>Carregando panfleto…</b><span class='muted'>Abrindo a visualização imediatamente e atualizando os dados em segundo plano.</span></div></div>";
+
   var products=[];
   try{
     products=state.catalogProducts||[];
-    if(!products.length){
-      products=await loadCatalogProducts();
-    }
+    if(!products.length)products=await loadCatalogProducts();
   }catch(e){
     try{var b=await loadBootstrap();products=b.produtos||[]}catch(_e){}
   }
+  if(!activePage())return;
+
   var years=[...new Set(products.map(gfYear).filter(Boolean))].sort(function(a,b){return b-a});
-  if(years.length){
-    if(!years.includes(defaultYear)) defaultYear=years[0];
-    $("#flyerYear").innerHTML=years.map(function(y){return "<option value='"+y+"' "+(y===defaultYear?"selected":"")+">"+y+"</option>"}).join("");
+  const yearSelect=$("#flyerYear");
+  if(years.length&&yearSelect){
+    if(!years.includes(defaultYear))defaultYear=years[0];
+    yearSelect.innerHTML=years.map(function(y){return "<option value='"+y+"' "+(y===defaultYear?"selected":"")+">"+y+"</option>"}).join("");
   }
+
   async function generate(){
-    var y=Number($("#flyerYear").value||defaultYear),s=$("#flyerSerie").value||serie;
+    const myRequest=++requestSeq;
+    const yearEl=$("#flyerYear"),serieEl=$("#flyerSerie"),area=$("#flyerArea");
+    if(!activePage()||!yearEl||!serieEl||!area)return;
+
+    var y=Number(yearEl.value||defaultYear),s=serieEl.value||serie;
     state.flyerYear=y;state.flyerSeries=s;
     var localList=gfCatalog(products,y,s),cacheKey=y+"|"+s,cached=state.flyerCache&&state.flyerCache[cacheKey],cfg=cached?.config||{};
-    $("#flyerArea").innerHTML=gfFlyerMarkup(y,s,cfg,localList)+"<div class='flyer-actions'><button class='btn btn-primary' id='printFlyer'>Imprimir / Salvar PDF</button>"+(state.adminToken?"<button class='btn btn-gold' id='editFlyer'>Editar conteúdo e adicionais</button>":"")+"</div>";
+
+    area.innerHTML=gfFlyerMarkup(y,s,cfg,localList)+"<div class='flyer-actions'><button class='btn btn-primary' id='printFlyer'>Imprimir / Salvar PDF</button>"+(state.adminToken?"<button class='btn btn-gold' id='editFlyer'>Editar conteúdo e adicionais</button>":"")+"</div>";
     gfBindFlyerActions(y,s,cfg,localList);
+
     try{
       var d=await api("getPanfletoSerie",{token:tokenFor("staff"),ano:y,serie:s});
       state.flyerCache=state.flyerCache||{};state.flyerCache[cacheKey]=d;
-      cfg=d.config||{};var list=gfCatalog(d.produtos||localList,y,s);
-      $("#flyerArea").innerHTML=gfFlyerMarkup(y,s,cfg,list)+"<div class='flyer-actions'><button class='btn btn-primary' id='printFlyer'>Imprimir / Salvar PDF</button>"+(state.adminToken?"<button class='btn btn-gold' id='editFlyer'>Editar conteúdo e adicionais</button>":"")+"</div>";
+      if(!activePage()||myRequest!==requestSeq)return;
+
+      cfg=d.config||{};
+      var list=gfCatalog(d.produtos||localList,y,s),currentArea=$("#flyerArea");
+      if(!currentArea)return;
+      currentArea.innerHTML=gfFlyerMarkup(y,s,cfg,list)+"<div class='flyer-actions'><button class='btn btn-primary' id='printFlyer'>Imprimir / Salvar PDF</button>"+(state.adminToken?"<button class='btn btn-gold' id='editFlyer'>Editar conteúdo e adicionais</button>":"")+"</div>";
       gfBindFlyerActions(y,s,cfg,list);
-    }catch(e){setNotice("Panfleto exibido com os dados locais. A personalização não pôde ser atualizada agora: "+esc(e.message),"error")}
+    }catch(e){
+      if(!activePage()||myRequest!==requestSeq)return;
+      setNotice("Panfleto exibido com os dados locais. A personalização não pôde ser atualizada agora.","error");
+    }
   }
-  $("#generateFlyer").onclick=generate;$("#flyerYear").onchange=generate;$("#flyerSerie").onchange=generate;
+
+  const generateBtn=$("#generateFlyer"),flyerYear=$("#flyerYear"),flyerSerie=$("#flyerSerie");
+  if(generateBtn)generateBtn.onclick=generate;
+  if(flyerYear)flyerYear.onchange=generate;
+  if(flyerSerie)flyerSerie.onchange=generate;
   await generate();
 }
 function editFlyerContent(y,s,cfg){
