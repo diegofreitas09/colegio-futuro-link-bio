@@ -96,3 +96,23 @@ test('attendance PDF generation uses the bundled library and keeps a typical pro
   assert.equal(x.w.generatedPages,1);
  }finally{x.dom.window.close()}
 });
+
+
+test('dashboard tuition table derives exact installment values and preserves historical baseline',()=>{
+ const x=setup();try{
+  x.w.__products=[
+   {ID_PRODUTO:'ANU-INF-2027',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Anuidade',PRODUTO:'Anuidade 2027 - Educação Infantil','SEGMENTO_SÉRIE':'Infantil 2 ao 5',VALOR_BASE:6386.52,'VALOR_PÓS_VENCIMENTO':6722.73,ANO_LETIVO:2027,ATIVO:'Sim'},
+   {ID_PRODUTO:'ANU-AI-2027',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Anuidade',PRODUTO:'Anuidade 2027 - Anos Iniciais','SEGMENTO_SÉRIE':'1º ao 5º Ano',VALOR_BASE:6552.73,'VALOR_PÓS_VENCIMENTO':6897.62,ANO_LETIVO:2027,ATIVO:'Sim'},
+   {ID_PRODUTO:'ANU-AF-2027',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Anuidade',PRODUTO:'Anuidade 2027 - Anos Finais','SEGMENTO_SÉRIE':'6º ao 9º Ano',VALOR_BASE:6719.03,'VALOR_PÓS_VENCIMENTO':7072.66,ANO_LETIVO:2027,ATIVO:'Sim'}
+  ];
+  const rows=x.run('dashTuitionFromCatalog(window.__products,2027)');
+  assert.equal(rows.length,3);
+  assert.equal(rows[0].annual,6386.52);
+  assert.equal(rows[0].first12,491.28);
+  assert.equal(rows[0].plan12,491.27);
+  assert.equal(rows[2].first12,516.83);
+  assert.equal(rows[2].plan12,516.85);
+  assert.equal(x.run('GF_TUITION_HISTORY[2024].infantil.annual'),5053.68);
+  assert.equal(x.run('GF_TUITION_HISTORY[2025].finais.annual'),5740.80);
+ }finally{x.dom.window.close()}
+});
