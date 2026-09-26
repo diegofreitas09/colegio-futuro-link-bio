@@ -59,7 +59,18 @@ function applyRoleInterface(){
 }
 
 function esc(v="") { return String(v ?? "").replace(/[&<>'"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c])); }
-function money(v) { const n=Number(String(v ?? 0).replace(",",".")) || 0; return n.toLocaleString("pt-BR",{style:"currency",currency:"BRL"}); }
+function parseMoney(v) {
+  if(typeof v==="number")return Number.isFinite(v)?v:0;
+  let s=String(v??"").trim().replace(/\s/g,"").replace(/^R\$/i,"");
+  if(!s)return 0;
+  const comma=s.lastIndexOf(","),dot=s.lastIndexOf(".");
+  if(comma>dot)s=s.replace(/\./g,"").replace(",",".");
+  else if(dot>comma&&comma>=0)s=s.replace(/,/g,"");
+  else if(comma>=0)s=s.replace(",",".");
+  const n=Number(s.replace(/[^0-9.+-]/g,""));
+  return Number.isFinite(n)?n:0;
+}
+function money(v) { return parseMoney(v).toLocaleString("pt-BR",{style:"currency",currency:"BRL"}); }
 function val(obj, ...keys) { for (const k of keys) if (obj && obj[k] !== undefined && obj[k] !== null && obj[k] !== "") return obj[k]; return ""; }
 function pill(text, cls="") { return `<span class="pill ${cls}">${esc(text || "—")}</span>`; }
 
