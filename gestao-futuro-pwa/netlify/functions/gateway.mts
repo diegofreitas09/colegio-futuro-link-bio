@@ -4,6 +4,7 @@ import webpush from "web-push";
 
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwzZJUloa6YdIfJZdCmYw5ch_GkjuS20gUa5zyhulMiAiQj9pH9B3BOE7UU5jZvb_svig/exec";
 const UPSTREAM_TIMEOUT_MS = 12000;
+const ALLOWED_ACTIONS = new Set(["loginGestao","loginSecretaria","logout","bootstrapSecretaria","salvarAluno","salvarResponsavel","criarMatriculaCompleta","atualizarDocumento","listarDocumentosAluno","adicionarDocumentoAluno","listarRecebimentosAluno","listarProdutosPublicos","dashboardPublico","dashboardGestao","listarRecebimentos","listarCaixa","listarProdutosGestao","atualizarProduto","criarProdutoServico","aplicarReajusteIndividual","listarBeneficios","listarCategorias","listarAtendimentos","getAtendimento","salvarAtendimento","solicitarDesconto","listarSolicitacoesDesconto","decidirSolicitacaoDesconto","getPanfletoSerie","salvarPanfletoSerie","registrarPagamento","salvarMovimentoCaixa","excluirMovimentoCaixa","getFechamento","aplicarReajusteCatalogo","limparDadosTeste","limparAutorizacoesTeste","importarLoteIntegracao"]);
 async function upstreamFetch(body: Record<string, unknown>) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
@@ -101,6 +102,7 @@ export default async (req: Request, _context: Context) => {
 
   const action = typeof body.action === "string" ? body.action.trim() : "";
   if (!action) return json({ ok: false, error: "Ação não informada." }, 400);
+  if (!ALLOWED_ACTIONS.has(action)) return json({ ok: false, error: "Ação não permitida." }, 400);
 
   const upstreamBody = { ...body, gatewayKey };
 
