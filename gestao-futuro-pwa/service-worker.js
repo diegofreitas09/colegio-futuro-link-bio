@@ -1,4 +1,4 @@
-const CACHE = "gestao-futuro-shell-v63";
+const CACHE = "gestao-futuro-shell-v64";
 const SHELL = [
   "/", "/index.html", "/styles.css", "/manifest.webmanifest",
   "/assets/app-icon-192.png", "/assets/app-icon-512.png", "/assets/logo-futuro.png", "/assets/hero-futuro.webp", "/assets/agenda-online-gestor.png", "/assets/gestor-escolar.svg", "/assets/fardamento/farda-infantil.png","/assets/fardamento/farda-anos-iniciais.png","/assets/fardamento/farda-anos-finais.png","/assets/fardamento/farda-esportes-iniciais.png","/assets/fardamento/farda-esportes-finais.png","/assets/fardamento/farda-lancamentos.png", "/assets/gestor-escolar-icon.svg",
@@ -21,7 +21,12 @@ self.addEventListener("fetch", event => {
     const copy = response.clone();
     caches.open(CACHE).then(cache => cache.put(event.request, copy));
     return response;
-  }).catch(() => caches.match(event.request).then(hit => hit || caches.match("/index.html"))));
+  }).catch(() => caches.match(event.request).then(hit => {
+    if (hit) return hit;
+    const accepts = event.request.headers.get("accept") || "";
+    if (event.request.mode === "navigate" || accepts.includes("text/html")) return caches.match("/index.html");
+    return new Response("", { status: 504, statusText: "Offline asset unavailable" });
+  })));
 });
 
 
