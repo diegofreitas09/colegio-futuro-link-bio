@@ -77,6 +77,7 @@ function pwaStaff_(token){
 }
 function pwaAdmin_(token){admin_(token);return "admin"}
 function pwaWithLock_(fn){var lock=LockService.getScriptLock();lock.waitLock(30000);try{return fn()}finally{lock.releaseLock()}}
+function pwaOperationCache_(scope,key,value){key=String(key||"").trim();if(!key)return null;var cache=CacheService.getScriptCache(),k="gf_op_"+pwaSlug_(scope)+"_"+sha256_(key).slice(0,20);if(arguments.length>2){cache.put(k,JSON.stringify(value||{}),21600);return value}var raw=cache.get(k);if(!raw)return null;try{return JSON.parse(raw)}catch(e){return null}}
 function pwaUser_(fallback){return Session.getActiveUser().getEmail()||fallback||"PWA"}
 function pwaNum_(v){var n=Number(String(v==null?"":v).replace(",","."));return Number.isFinite(n)?n:0}
 function gfRoundMoneyPwa_(v){return Math.round((Number(v||0)+Number.EPSILON)*100)/100}
@@ -326,6 +327,7 @@ function pwaSalvarResponsavel_(token,data,modo,sessao){
 function pwaCriarMatricula_(token,data,modo,sessao){
   pwaStaff_(token);data=data||{};data.MODO_REGISTRO=pwaMode_(modo);data.SESSAO_TESTE=pwaMode_(modo)==="TESTE"?String(sessao||""):"";
   return pwaWithLock_(function(){
+    var prior=pwaOperationCache_("matricula",data.CLIENT_REQUEST_ID);if(prior)return prior;
     var res=criarMatriculaCompleta(data||{}),id=res&& (res.id||res["ID_MATRÍCULA"]||res.ID_MATRICULA)||"",services=[];
     if(id){
       pwaMarkWhere_("MATRICULAS",["ID_MATRÍCULA","ID_MATRICULA"],id,modo,sessao);
@@ -359,7 +361,7 @@ function pwaCriarMatricula_(token,data,modo,sessao){
       SpreadsheetApp.flush();
     }
     if(res&&typeof res==="object")res.servicos=services.length;
-    return res;
+    pwaOperationCache_("matricula",data.CLIENT_REQUEST_ID,res);return res;
   })
 }
 
