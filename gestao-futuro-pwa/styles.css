@@ -608,3 +608,91 @@ body.home-active .shell{filter:blur(2px) saturate(.8);pointer-events:none;user-s
   #tuitionDashboardBody{padding:11px}.tuition-year-caption{align-items:flex-start;flex-direction:column}
   .tuition-segment-title{text-align:left}.tuition-segment-title small{display:block;margin:2px 0 0}
 }
+
+
+/* Dashboard Tabela de Valores 2024-2027 */
+.school-dashboard{border-radius:18px;overflow:hidden;background:#fff;box-shadow:0 12px 32px rgba(18,59,118,.08)}
+.school-dashboard-head{background:linear-gradient(110deg,#0b3f80 0%,#155ca8 62%,#1b77c4 100%);border-bottom:4px solid var(--gold)}
+.school-dashboard-head h2{font-size:25px;letter-spacing:-.02em}
+.school-dashboard-head p{font-size:11px;color:#e6f1ff}
+.tuition-selector-bar{display:grid;grid-template-columns:minmax(230px,320px) 1fr;gap:18px;align-items:end;padding:15px 18px;background:linear-gradient(180deg,#f7faff,#eef5fd);border-bottom:1px solid #cddceb}
+.tuition-selector-bar .field{margin:0}
+.tuition-selector-bar label{display:block;margin-bottom:6px;color:#123b76;font-size:10px;font-weight:950;letter-spacing:.06em;text-transform:uppercase}
+.tuition-selector-bar select{width:100%;min-height:44px;border:2px solid #8eb6e5;border-radius:10px;background:#fff;color:#123b76;padding:0 38px 0 12px;font-size:15px;font-weight:900;box-shadow:0 4px 12px rgba(18,59,118,.06)}
+.tuition-selector-copy{display:grid;gap:3px;padding-bottom:4px}
+.tuition-selector-copy b{font-size:16px;color:#123b76}
+.tuition-selector-copy span{font-size:10px;color:#63758a;line-height:1.4}
+.school-table-title,.school-comparison-banner{margin:0;background:linear-gradient(90deg,#0b438b,#0c5ea8);color:#fff;text-align:center;padding:9px 12px;font-size:19px;font-weight:950;letter-spacing:.015em;text-transform:uppercase;border-top:1px solid #0a356d;border-bottom:3px solid #7eb7e9}
+.school-price-table{min-width:860px;table-layout:fixed}
+.school-price-table th{background:#7fa8dd;color:#0a3267;border-color:#c2d2e8;padding:8px 6px;font-size:10px}
+.school-price-table th:first-child{width:24%}
+.school-price-table td{padding:9px 8px;border-color:#c6d5e7;vertical-align:middle}
+.school-price-table td:first-child{background:#d9e8fa;text-align:center;text-transform:uppercase;color:#123b76;min-width:0}
+.school-price-table td:first-child b{display:block;font-size:11px;line-height:1.2}
+.school-price-table td:first-child small{display:block;margin-top:4px;font-size:9px;color:#59708a;text-transform:none}
+.school-value-stack,.school-first-payment{display:grid;justify-items:center;gap:1px;line-height:1.15}
+.school-value-stack strong,.school-first-payment strong{font-size:12px;color:#193b65}
+.school-value-stack small,.school-first-payment small{font-size:8px;color:#6a7c91;font-weight:650}
+.school-value-stack strong:nth-of-type(2){margin-top:6px}
+.school-value-empty{color:#9ba9b8}
+.school-first-payment strong{font-size:13px;color:#0c4c94}
+.school-important-note{display:grid;grid-template-columns:190px 1fr;margin:0 0 16px;border:1px solid #b9cee8;border-top:0;background:#eef5fd;overflow:hidden}
+.school-important-note b{display:grid;place-items:center;background:#d1e3f8;color:#123b76;padding:10px;font-size:9px;text-align:center}
+.school-important-note span{display:grid;place-items:center;padding:10px 14px;text-align:center;color:#3f5874;font-size:9px;font-weight:800;text-transform:uppercase}
+.sti-caption{margin:18px 0 8px;background:linear-gradient(90deg,#0b438b,#0c5ea8);padding:8px 10px;border-radius:8px}
+.sti-caption b,.sti-caption span{color:#fff!important}
+.sti-caption .tuition-source{background:rgba(255,255,255,.16)}
+.sti-table th{background:#8cb4e6}
+.sti-table td:first-child{background:#d9e8fa;text-transform:uppercase}
+.sti-all-title{margin-top:18px}
+.school-history-table,.school-sti-history{min-width:760px}
+.school-history-table th,.school-sti-history th{background:#80aade;color:#10396d}
+.school-history-table td:first-child,.school-sti-history td:first-child{background:#dceafa;color:#123b76}
+.school-comparison-section{padding-top:4px;border-top:1px solid #d0dfef}
+.school-comparison-banner{margin-top:2px;font-size:21px}
+.school-chart-card{margin:14px 16px 0;border:1px solid #c9daec;border-radius:14px;background:#fff;overflow:hidden}
+.school-chart-head{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border-bottom:1px solid #dbe6f1;background:#f7faff}
+.school-chart-head small{display:block;color:#688098;font-size:8px;font-weight:950;letter-spacing:.12em}
+.school-chart-head h3{margin:3px 0 0;color:#123b76;font-size:14px}
+.annual-chart-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.annual-chart-plot{height:275px;min-width:680px;display:flex;align-items:flex-end;justify-content:space-around;gap:18px;padding:40px 34px 26px;border-bottom:1px solid #dfe8f2;background:linear-gradient(to top,#f5f9fd 0,#fff 78%)}
+.annual-year-group{height:100%;flex:1;display:grid;grid-template-rows:1fr auto;gap:8px;min-width:120px;text-align:center}
+.annual-year-group>b{font-size:11px;color:#536d89}
+.annual-bars{height:100%;display:flex;align-items:flex-end;justify-content:center;gap:8px;border-bottom:1px solid #9fb7d1}
+.annual-bar{position:relative;width:30px;min-height:4px;border-radius:5px 5px 0 0;background:#2362a8}
+.annual-series-1{background:#4e8ed1}.annual-series-2{background:#9abfe8}
+.annual-bar span{position:absolute;left:50%;bottom:calc(100% + 5px);transform:translateX(-50%);font-size:8px;color:#234a75;font-weight:850;white-space:nowrap}
+.school-chart-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:14px;padding:10px 14px;color:#526b85;font-size:9px;font-weight:800}
+.school-chart-legend span{display:inline-flex;align-items:center;gap:6px}
+.school-chart-legend span:before{content:"";width:12px;height:8px;border-radius:2px;background:#2362a8}
+.school-chart-legend .l1:before{background:#4e8ed1}.school-chart-legend .l2:before{background:#9abfe8}
+.sti-chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:14px}
+.sti-chart-panel{min-width:0;border:1px solid #dce6f1;border-radius:10px;background:#fbfdff;padding:8px 8px 4px}
+.sti-chart-panel h4{margin:2px 5px 0;text-align:center;color:#123b76;font-size:11px}
+.sti-chart-panel svg{display:block;width:100%;height:auto;overflow:visible}
+.sti-svg-axis{stroke:#b8c9da;stroke-width:1}
+.sti-svg-bar{fill:#78a9de}
+.sti-svg-line{fill:none;stroke:#0b4b93;stroke-width:3}
+.sti-svg-dot{fill:#0b4b93;stroke:#fff;stroke-width:1.5}
+.sti-svg-year{font:700 10px Arial,sans-serif;fill:#5d7289;text-anchor:middle}
+.sti-svg-value{font:700 8px Arial,sans-serif;fill:#264c76;text-anchor:middle}
+.line-value{fill:#0b4b93}
+.sti-legend .sti-bar-key:before{background:#78a9de}
+.sti-legend .sti-line-key:before{height:3px;background:#0b4b93;border-radius:999px}
+#tuitionDashboardBody>.school-table-title:first-child{margin-top:0}
+#tuitionDashboardBody{padding:16px}
+@media(max-width:760px){
+  .school-dashboard{border-radius:14px}
+  .school-dashboard-head h2{font-size:22px}
+  .tuition-selector-bar{grid-template-columns:1fr;gap:9px;padding:12px}
+  .tuition-selector-copy{padding:0}
+  .school-table-title,.school-comparison-banner{font-size:16px}
+  .school-price-table{min-width:790px}
+  .school-important-note{grid-template-columns:1fr}
+  .school-important-note b,.school-important-note span{padding:8px 10px}
+  .school-chart-card{margin:12px 10px 0}
+  .annual-chart-plot{min-width:620px;height:250px;padding-left:22px;padding-right:22px}
+  .annual-bar{width:25px}
+  .sti-chart-grid{grid-template-columns:1fr;padding:10px}
+  .school-chart-legend{gap:9px}
+}
