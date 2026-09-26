@@ -4,7 +4,7 @@
  * Este arquivo deve substituir o conteúdo atual de ApiPwa.gs no MESMO projeto Apps Script.
  * O Código.gs existente permanece como base de Secretaria/Financeiro.
  */
-const PWA_API_VERSION="2026.09.26.1";
+const PWA_API_VERSION="2026.09.26.2";
 const PWA_CAPABILITIES=Object.freeze({testMode:true,clearTest:true,modeTagging:true,modeFilteredFinance:true,modeIsolationGuard:true,cashSaveIdempotency:true,cashDeleteIndividual:true,studentMigration:true,studentProgression:true,documentAdd:true,attendanceDelete:true});
 const PWA_GATEWAY_PROP="FUTURO_PWA_GATEWAY_KEY";
 const PWA_STAFF_HASH_PROP="FUTURO_STAFF_PASSWORD_SHA256";
@@ -91,10 +91,15 @@ function pwaMoneyChecked_(v,label){
 function pwaPlanChecked_(data){
   var annual=Math.round(pwaMoneyChecked_(data.VALOR_ANUIDADE,"Anuidade")*100),n=Math.max(1,Math.trunc(Number(data.PLANO_PARCELAS||0)));
   if(!annual||!n)return null;
-  var recurring=Math.round(annual/(n+1)),first=annual-(recurring*n);
+  var first=Math.round(pwaMoneyChecked_(data.VALOR_PRIMEIRA_BASE,"Primeira parcela")*100);
+  var recurring=Math.round(pwaMoneyChecked_(data.VALOR_PARCELA_BASE,"Parcela")*100);
+  if(!first||!recurring){
+    recurring=Math.round(annual/(n+1));first=annual-(recurring*n);
+  }
+  var baseTotal=first+(recurring*n);
   var d1=Math.max(0,Math.min(100,Number(data["DESCONTO_PRIMEIRA_%"]||0))),dr=Math.max(0,Math.min(100,Number(data["DESCONTO_PARCELAS_%"]||0)));
   var firstFinal=Math.round(first*(100-d1)/100),recurringFinal=Math.round(recurring*(100-dr)/100),total=firstFinal+(recurringFinal*n);
-  return {annual:annual/100,n:n,first:first/100,recurring:recurring/100,d1:d1,dr:dr,firstFinal:firstFinal/100,recurringFinal:recurringFinal/100,total:total/100,economy:Math.max(0,(annual-total)/100)};
+  return {annual:annual/100,n:n,first:first/100,recurring:recurring/100,d1:d1,dr:dr,firstFinal:firstFinal/100,recurringFinal:recurringFinal/100,total:total/100,economy:Math.max(0,(baseTotal-total)/100),baseTotal:baseTotal/100};
 }
 function pwaSlug_(v){return String(v||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase().replace(/[^A-Z0-9]+/g,"-").replace(/^-+|-+$/g,"")}
 function pwaNorm_(v){return String(v||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase()}
@@ -218,6 +223,7 @@ function pwaBootstrapSecretaria_(token,modo){
   pwaStaff_(token);var b=bootstrap(),keys=["alunos","matriculas","responsaveis","documentos","recebimentos","caixa"];
   keys.forEach(function(k){if(Array.isArray(b[k]))b[k]=pwaFilterMode_(b[k],modo)});
   try{b.itensContrato=pwaFilterMode_(rows_("ITENS_CONTRATO"),modo)}catch(e){b.itensContrato=[]}
+  try{b.produtos=listarProdutosPublicos()||[]}catch(e){b.produtos=[]}
   return b
 }
 function pwaAtualizarDocumento_(token,id,patch,modo,sessao){
