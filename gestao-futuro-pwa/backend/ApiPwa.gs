@@ -77,7 +77,7 @@ function pwaStaff_(token){
 }
 function pwaAdmin_(token){admin_(token);return "admin"}
 function pwaWithLock_(fn){var lock=LockService.getScriptLock();lock.waitLock(30000);try{return fn()}finally{lock.releaseLock()}}
-function pwaOperationCache_(scope,key,value){key=String(key||"").trim();if(!key)return null;var cache=CacheService.getScriptCache(),k="gf_op_"+pwaSlug_(scope)+"_"+sha256_(key).slice(0,20);if(arguments.length>2){cache.put(k,JSON.stringify(value||{}),21600);return value}var raw=cache.get(k);if(!raw)return null;try{return JSON.parse(raw)}catch(e){return null}}
+function pwaOperationCache_(scope,key,value){key=String(key||"").trim();if(!key)return null;var props=PropertiesService.getScriptProperties(),k="GF_OP_"+pwaSlug_(scope)+"_"+sha256_(key).slice(0,24);if(arguments.length>2){props.setProperty(k,JSON.stringify({savedAt:new Date().toISOString(),value:value||{}}));return value}var raw=props.getProperty(k);if(!raw)return null;try{var parsed=JSON.parse(raw);return parsed&&parsed.value!==undefined?parsed.value:parsed}catch(e){return null}}
 function pwaUser_(fallback){return Session.getActiveUser().getEmail()||fallback||"PWA"}
 function pwaNum_(v){var n=Number(String(v==null?"":v).replace(",","."));return Number.isFinite(n)?n:0}
 function gfRoundMoneyPwa_(v){return Math.round((Number(v||0)+Number.EPSILON)*100)/100}
