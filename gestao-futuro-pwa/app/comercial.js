@@ -136,15 +136,25 @@ function gfPdfText(v){return String(v==null?"":v)}
 function gfPdfFile(v){return String(v||"atendimento").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-zA-Z0-9_-]+/g,"_").replace(/^_+|_+$/g,"")}
 async function gfPdfBrandPng(){
   try{
-    var src=window.FUTURO_BRAND&&window.FUTURO_BRAND.logo;if(!src)return null;
+    var src=window.FUTURO_BRAND&&(window.FUTURO_BRAND.logoWide||window.FUTURO_BRAND.logo);if(!src)return null;
     return await new Promise(function(resolve){
       var img=new Image();
       img.onload=function(){
         try{
-          var maxW=900,scale=Math.min(1,maxW/img.naturalWidth),w=Math.max(1,Math.round(img.naturalWidth*scale)),h=Math.max(1,Math.round(img.naturalHeight*scale));
-          var cv=document.createElement("canvas");cv.width=w;cv.height=h;var cx=cv.getContext("2d");
-          cx.clearRect(0,0,w,h);cx.drawImage(img,0,0,w,h);
-          resolve({data:cv.toDataURL("image/png"),ratio:w/h});
+          var maxW=900,scale=Math.min(1,maxW/(img.naturalWidth||maxW)),w=Math.max(1,Math.round((img.naturalWidth||1)*scale)),h=Math.max(1,Math.round((img.naturalHeight||1)*scale));
+          var source=document.createElement("canvas");source.width=w;source.height=h;var sx=source.getContext("2d");
+          sx.clearRect(0,0,w,h);sx.drawImage(img,0,0,w,h);
+          var px=sx.getImageData(0,0,w,h).data,minX=w,minY=h,maxX=-1,maxY=-1;
+          for(var yy=0;yy<h;yy++)for(var xx=0;xx<w;xx++){
+            var i=(yy*w+xx)*4,a=px[i+3],r=px[i],g=px[i+1],b=px[i+2];
+            if(a>18&&(r<246||g<246||b<246)){if(xx<minX)minX=xx;if(xx>maxX)maxX=xx;if(yy<minY)minY=yy;if(yy>maxY)maxY=yy}
+          }
+          if(maxX<minX||maxY<minY){minX=0;minY=0;maxX=w-1;maxY=h-1}
+          var pad=Math.max(4,Math.round(Math.max(maxX-minX+1,maxY-minY+1)*0.035));
+          minX=Math.max(0,minX-pad);minY=Math.max(0,minY-pad);maxX=Math.min(w-1,maxX+pad);maxY=Math.min(h-1,maxY+pad);
+          var cw=maxX-minX+1,ch=maxY-minY+1,cv=document.createElement("canvas");cv.width=cw;cv.height=ch;var cx=cv.getContext("2d");
+          cx.clearRect(0,0,cw,ch);cx.drawImage(source,minX,minY,cw,ch,0,0,cw,ch);
+          resolve({data:cv.toDataURL("image/png"),ratio:cw/ch});
         }catch(e){resolve(null)}
       };
       img.onerror=function(){resolve(null)};
@@ -213,10 +223,11 @@ async function gfDownloadAttendancePdf(rec,itens){
     doc.setFont("helvetica","normal");doc.setFontSize(7.6);doc.setTextColor(222,235,250);doc.text("Gestão Futuro • Documento para conferência da família",M,25);
     if(brand&&brand.data){
       try{
-        var boxW=42,boxH=22,ratio=brand.ratio||2.2,imgW=boxW,imgH=imgW/ratio;
+        var boxW=34,boxH=24,ratio=brand.ratio||1,imgW=boxW,imgH=imgW/ratio;
         if(imgH>boxH){imgH=boxH;imgW=imgH*ratio}
-        var x=W-M-imgW,yImg=(32-imgH)/2;
-        doc.setFillColor(255,255,255);doc.roundedRect(x-2.5,yImg-1.5,imgW+5,imgH+3,2,2,"F");
+        var cardW=Math.max(27,imgW+6),cardH=Math.max(25,imgH+4),cardX=W-M-cardW,cardY=(32-cardH)/2;
+        var x=cardX+(cardW-imgW)/2,yImg=cardY+(cardH-imgH)/2;
+        doc.setFillColor(255,255,255);doc.roundedRect(cardX,cardY,cardW,cardH,2.2,2.2,"F");
         doc.addImage(brand.data,"PNG",x,yImg,imgW,imgH);
       }catch(e){}
     }
