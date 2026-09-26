@@ -184,16 +184,19 @@ function gfUniformAssetForProduct(p,serie){
 }
 async function gfDownloadAttendancePdf(rec,itens){
   var JsPDF=await gfEnsureJsPdf(),brand=await gfPdfBrandPng(),doc=new JsPDF({unit:"mm",format:"a4",orientation:"portrait"});
-  var W=210,H=297,M=13,y=0,contentBottom=274;
-  var uniformItems=(itens||[]).filter(gfIsUniformProduct),uniformGroups=[],uniformImages={};
+  var W=210,H=297,M=13,y=0,contentBottom=277;
+  var allItems=Array.isArray(itens)?itens:[],uniformGroups=[],uniformImages={},uniformRenderedItems=[];
 
-  uniformItems.forEach(function(it){
+  allItems.filter(gfIsUniformProduct).forEach(function(it){
     var asset=gfUniformAssetForProduct(it,rec.SERIE_PRETENDIDA);
     if(!asset)return;
     var key=asset.src,g=uniformGroups.find(function(x){return x.key===key});
     if(!g){g={key:key,asset:asset,items:[]};uniformGroups.push(g)}
-    g.items.push(it);
+    g.items.push(it);uniformRenderedItems.push(it);
   });
+  // O fardamento já aparece com imagem e valores no bloco próprio.
+  // Evita repetir as mesmas peças na lista geral e economiza espaço no A4.
+  var displayItems=allItems.filter(function(it){return !uniformRenderedItems.includes(it)});
   for(var ui=0;ui<uniformGroups.length;ui++){
     var ug=uniformGroups[ui];
     uniformImages[ug.key]=await gfPdfImagePng(ug.asset.src);
@@ -248,9 +251,9 @@ async function gfDownloadAttendancePdf(rec,itens){
     y+=12;
   }
   function uniformBlock(g){
-    var img=uniformImages[g.key],boxH=img?50:24;ensure(boxH+12);
-    doc.setFillColor(248,251,255);doc.setDrawColor(214,225,239);doc.roundedRect(M,y-2,W-M*2,boxH+7,2,2,"FD");
-    var imgX=M+4,imgY=y+2,imgW=58,imgH=boxH-1;
+    var img=uniformImages[g.key],boxH=img?44:24;ensure(boxH+10);
+    doc.setFillColor(248,251,255);doc.setDrawColor(214,225,239);doc.roundedRect(M,y-2,W-M*2,boxH+6,2,2,"FD");
+    var imgX=M+4,imgY=y+2,imgW=54,imgH=boxH-2;
     if(img&&img.data){
       try{
         var ratio=img.ratio||1.4,w=imgW,h=w/ratio;
@@ -258,7 +261,7 @@ async function gfDownloadAttendancePdf(rec,itens){
         doc.addImage(img.data,"PNG",imgX+(imgW-w)/2,imgY,w,h);
       }catch(e){}
     }
-    var tx=M+67;
+    var tx=M+63;
     doc.setTextColor(18,59,118);doc.setFont("helvetica","bold");doc.setFontSize(9);doc.text(g.asset.label,tx,y+4);
     var yy=y+10,subtotal=0;
     g.items.forEach(function(it){
@@ -271,7 +274,7 @@ async function gfDownloadAttendancePdf(rec,itens){
     doc.setDrawColor(220,228,238);doc.line(tx,yy-1.4,W-M-4,yy-1.4);
     doc.setFont("helvetica","bold");doc.setFontSize(7.5);doc.setTextColor(18,59,118);doc.text("Subtotal do fardamento",tx,yy+3);
     doc.text(money(subtotal),W-M-4,yy+3,{align:"right"});
-    y+=boxH+10;
+    y+=boxH+8;
   }
   function addFooters(){
     var pages=doc.getNumberOfPages();
@@ -299,9 +302,13 @@ async function gfDownloadAttendancePdf(rec,itens){
   pair("Desconto 1ª parcela",(Number(rec["DESCONTO_PRIMEIRA_%"]||0)).toLocaleString("pt-BR",{maximumFractionDigits:2})+"%","Desconto parcelas",(Number(rec["DESCONTO_PARCELAS_%"]||0)).toLocaleString("pt-BR",{maximumFractionDigits:2})+"%");
   pair("Total do plano",money(rec.TOTAL_PLANO),"Economia",money(rec.ECONOMIA_PLANO));
 
-  section("Produtos e serviços selecionados");
-  (itens||[]).forEach(item);
-  if(!(itens||[]).length){ensure(8);doc.setFont("helvetica","normal");doc.setTextColor(105,115,130);doc.setFontSize(8);doc.text("Nenhum produto ou serviço adicional selecionado.",M,y);y+=7}
+  if(displayItems.length){
+    section("Produtos e serviços selecionados");
+    displayItems.forEach(item);
+  }else if(!uniformGroups.length){
+    section("Produtos e serviços selecionados");
+    ensure(8);doc.setFont("helvetica","normal");doc.setTextColor(105,115,130);doc.setFontSize(8);doc.text("Nenhum produto ou serviço adicional selecionado.",M,y);y+=7;
+  }
 
   if(uniformGroups.length){
     section("Fardamento selecionado • imagem e valores");
