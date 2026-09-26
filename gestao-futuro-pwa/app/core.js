@@ -65,7 +65,13 @@ function pill(text, cls="") { return `<span class="pill ${cls}">${esc(text || "â
 
 function setNotice(message="", kind="") {
   const box = $("#notice");
-  box.innerHTML = message ? `<div class="notice ${kind}">${message}</div>` : "";
+  if(!box)return;
+  box.replaceChildren();
+  if(!message)return;
+  const notice=document.createElement("div");
+  notice.className="notice "+(kind||"");
+  notice.textContent=String(message);
+  box.appendChild(notice);
 }
 function showToast(message="",kind="ok"){
   let root=document.getElementById("toastRoot");
