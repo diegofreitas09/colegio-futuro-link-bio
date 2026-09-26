@@ -88,6 +88,14 @@ function pwaMoneyChecked_(v,label){
   var n=Number(s);if(!Number.isFinite(n)||n<0)throw new Error((label||"Valor")+" inválido.");
   return gfRoundMoneyPwa_(n);
 }
+function pwaPlanChecked_(data){
+  var annual=Math.round(pwaMoneyChecked_(data.VALOR_ANUIDADE,"Anuidade")*100),n=Math.max(1,Math.trunc(Number(data.PLANO_PARCELAS||0)));
+  if(!annual||!n)return null;
+  var recurring=Math.round(annual/(n+1)),first=annual-(recurring*n);
+  var d1=Math.max(0,Math.min(100,Number(data["DESCONTO_PRIMEIRA_%"]||0))),dr=Math.max(0,Math.min(100,Number(data["DESCONTO_PARCELAS_%"]||0)));
+  var firstFinal=Math.round(first*(100-d1)/100),recurringFinal=Math.round(recurring*(100-dr)/100),total=firstFinal+(recurringFinal*n);
+  return {annual:annual/100,n:n,first:first/100,recurring:recurring/100,d1:d1,dr:dr,firstFinal:firstFinal/100,recurringFinal:recurringFinal/100,total:total/100,economy:Math.max(0,(annual-total)/100)};
+}
 function pwaSlug_(v){return String(v||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase().replace(/[^A-Z0-9]+/g,"-").replace(/^-+|-+$/g,"")}
 function pwaNorm_(v){return String(v||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase()}
 function pwaMode_(mode){return String(mode||"PRODUCAO").toUpperCase()==="TESTE"?"TESTE":"PRODUCAO"}
@@ -380,8 +388,8 @@ function salvarAtendimentoPwa_(token,data,itens,modo,sessao){
     var prior=pwaOperationCache_("atendimento",data.CLIENT_REQUEST_ID);if(prior)return prior;
     var id=String(data.ID_ATENDIMENTO||"").trim(),old=id?findById_(GF_TABS.ATENDIMENTOS,"ID_ATENDIMENTO",id):null,now=new Date();
     if(old)pwaAssertRowMode_(old,modo,"Atendimento");
-    var extrasTotal=itens.filter(function(x){return x.CATEGORIA!=="Mensalidade"}).reduce(function(s,x){return s+pwaNum_(x.VALOR_APRESENTADO||x.VALOR_TABELA)*Math.max(1,pwaNum_(x.QTD)||1)},0);
-    var planTotal=pwaNum_(data.TOTAL_PLANO),total=planTotal>0?planTotal+extrasTotal:itens.reduce(function(s,x){return s+pwaNum_(x.VALOR_APRESENTADO||x.VALOR_TABELA)*Math.max(1,pwaNum_(x.QTD)||1)},0);
+    var plan=pwaPlanChecked_(data),extrasTotal=itens.filter(function(x){return x.CATEGORIA!=="Mensalidade"}).reduce(function(s,x){return s+pwaMoneyChecked_(x.VALOR_APRESENTADO||x.VALOR_TABELA,"Valor do item")*Math.max(1,Number(x.QTD)||1)},0);
+    var planTotal=plan?plan.total:pwaMoneyChecked_(data.TOTAL_PLANO,"Total do plano"),total=gfRoundMoneyPwa_(planTotal+extrasTotal);
     if(!id)id=nextId_("ATE-",GF_TABS.ATENDIMENTOS,"ID_ATENDIMENTO");
     var rec={
       ID_ATENDIMENTO:id,
@@ -414,16 +422,16 @@ function salvarAtendimentoPwa_(token,data,itens,modo,sessao){
       CRIADO_EM:old&&old.CRIADO_EM||now,
       ATUALIZADO_POR:pwaUser_("Atendimento"),
       ATUALIZADO_EM:now,
-      PLANO_PARCELAS:Number(data.PLANO_PARCELAS||0),
-      VALOR_ANUIDADE:pwaNum_(data.VALOR_ANUIDADE),
-      VALOR_PRIMEIRA_BASE:pwaNum_(data.VALOR_PRIMEIRA_BASE),
-      "DESCONTO_PRIMEIRA_%":pwaNum_(data["DESCONTO_PRIMEIRA_%"]),
-      VALOR_PRIMEIRA_FINAL:pwaNum_(data.VALOR_PRIMEIRA_FINAL),
-      VALOR_PARCELA_BASE:pwaNum_(data.VALOR_PARCELA_BASE),
-      "DESCONTO_PARCELAS_%":pwaNum_(data["DESCONTO_PARCELAS_%"]),
-      VALOR_PARCELA_FINAL:pwaNum_(data.VALOR_PARCELA_FINAL),
+      PLANO_PARCELAS:plan?plan.n:Number(data.PLANO_PARCELAS||0),
+      VALOR_ANUIDADE:plan?plan.annual:pwaMoneyChecked_(data.VALOR_ANUIDADE,"Anuidade"),
+      VALOR_PRIMEIRA_BASE:plan?plan.first:pwaMoneyChecked_(data.VALOR_PRIMEIRA_BASE,"Primeira parcela"),
+      "DESCONTO_PRIMEIRA_%":plan?plan.d1:Number(data["DESCONTO_PRIMEIRA_%"]||0),
+      VALOR_PRIMEIRA_FINAL:plan?plan.firstFinal:pwaMoneyChecked_(data.VALOR_PRIMEIRA_FINAL,"Primeira parcela final"),
+      VALOR_PARCELA_BASE:plan?plan.recurring:pwaMoneyChecked_(data.VALOR_PARCELA_BASE,"Parcela"),
+      "DESCONTO_PARCELAS_%":plan?plan.dr:Number(data["DESCONTO_PARCELAS_%"]||0),
+      VALOR_PARCELA_FINAL:plan?plan.recurringFinal:pwaMoneyChecked_(data.VALOR_PARCELA_FINAL,"Parcela final"),
       TOTAL_PLANO:planTotal,
-      ECONOMIA_PLANO:pwaNum_(data.ECONOMIA_PLANO),
+      ECONOMIA_PLANO:plan?plan.economy:pwaMoneyChecked_(data.ECONOMIA_PLANO,"Economia"),
       MODO_REGISTRO:pwaMode_(modo),SESSAO_TESTE:pwaMode_(modo)==="TESTE"?String(sessao||""):""
     };
     if(old)updateById_(GF_TABS.ATENDIMENTOS,"ID_ATENDIMENTO",id,rec);else append_(GF_TABS.ATENDIMENTOS,rec);
