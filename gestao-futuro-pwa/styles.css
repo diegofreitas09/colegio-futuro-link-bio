@@ -374,6 +374,7 @@ body.home-active .shell{filter:blur(2px) saturate(.8);pointer-events:none;user-s
 .trash-btn{width:36px;height:36px;border:1px solid #efc1c5;border-radius:10px;background:#fff4f5;color:#b4232d;display:inline-grid;place-items:center;cursor:pointer;font-size:16px;transition:.16s ease}
 .trash-btn:hover{background:#ffe7e9;border-color:#df969e;transform:translateY(-1px)}
 .trash-btn:disabled{opacity:.55;cursor:wait;transform:none}
+.attendance-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;white-space:nowrap}
 
 
 /* Central de relatórios institucionais */
