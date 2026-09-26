@@ -36,7 +36,7 @@ function pwaGatewayKey_(){return PropertiesService.getScriptProperties().getProp
 function gerarGatewayPwa_(){
   var p=PropertiesService.getScriptProperties(),key=p.getProperty(PWA_GATEWAY_PROP);
   if(!key){key=sha256_(Utilities.getUuid()+Utilities.getUuid()+String(Date.now())+Utilities.getUuid());p.setProperty(PWA_GATEWAY_PROP,key)}
-  console.log("FUTURO_PWA_GATEWAY_KEY="+key);return key;
+  console.log("Gateway da PWA configurado com sucesso.");return key;
 }
 function gerarGatewayPwa(){return gerarGatewayPwa_()}
 function rotacionarGatewayPwa(){
