@@ -3,6 +3,16 @@ import { getStore } from "@netlify/blobs";
 import webpush from "web-push";
 
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwzZJUloa6YdIfJZdCmYw5ch_GkjuS20gUa5zyhulMiAiQj9pH9B3BOE7UU5jZvb_svig/exec";
+const UPSTREAM_TIMEOUT_MS = 12000;
+async function upstreamFetch(body: Record<string, unknown>) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
+  const started = Date.now();
+  try {
+    const response = await fetch(APPS_SCRIPT_URL, { method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify(body), redirect:"follow", signal:controller.signal });
+    return { response, durationMs: Date.now()-started };
+  } finally { clearTimeout(timer); }
+}
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -65,16 +75,11 @@ function discountPush(body: Record<string, unknown>) {
 export default async (req: Request, _context: Context) => {
   if (req.method === "GET") {
     try {
-      const upstream = await fetch(APPS_SCRIPT_URL, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "health" }),
-        redirect: "follow"
-      });
+      const { response: upstream, durationMs } = await upstreamFetch({ action: "health" });
       const text = await upstream.text();
       let data: unknown;
       try { data = JSON.parse(text); } catch { data = { ok: false, error: "Resposta inválida do backend." }; }
-      return json(data, upstream.ok ? 200 : 502);
+      return json({ ...(data as any), _gateway: { durationMs } }, upstream.ok ? 200 : 502);
     } catch (error) {
       return json({ ok: false, error: "Backend indisponível.", detail: String(error) }, 502);
     }
@@ -100,13 +105,7 @@ export default async (req: Request, _context: Context) => {
   const upstreamBody = { ...body, gatewayKey };
 
   try {
-    const upstream = await fetch(APPS_SCRIPT_URL, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(upstreamBody),
-      redirect: "follow"
-    });
-
+    const { response: upstream, durationMs } = await upstreamFetch(upstreamBody);
     const text = await upstream.text();
     let data: unknown;
     try {
@@ -120,7 +119,7 @@ export default async (req: Request, _context: Context) => {
       if (action === "solicitarDesconto") await notifyDirector(discountPush(body));
     }
 
-    return json(data, upstream.ok ? 200 : 502);
+    return json({ ...(data as any), _gateway: { action, durationMs } }, upstream.ok ? 200 : 502);
   } catch (error) {
     return json({ ok: false, error: "Falha de comunicação com o Apps Script.", detail: String(error) }, 502);
   }
