@@ -760,17 +760,47 @@ function dashTuitionFromCatalog(products,year){
   const rows=(products||[]).filter(p=>dashYear(p)===Number(year)&&p.ATIVO!=="Não"&&p.CATEGORIA==="Mensalidade");
   return specs.map(s=>{
     const bySeries=p=>dashNorm(p&&p["SEGMENTO_SÉRIE"])===dashNorm(s.series);
-    const annual=rows.find(p=>bySeries(p)&&dashNorm(p.SUBCATEGORIA).includes("anuidade"));
+    const annual=rows.find(p=>bySeries(p)&&dashNorm(p.SUBCATEGORIA+" "+p.PRODUTO).includes("anuidade"));
     const p12=rows.find(p=>bySeries(p)&&Number(p.QTD_PARCELAS)===12);
     const p11=rows.find(p=>bySeries(p)&&Number(p.QTD_PARCELAS)===11);
+    const firstProduct=rows.find(p=>bySeries(p)&&/(primeira|1a parcela|1 parcela)/.test(dashNorm(p.SUBCATEGORIA+" "+p.PRODUTO)));
     const anu=Number(annual?.VALOR_BASE||0),anuPost=Number(annual?.["VALOR_PÓS_VENCIMENTO"]||0);
+    const referenceFirst=Number(GF_FIRST_REFERENCE[Number(year)]?.[s.key]||0);
+    const first=Number(firstProduct?.VALOR_PARCELA||firstProduct?.VALOR_BASE||0)||referenceFirst;
     const calc12=dashPlanFromAnnual(anu,12),calc12Post=dashPlanFromAnnual(anuPost,12),calc11=dashPlanFromAnnual(anu,11),calc11Post=dashPlanFromAnnual(anuPost,11);
-    const v12=calc12.recurring||Number(p12?.VALOR_BASE||0),v12Post=calc12Post.recurring||Number(p12?.["VALOR_PÓS_VENCIMENTO"]||0);
-    const v11=calc11.recurring||Number(p11?.VALOR_BASE||0),v11Post=calc11Post.recurring||Number(p11?.["VALOR_PÓS_VENCIMENTO"]||0);
-    return {...s,year:Number(year),annual:anu,annualPost:anuPost,plan12:v12,plan12Post:v12Post,plan11:v11,plan11Post:v11Post,
-      first12:calc12.first,first12Post:calc12Post.first,first11:calc11.first,first11Post:calc11Post.first
+    const explicit12=Number(p12?.VALOR_PARCELA||p12?.VALOR_BASE||0),explicit12Post=Number(p12?.["VALOR_PÓS_VENCIMENTO"]||0);
+    const explicit11=Number(p11?.VALOR_PARCELA||p11?.VALOR_BASE||0),explicit11Post=Number(p11?.["VALOR_PÓS_VENCIMENTO"]||0);
+    const v12=explicit12||(anu&&first?dashRound2((anu-first)/12):calc12.recurring);
+    const v12Post=explicit12Post||(anuPost&&first?dashRound2((anuPost-first)/12):calc12Post.recurring);
+    const v11=explicit11||(anu&&first?dashRound2((anu-first)/11):calc11.recurring);
+    const v11Post=explicit11Post||(anuPost&&first?dashRound2((anuPost-first)/11):calc11Post.recurring);
+    return {...s,year:Number(year),annual:anu,annualPost:anuPost,first:first,plan12:v12,plan12Post:v12Post,plan11:v11,plan11Post:v11Post,
+      first12:first||calc12.first,first12Post:first||calc12Post.first,first11:first||calc11.first,first11Post:first||calc11Post.first
     };
   });
+}
+
+const GF_FIRST_REFERENCE = Object.freeze({
+  2024:{infantil:390,iniciais:399.60,finais:409.20},
+  2025:{infantil:420,iniciais:420,finais:420},
+  2026:{infantil:449,iniciais:459,finais:469},
+  2027:{infantil:599,iniciais:599,finais:599}
+});
+
+function dashTuitionFromHistory(year){
+  const base=GF_TUITION_HISTORY[Number(year)];
+  if(!base)return [];
+  return ["infantil","iniciais","finais"].map(key=>{
+    const h=base[key]||{};
+    return {key:key,label:h.label||key,series:h.series||"",year:Number(year),annual:Number(h.annual||0),annualPost:Number(h.annualPost||0),
+      first:Number(h.first||GF_FIRST_REFERENCE[Number(year)]?.[key]||0),
+      plan12:Number(h.plan12||0),plan12Post:Number(h.plan12Post||0),plan11:Number(h.plan11||0),plan11Post:Number(h.plan11Post||0),
+      first12:Number(h.first||0),first12Post:Number(h.first||0),first11:Number(h.first||0),first11Post:Number(h.first||0)
+    };
+  });
+}
+function dashTuitionRowsForYear(products,year){
+  return GF_TUITION_HISTORY[Number(year)]?dashTuitionFromHistory(year):dashTuitionFromCatalog(products,year);
 }
 function dashTuitionHistoryRows(products){
   const y26=Object.fromEntries(dashTuitionFromCatalog(products,2026).map(x=>[x.key,x]));
@@ -780,22 +810,46 @@ function dashTuitionHistoryRows(products){
     return {key,label:h24.label,series:h24.series,v2024:Number(h24.annual||0),v2025:Number(h25.annual||0),v2026:Number(h26.annual||0),v2027:Number(h27.annual||0)};
   });
 }
+const GF_STI_HISTORY = Object.freeze({
+  2024:{
+    infantil:{key:"infantil",label:"Educação Infantil",series:"Infantil 2 ao 5",regular:388.64,regularPost:422.43,sti:477.79,total:866.52,totalPost:897.52},
+    iniciais:{key:"iniciais",label:"Ensino Fundamental I",series:"1º ao 5º Ano",regular:399.60,regularPost:434.34,sti:477.79,total:877.39,totalPost:912.13}
+  },
+  2025:{
+    infantil:{key:"infantil",label:"Educação Infantil",series:"Infantil 2 ao 5",regular:419.73,regularPost:456.22,sti:515,total:934.73,totalPost:971.22},
+    iniciais:{key:"iniciais",label:"Ensino Fundamental I",series:"1º ao 5º Ano",regular:431.56,regularPost:469.09,sti:515,total:946.56,totalPost:984.09}
+  },
+  2026:{
+    infantil:{key:"infantil",label:"Educação Infantil",series:"Infantil 2 ao 5",regular:446.41,regularPost:471.05,sti:590,total:1036.41,totalPost:1061.05},
+    iniciais:{key:"iniciais",label:"Ensino Fundamental I",series:"1º ao 5º Ano",regular:458.17,regularPost:484.30,sti:590,total:1048.17,totalPost:1074.30}
+  },
+  2027:{
+    infantil:{key:"infantil",label:"Educação Infantil",series:"Infantil 2 ao 5",regular:461.93,regularPost:486.02,sti:654.50,total:1116.43,totalPost:1140.52},
+    iniciais:{key:"iniciais",label:"Ensino Fundamental I",series:"1º ao 5º Ano",regular:496.05,regularPost:521.88,sti:654.50,total:1150.55,totalPost:1176.38}
+  }
+});
 function dashStiFromCatalog(products,year){
   const regular=Object.fromEntries(dashTuitionFromCatalog(products,year).map(x=>[x.key,x]));
   const specs=[
     {key:"infantil",label:"Educação Infantil",series:"Infantil 2 ao 5"},
     {key:"iniciais",label:"Ensino Fundamental I",series:"1º ao 5º Ano"}
   ];
-  const rows=(products||[]).filter(p=>dashYear(p)===Number(year)&&p.ATIVO!=="Não"&&p.CATEGORIA==="Adicional"&&dashNorm(p.SUBCATEGORIA).includes("s.t.i"));
+  const rows=(products||[]).filter(p=>dashYear(p)===Number(year)&&p.ATIVO!=="Não"&&p.CATEGORIA==="Adicional"&&dashNorm(p.SUBCATEGORIA+" "+p.PRODUTO).includes("s.t.i"));
   return specs.map(s=>{
     const item=rows.find(p=>dashNorm(p["SEGMENTO_SÉRIE"])===dashNorm(s.series));
-    const reg=regular[s.key]||{},sti=Number(item?.VALOR_BASE||0);
-    return {...s,year:Number(year),regular:Number(reg.plan12||0),regularPost:Number(reg.plan12Post||0),sti,
+    const reg=regular[s.key]||{},sti=Number(item?.VALOR_PARCELA||item?.VALOR_BASE||0);
+    return {...s,year:Number(year),regular:Number(reg.plan12||0),regularPost:Number(reg.plan12Post||0),sti:sti,
       total:dashRound2(Number(reg.plan12||0)+sti),totalPost:dashRound2(Number(reg.plan12Post||0)+sti)};
   }).filter(x=>x.sti>0);
 }
+function dashStiRowsForYear(products,year){
+  const y=Number(year),fallback=GF_STI_HISTORY[y]||{};
+  if(y===2024||y===2025)return ["infantil","iniciais"].map(k=>({...fallback[k],year:y})).filter(x=>x&&x.sti);
+  const live=Object.fromEntries(dashStiFromCatalog(products,y).map(x=>[x.key,x]));
+  return ["infantil","iniciais"].map(k=>live[k]||({...fallback[k],year:y})).filter(x=>x&&x.sti);
+}
 function dashStiYearTable(products,year){
-  const rows=dashStiFromCatalog(products,year);
+  const rows=dashStiRowsForYear(products,year);
   if(!rows.length)return "";
   return "<div class='tuition-year-caption sti-caption'><div><b>S.T.I. • SISTEMA DE TEMPO INTEGRAL • "+year+"</b><span>Adicional ao tempo regular • exibido separadamente</span></div><span class='tuition-source'>12 parcelas</span></div>"+
     "<div class='tuition-table-wrap'><table class='tuition-table sti-table'><thead><tr><th>SEGMENTO</th><th>REGULAR</th><th>INVESTIMENTO S.T.I.</th><th>VALOR FINAL</th><th>APÓS VENCIMENTO</th></tr></thead><tbody>"+
@@ -811,18 +865,23 @@ function dashStiCompareTable(products){
     "</tbody></table></div>";
 }
 function dashTuitionYearTable(rows,year){
-  const segment=r=>{
-    const has=Number(r.annual||0)>0;
-    if(!has)return "<section class='tuition-segment'><div class='tuition-segment-title'>"+esc(r.label)+" <small>"+esc(r.series)+"</small></div><div class='empty'>Sem valores cadastrados para "+year+".</div></section>";
-    const firstCell=(a,b)=>"<span><b>P1 (+12)</b> "+money(a)+"</span><span><b>P2 (+11)</b> "+money(b)+"</span>";
-    return "<section class='tuition-segment'><div class='tuition-segment-title'>"+esc(r.label)+" <small>"+esc(r.series)+"</small></div>"+
-      "<div class='tuition-table-wrap'><table class='tuition-table'><thead><tr><th>VALOR</th><th>ANUIDADE</th><th>1ª PARCELA</th><th>PLANO 01<br><small>+12</small></th><th>PLANO 02<br><small>+11</small></th></tr></thead><tbody>"+
-      "<tr><td>ATÉ O VENCIMENTO</td><td>"+money(r.annual)+"</td><td class='tuition-first'>"+firstCell(r.first12,r.first11)+"</td><td>"+money(r.plan12)+"</td><td>"+money(r.plan11)+"</td></tr>"+
-      "<tr class='after'><td>APÓS O VENCIMENTO</td><td>"+money(r.annualPost)+"</td><td class='tuition-first'>"+firstCell(r.first12Post,r.first11Post)+"</td><td>"+money(r.plan12Post)+"</td><td>"+money(r.plan11Post)+"</td></tr>"+
-      "</tbody></table></div></section>";
+  const valuePair=(a,b)=>{
+    const main=Number(a||0),post=Number(b||0);
+    if(!main&&!post)return "<span class='school-value-empty'>—</span>";
+    return "<div class='school-value-stack'><strong>"+money(main)+"</strong><small>(até o vencimento)</small>"+
+      (post?"<strong>"+money(post)+"</strong><small>(após o vencimento)</small>":"")+"</div>";
   };
-  return "<div class='tuition-year-caption'><div><b>VALORES DE ANUIDADE • "+year+"</b><span>Tempo regular • tabela oficial da Gestão Futuro</span></div><span class='tuition-source'>Valores do catálogo oficial</span></div>"+rows.map(segment).join("")+
-    "<div class='tuition-legend'><b>1ª parcela:</b> P1 corresponde ao plano com +12 parcelas e P2 ao plano com +11 parcelas. O valor é calculado para fechar exatamente a anuidade cadastrada.</div>";
+  const body=(rows||[]).map(r=>{
+    const first=Number(r.first||GF_FIRST_REFERENCE[Number(year)]?.[r.key]||r.first12||0);
+    return "<tr><td><b>"+esc(r.label)+"</b><small>"+esc(r.series)+"</small></td>"+
+      "<td>"+valuePair(r.annual,r.annualPost)+"</td>"+
+      "<td><div class='school-first-payment'><strong>"+money(first)+"</strong><small>à vista ou<br>3x no cartão</small></div></td>"+
+      "<td>"+valuePair(r.plan12,r.plan12Post)+"</td>"+
+      "<td>"+valuePair(r.plan11,r.plan11Post)+"</td></tr>";
+  }).join("");
+  return "<div class='school-table-title'>TABELA DE VALORES "+year+"</div>"+
+    "<div class='tuition-table-wrap'><table class='tuition-table school-price-table'><thead><tr><th>SEGMENTO</th><th>ANUIDADE</th><th>1ª PARCELA</th><th>12 PARCELAS</th><th>11 PARCELAS</th></tr></thead><tbody>"+body+"</tbody></table></div>"+
+    "<div class='school-important-note'><b>OBSERVAÇÃO IMPORTANTE</b><span>A primeira parcela será paga no ato da matrícula e as parcelas restantes no dia 5 de cada mês.</span></div>";
 }
 function dashTuitionCompareTable(y26,y27){
   const b26=Object.fromEntries(y26.map(x=>[x.key,x])),b27=Object.fromEntries(y27.map(x=>[x.key,x]));
@@ -843,53 +902,105 @@ function dashTuitionHistoryHtml(products){
     rows.map(r=>{const total=r.v2024&&r.v2027?dashPct(r.v2024,r.v2027):0;return "<tr><td><b>"+esc(r.label)+"</b><small>"+esc(r.series)+"</small></td><td>"+money(r.v2024)+"</td><td>"+money(r.v2025)+"</td><td>"+money(r.v2026)+"</td><td>"+money(r.v2027)+"</td><td><span class='variation up'>+"+total.toLocaleString("pt-BR",{maximumFractionDigits:2})+"%</span></td></tr>"}).join("")+
     "</tbody></table></div><div class='tuition-insight'><b>Leitura para a Gestão</b><span>O painel separa a evolução histórica das anuidades da operação atual. Assim, a direção enxerga rapidamente a trajetória de preço e, ao mesmo tempo, mantém 2026 e 2027 alinhados ao catálogo oficial usado no Atendimento.</span></div></section>";
 }
+function dashTuitionAllYearsCompareTable(products){
+  const rows=dashTuitionHistoryRows(products);
+  return "<div class='school-table-title'>COMPARATIVO DE ANUIDADES • 2024 — 2027</div>"+
+    "<div class='tuition-table-wrap'><table class='tuition-table tuition-history-table school-history-table'><thead><tr><th>SEGMENTO</th><th>2024</th><th>2025</th><th>2026</th><th>2027</th><th>EVOLUÇÃO 24→27</th></tr></thead><tbody>"+
+    rows.map(r=>{const total=r.v2024&&r.v2027?dashPct(r.v2024,r.v2027):0;return "<tr><td><b>"+esc(r.label)+"</b><small>"+esc(r.series)+"</small></td><td>"+money(r.v2024)+"</td><td>"+money(r.v2025)+"</td><td>"+money(r.v2026)+"</td><td>"+money(r.v2027)+"</td><td><span class='variation up'>+"+total.toLocaleString("pt-BR",{maximumFractionDigits:2})+"%</span></td></tr>"}).join("")+
+    "</tbody></table></div>";
+}
+function dashStiAllYearsCompareTable(products){
+  const years=[2024,2025,2026,2027];
+  return "<div class='school-table-title sti-all-title'>SISTEMA DE TEMPO INTEGRAL • 2024 — 2027</div>"+
+    "<div class='tuition-table-wrap'><table class='tuition-table school-sti-history'><thead><tr><th>ANO</th><th>INFANTIL • S.T.I.</th><th>INFANTIL • FINAL</th><th>ANOS INICIAIS • S.T.I.</th><th>ANOS INICIAIS • FINAL</th></tr></thead><tbody>"+
+    years.map(y=>{const m=Object.fromEntries(dashStiRowsForYear(products,y).map(x=>[x.key,x]));const a=m.infantil||{},b=m.iniciais||{};return "<tr><td><b>"+y+"</b></td><td>"+money(a.sti||0)+"</td><td>"+money(a.total||0)+"</td><td>"+money(b.sti||0)+"</td><td>"+money(b.total||0)+"</td></tr>"}).join("")+
+    "</tbody></table></div>";
+}
+function dashAnnualComparisonChart(products){
+  const rows=dashTuitionHistoryRows(products),years=[2024,2025,2026,2027];
+  const values=[];rows.forEach(r=>years.forEach(y=>values.push(Number(r["v"+y]||0))));
+  const max=Math.max(1,...values)*1.08;
+  const groups=years.map(y=>{
+    const bars=rows.map((r,i)=>{const v=Number(r["v"+y]||0),h=Math.max(2,(v/max)*100);return "<div class='annual-bar annual-series-"+i+"' style='height:"+h+"%' title='"+esc(r.label+" • "+y+" • "+money(v))+"'><span>"+v.toLocaleString("pt-BR",{maximumFractionDigits:0})+"</span></div>"}).join("");
+    return "<div class='annual-year-group'><div class='annual-bars'>"+bars+"</div><b>"+y+"</b></div>";
+  }).join("");
+  return "<section class='school-chart-card annual-chart-card'><div class='school-chart-head'><div><small>GRÁFICO COMPARATIVO</small><h3>Evolução da Anuidade (até o vencimento) • 2024 — 2027</h3></div></div>"+
+    "<div class='annual-chart-scroll'><div class='annual-chart-plot'>"+groups+"</div></div>"+
+    "<div class='school-chart-legend'><span class='l0'>Educação Infantil</span><span class='l1'>Ensino Fundamental • Anos Iniciais</span><span class='l2'>Ensino Fundamental • Anos Finais</span></div></section>";
+}
+function dashStiChartSvg(products,key,label){
+  const years=[2024,2025,2026,2027],data=years.map(y=>{const r=dashStiRowsForYear(products,y).find(x=>x.key===key)||{};return {year:y,sti:Number(r.sti||0),total:Number(r.total||0)}});
+  const max=Math.max(1,...data.flatMap(x=>[x.sti,x.total]))*1.10,base=176,top=24,plotH=base-top,xs=[58,158,258,358];
+  const bars=data.map((d,i)=>{const h=(d.sti/max)*plotH,y=base-h,x=xs[i]-18;return "<rect class='sti-svg-bar' x='"+x+"' y='"+y.toFixed(1)+"' width='36' height='"+h.toFixed(1)+"' rx='5'><title>"+esc(label+" • "+d.year+" • S.T.I. "+money(d.sti))+"</title></rect><text class='sti-svg-value bar-value' x='"+xs[i]+"' y='"+Math.max(14,y-5).toFixed(1)+"'>"+d.sti.toLocaleString("pt-BR",{maximumFractionDigits:0})+"</text>"}).join("");
+  const points=data.map((d,i)=>{const y=base-(d.total/max)*plotH;return {x:xs[i],y:y,v:d.total,year:d.year}}),line=points.map(p=>p.x+","+p.y.toFixed(1)).join(" ");
+  const dots=points.map(p=>"<circle class='sti-svg-dot' cx='"+p.x+"' cy='"+p.y.toFixed(1)+"' r='4'><title>"+esc(label+" • "+p.year+" • Valor final "+money(p.v))+"</title></circle><text class='sti-svg-value line-value' x='"+p.x+"' y='"+Math.max(13,p.y-8).toFixed(1)+"'>"+p.v.toLocaleString("pt-BR",{maximumFractionDigits:0})+"</text>").join("");
+  const labels=data.map((d,i)=>"<text class='sti-svg-year' x='"+xs[i]+"' y='198'>"+d.year+"</text>").join("");
+  return "<div class='sti-chart-panel'><h4>"+esc(label)+"</h4><svg viewBox='0 0 420 210' role='img' aria-label='Comparativo S.T.I. e valor final de "+esc(label)+" entre 2024 e 2027'><line class='sti-svg-axis' x1='28' y1='"+base+"' x2='394' y2='"+base+"'></line>"+bars+"<polyline class='sti-svg-line' points='"+line+"'></polyline>"+dots+labels+"</svg></div>";
+}
+function dashComparisonChartsHtml(products){
+  return "<section class='school-comparison-section'><div class='school-comparison-banner'>GRÁFICOS DE COMPARAÇÃO</div>"+dashAnnualComparisonChart(products)+
+    "<section class='school-chart-card'><div class='school-chart-head'><div><small>GRÁFICO COMPARATIVO</small><h3>Comparativo do S.T.I. e Valor Final (até o vencimento) • 2024 — 2027</h3></div></div><div class='sti-chart-grid'>"+
+    dashStiChartSvg(products,"infantil","Educação Infantil")+dashStiChartSvg(products,"iniciais","Ensino Fundamental • Anos Iniciais")+"</div><div class='school-chart-legend sti-legend'><span class='sti-bar-key'>Investimento S.T.I. (12 parcelas)</span><span class='sti-line-key'>Valor final (até o vencimento)</span></div></section></section>";
+}
 function dashTuitionDownloadModal(products,currentView){
-  const y26=dashTuitionFromCatalog(products,2026),y27=dashTuitionFromCatalog(products,2027),history=dashTuitionHistoryRows(products);
-  modal("<div class='modal-head'><h3>Baixar tabelas de valores</h3><button class='icon-btn' data-close>✕</button></div><div class='modal-body'><div class='report-intro'><b>⬇ Tabela de valores</b><span>Escolha anuidades, S.T.I. ou os comparativos e baixe em PDF ou Excel.</span></div><form id='tuitionDownloadForm' class='form-grid'><div class='field'><label>Conteúdo</label><select name='SCOPE'><option value='2026' "+(currentView==="2026"?"selected":"")+">Anuidades 2026</option><option value='2027' "+(currentView==="2027"?"selected":"")+">Anuidades 2027</option><option value='compare' "+(currentView==="compare"?"selected":"")+">Comparativo anuidades 2026 × 2027</option><option value='sti2026'>S.T.I. 2026</option><option value='sti2027'>S.T.I. 2027</option><option value='sticompare'>Comparativo S.T.I. 2026 × 2027</option><option value='history'>Panorama 2024–2027</option></select></div><div class='field'><label>Formato</label><select name='FORMAT'>"+gfReportFormatOptions()+"</select></div></form></div><div class='modal-foot'><button class='btn btn-soft' data-close>Cancelar</button><button class='btn btn-primary' id='generateTuitionDownload'>⬇ Baixar tabela</button></div>");
+  const current=(["2024","2025","2026","2027","history"].includes(String(currentView))?String(currentView):"2027");
+  const opts=[
+    ["2024","Tabela de valores 2024"],["2025","Tabela de valores 2025"],["2026","Tabela de valores 2026"],["2027","Tabela de valores 2027"],
+    ["history","Comparativo de anuidades 2024–2027"],["sti2024","S.T.I. 2024"],["sti2025","S.T.I. 2025"],["sti2026","S.T.I. 2026"],["sti2027","S.T.I. 2027"],["stihistory","Comparativo S.T.I. 2024–2027"]
+  ];
+  modal("<div class='modal-head'><h3>Baixar tabelas de valores</h3><button class='icon-btn' data-close>✕</button></div><div class='modal-body'><div class='report-intro'><b>⬇ Tabela de valores</b><span>Escolha o ano ou o comparativo completo e baixe em PDF ou Excel.</span></div><form id='tuitionDownloadForm' class='form-grid'><div class='field'><label>Conteúdo</label><select name='SCOPE'>"+
+    opts.map(o=>"<option value='"+o[0]+"' "+(current===o[0]?"selected":"")+">"+o[1]+"</option>").join("")+
+    "</select></div><div class='field'><label>Formato</label><select name='FORMAT'>"+gfReportFormatOptions()+"</select></div></form></div><div class='modal-foot'><button class='btn btn-soft' data-close>Cancelar</button><button class='btn btn-primary' id='generateTuitionDownload'>⬇ Baixar tabela</button></div>");
   $$("[data-close]").forEach(x=>x.onclick=closeModal);
   $("#generateTuitionDownload").onclick=async function(){
     const d=Object.fromEntries(new FormData($("#tuitionDownloadForm")).entries()),scope=d.SCOPE,fmt=d.FORMAT;
     let title="",subtitle="",rows=[],columns=[];
-    if(scope==="2026"||scope==="2027"){
-      const year=Number(scope),arr=year===2026?y26:y27;
-      title="Tabela de Anuidades "+year;subtitle="Colégio Futuro • Tempo regular";
-      columns=[{key:"segmento",label:"Segmento",width:2},{key:"condicao",label:"Condição",width:1.25},{key:"anuidade",label:"Anuidade",width:1.2,align:"right"},{key:"primeira",label:"1ª parcela",width:1.7},{key:"p12",label:"Plano +12",width:1.2,align:"right"},{key:"p11",label:"Plano +11",width:1.2,align:"right"}];
-      arr.forEach(r=>{
-        rows.push({segmento:r.label+" • "+r.series,condicao:"Até o vencimento",anuidade:money(r.annual),primeira:"P1 "+money(r.first12)+" / P2 "+money(r.first11),p12:money(r.plan12),p11:money(r.plan11)});
-        rows.push({segmento:r.label+" • "+r.series,condicao:"Após o vencimento",anuidade:money(r.annualPost),primeira:"P1 "+money(r.first12Post)+" / P2 "+money(r.first11Post),p12:money(r.plan12Post),p11:money(r.plan11Post)});
-      });
-    }else if(scope==="compare"){
-      title="Comparativo de Anuidades 2026 × 2027";subtitle="Colégio Futuro • Valores até o vencimento";
-      columns=[{key:"segmento",label:"Segmento",width:2.2},{key:"a26",label:"Anuidade 2026",width:1.3,align:"right"},{key:"a27",label:"Anuidade 2027",width:1.3,align:"right"},{key:"pct",label:"Reajuste",width:1},{key:"p12",label:"Plano +12",width:1.8},{key:"p11",label:"Plano +11",width:1.8}];
-      const b26=Object.fromEntries(y26.map(x=>[x.key,x]));
-      y27.forEach(r=>{const a=b26[r.key]||{},pct=a.annual?dashPct(a.annual,r.annual):0;rows.push({segmento:r.label+" • "+r.series,a26:money(a.annual),a27:money(r.annual),pct:pct.toLocaleString("pt-BR",{maximumFractionDigits:2})+"%",p12:money(a.plan12)+" → "+money(r.plan12),p11:money(a.plan11)+" → "+money(r.plan11)})});
-    }else if(scope==="sti2026"||scope==="sti2027"){
-      const year=scope==="sti2026"?2026:2027,arr=dashStiFromCatalog(products,year);
-      title="S.T.I. - Sistema de Tempo Integral "+year;subtitle="Colégio Futuro • Adicional ao tempo regular";
-      columns=[{key:"segmento",label:"Segmento",width:2.2},{key:"regular",label:"Regular",width:1.3,align:"right"},{key:"sti",label:"S.T.I.",width:1.3,align:"right"},{key:"final",label:"Valor final",width:1.4,align:"right"},{key:"apos",label:"Após vencimento",width:1.5,align:"right"}];
-      rows=arr.map(r=>({segmento:r.label+" • "+r.series,regular:money(r.regular),sti:money(r.sti),final:money(r.total),apos:money(r.totalPost)}));
-    }else if(scope==="sticompare"){
-      title="Comparativo S.T.I. 2026 × 2027";subtitle="Colégio Futuro • Investimento adicional";
-      columns=[{key:"segmento",label:"Segmento",width:2.2},{key:"s26",label:"S.T.I. 2026",width:1.3,align:"right"},{key:"s27",label:"S.T.I. 2027",width:1.3,align:"right"},{key:"pct",label:"Reajuste",width:1},{key:"f26",label:"Final 2026",width:1.4,align:"right"},{key:"f27",label:"Final 2027",width:1.4,align:"right"}];
-      const a=Object.fromEntries(dashStiFromCatalog(products,2026).map(x=>[x.key,x])),b=Object.fromEntries(dashStiFromCatalog(products,2027).map(x=>[x.key,x]));
-      rows=["infantil","iniciais"].map(key=>{const x=a[key]||{},y=b[key]||{},pct=x.sti&&y.sti?dashPct(x.sti,y.sti):0;return {segmento:(y.label||x.label||key)+" • "+(y.series||x.series||""),s26:money(x.sti||0),s27:money(y.sti||0),pct:pct.toLocaleString("pt-BR",{maximumFractionDigits:2})+"%",f26:money(x.total||0),f27:money(y.total||0)}});
-    }else{
-      title="Panorama de Anuidades 2024–2027";subtitle="Colégio Futuro • Evolução histórica até o vencimento";
-      columns=[{key:"segmento",label:"Segmento",width:2.2},{key:"y24",label:"2024",width:1.2,align:"right"},{key:"y25",label:"2025",width:1.2,align:"right"},{key:"y26",label:"2026",width:1.2,align:"right"},{key:"y27",label:"2027",width:1.2,align:"right"},{key:"pct",label:"24→27",width:1}];
+    if(["2024","2025","2026","2027"].includes(scope)){
+      const year=Number(scope),arr=dashTuitionRowsForYear(products,year);
+      title="Tabela de Valores "+year;subtitle="Colégio Futuro • padrão oficial da escola";
+      columns=[
+        {key:"segmento",label:"Segmento",width:2.1},{key:"anuidade",label:"Anuidade",width:1.4,align:"right"},{key:"anuidadePos",label:"Após vencimento",width:1.4,align:"right"},
+        {key:"primeira",label:"1ª parcela",width:1.2,align:"right"},{key:"p12",label:"12 parcelas",width:1.2,align:"right"},{key:"p12pos",label:"12x após venc.",width:1.2,align:"right"},
+        {key:"p11",label:"11 parcelas",width:1.2,align:"right"},{key:"p11pos",label:"11x após venc.",width:1.2,align:"right"}
+      ];
+      rows=arr.map(r=>({segmento:r.label+" • "+r.series,anuidade:money(r.annual),anuidadePos:money(r.annualPost),primeira:money(r.first||GF_FIRST_REFERENCE[year]?.[r.key]||0),p12:money(r.plan12),p12pos:money(r.plan12Post),p11:money(r.plan11),p11pos:money(r.plan11Post)}));
+    }else if(scope==="history"){
+      const history=dashTuitionHistoryRows(products);
+      title="Comparativo de Anuidades 2024–2027";subtitle="Colégio Futuro • valores até o vencimento";
+      columns=[{key:"segmento",label:"Segmento",width:2.3},{key:"y24",label:"2024",width:1.2,align:"right"},{key:"y25",label:"2025",width:1.2,align:"right"},{key:"y26",label:"2026",width:1.2,align:"right"},{key:"y27",label:"2027",width:1.2,align:"right"},{key:"pct",label:"24→27",width:1}];
       rows=history.map(r=>({segmento:r.label+" • "+r.series,y24:money(r.v2024),y25:money(r.v2025),y26:money(r.v2026),y27:money(r.v2027),pct:dashPct(r.v2024,r.v2027).toLocaleString("pt-BR",{maximumFractionDigits:2})+"%"}));
+    }else if(/^sti20\d{2}$/.test(scope)){
+      const year=Number(scope.slice(3)),arr=dashStiRowsForYear(products,year);
+      title="S.T.I. - Sistema de Tempo Integral "+year;subtitle="Colégio Futuro • adicional ao tempo regular";
+      columns=[{key:"segmento",label:"Segmento",width:2.2},{key:"regular",label:"Regular",width:1.3,align:"right"},{key:"sti",label:"S.T.I.",width:1.3,align:"right"},{key:"final",label:"Valor final",width:1.4,align:"right"},{key:"apos",label:"Final após venc.",width:1.5,align:"right"}];
+      rows=arr.map(r=>({segmento:r.label+" • "+r.series,regular:money(r.regular),sti:money(r.sti),final:money(r.total),apos:money(r.totalPost)}));
+    }else{
+      const years=[2024,2025,2026,2027];
+      title="Comparativo S.T.I. 2024–2027";subtitle="Colégio Futuro • investimento adicional e valor final";
+      columns=[{key:"ano",label:"Ano",width:.8},{key:"segmento",label:"Segmento",width:2.2},{key:"sti",label:"S.T.I.",width:1.3,align:"right"},{key:"final",label:"Valor final",width:1.4,align:"right"},{key:"apos",label:"Final após venc.",width:1.5,align:"right"}];
+      rows=years.flatMap(y=>dashStiRowsForYear(products,y).map(r=>({ano:String(y),segmento:r.label+" • "+r.series,sti:money(r.sti),final:money(r.total),apos:money(r.totalPost)})));
     }
-    await gfDownloadReport({format:fmt,title,subtitle,filename:gfReportFile("anuidades",[scope]),orientation:"landscape",meta:gfReportMeta([{label:"Fonte",value:scope==="history"?"Guias oficiais 2024–2025 + Gestão Futuro 2026–2027":"Catálogo oficial Gestão Futuro"}]),columns,rows},$("#generateTuitionDownload"));
+    await gfDownloadReport({format:fmt,title:title,subtitle:subtitle,filename:gfReportFile("tabela-valores",[scope]),orientation:"landscape",meta:gfReportMeta([{label:"Fonte",value:["2024","2025"].includes(scope)?"Guias oficiais do Colégio Futuro":"Gestão Futuro + histórico oficial"}]),columns:columns,rows:rows},$("#generateTuitionDownload"));
   };
 }
 function dashMountTuitionDashboard(products){
-  const y26=dashTuitionFromCatalog(products,2026),y27=dashTuitionFromCatalog(products,2027);
-  $("#view").insertAdjacentHTML("beforeend","<section class='card tuition-dashboard'><div class='tuition-dashboard-head'><div><small>GESTÃO • VALORES</small><h2>Tabela de anuidades</h2><p>Visão operacional reorganizada no modelo de tabela por segmento.</p></div><button class='btn btn-primary' id='downloadTuitionTable'>⬇ Baixar tabela</button></div><div class='tuition-tabs'><button class='active' data-tuition-view='2026'>2026</button><button data-tuition-view='2027'>2027</button><button data-tuition-view='compare'>Comparativo</button></div><div id='tuitionDashboardBody'></div></section>"+dashTuitionHistoryHtml(products));
-  let current="2026";
+  const selector="<div class='tuition-selector-bar'><div class='field'><label for='tuitionTableSelector'>Tabela em exibição</label><select id='tuitionTableSelector'><option value='2024'>Tabela 2024</option><option value='2025'>Tabela 2025</option><option value='2026'>Tabela 2026</option><option value='2027' selected>Tabela 2027</option><option value='history'>Comparativo 2024–2027</option></select></div><div class='tuition-selector-copy'><b id='tuitionSelectionTitle'>Tabela oficial 2027</b><span id='tuitionSelectionHint'>2024–2025 vêm do histórico oficial; 2026–2027 usam o catálogo da Gestão Futuro.</span></div></div>";
+  $("#view").insertAdjacentHTML("beforeend","<section class='card tuition-dashboard school-dashboard'><div class='tuition-dashboard-head school-dashboard-head'><div><small>COLÉGIO FUTURO • GESTÃO</small><h2>Tabela de Valores • Padrão da Escola</h2><p>Ano letivo 2024 • 2025 • 2026 • 2027</p></div><button class='btn btn-primary' id='downloadTuitionTable'>⬇ Baixar tabela</button></div>"+selector+"<div id='tuitionDashboardBody'></div>"+dashComparisonChartsHtml(products)+"</section>");
+  let current="2027";
   const draw=()=>{
-    $("#tuitionDashboardBody").innerHTML=current==="2026"?(dashTuitionYearTable(y26,2026)+dashStiYearTable(products,2026)):current==="2027"?(dashTuitionYearTable(y27,2027)+dashStiYearTable(products,2027)):(dashTuitionCompareTable(y26,y27)+dashStiCompareTable(products));
-    $("[data-tuition-view]").forEach(b=>b.classList.toggle("active",b.dataset.tuitionView===current));
+    if(current==="history"){
+      $("#tuitionDashboardBody").innerHTML=dashTuitionAllYearsCompareTable(products)+dashStiAllYearsCompareTable(products);
+      $("#tuitionSelectionTitle").textContent="Comparativo completo 2024–2027";
+      $("#tuitionSelectionHint").textContent="Anuidades e S.T.I. lado a lado para leitura de evolução e tomada de decisão.";
+    }else{
+      const year=Number(current),rows=dashTuitionRowsForYear(products,year);
+      $("#tuitionDashboardBody").innerHTML=dashTuitionYearTable(rows,year)+dashStiYearTable(products,year);
+      $("#tuitionSelectionTitle").textContent="Tabela oficial "+year;
+      $("#tuitionSelectionHint").textContent=year<=2025?"Histórico oficial do Colégio Futuro.":"Valores conectados ao catálogo oficial da Gestão Futuro, com referência visual do padrão da escola.";
+    }
+    $("#tuitionTableSelector").value=current;
   };
-  $$("[data-tuition-view]").forEach(b=>b.onclick=()=>{current=b.dataset.tuitionView;draw()});
+  $("#tuitionTableSelector").onchange=function(){current=this.value;draw()};
   $("#downloadTuitionTable").onclick=()=>dashTuitionDownloadModal(products,current);
   draw();
 }
