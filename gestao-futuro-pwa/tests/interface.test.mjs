@@ -51,12 +51,23 @@ test('save, edit, failed update and manual synchronization preserve latest atten
 for(const f of ['openStudentForm({})','openRespForm([])','openMatForm({alunos:[],responsaveis:[],produtos:[]})']){
  test('school registration dialog opens: '+f,()=>{const x=setup();try{x.run(f);assert.ok(x.w.document.querySelector('#modalRoot form'))}finally{x.dom.window.close()}});
 }
-test('attendance PDF generation uses the bundled library and produces a PDF',async()=>{
+test('attendance PDF generation uses the bundled library and keeps a typical proposal on one A4 page',async()=>{
  const x=setup();try{
   const {jsPDF}=await import('jspdf');
-  x.w.jspdf={jsPDF:function(...args){const d=new jsPDF(...args);d.save=()=>{x.w.generatedPdf=d.output()};return d}};
-  x.run('gfPdfBrandPng=async()=>null;gfPdfImagePng=async()=>null');
-  await x.run('gfDownloadAttendancePdf({ID_ATENDIMENTO:"FIXTURE",NOME_ALUNO:"Aluno fictício",SERIE_PRETENDIDA:"Infantil 2",ANO_LETIVO:2027,TOTAL_PROPOSTA:7788},[])');
+  x.w.jspdf={jsPDF:function(...args){const d=new jsPDF(...args);d.save=()=>{x.w.generatedPdf=d.output();x.w.generatedPages=d.getNumberOfPages()};return d}};
+  const pixel='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wlqk6sAAAAASUVORK5CYII=';
+  x.run('gfPdfBrandPng=async()=>null');
+  x.w.__pdfPixel=pixel;x.run('gfPdfImagePng=async()=>({data:window.__pdfPixel,ratio:1})');
+  const rec={ID_ATENDIMENTO:'ATE-000003',NOME_ALUNO:'Thiago',RESPONSAVEL:'Alexsandra',SERIE_PRETENDIDA:'5º Ano',ANO_LETIVO:2027,TIPO_ALUNO:'Novato',TURNO:'Manhã',MODALIDADE:'Regular',TELEFONE:'85991392851',EMAIL:'thiapandrade@gmail.com',ETAPA:'Matriculado',STATUS:'Matriculado',VALOR_ANUIDADE:6552.73,PLANO_PARCELAS:12,VALOR_PRIMEIRA_FINAL:378.01,VALOR_PARCELA_FINAL:478.86,'DESCONTO_PRIMEIRA_%':25,'DESCONTO_PARCELAS_%':5,TOTAL_PLANO:6124.33,ECONOMIA_PLANO:428.40,TOTAL_PROPOSTA:8040.03};
+  const itens=[
+   {ID_PRODUTO:'MAT',PRODUTO:'Material Didático - Anos Iniciais',CATEGORIA:'Material Didático',VALOR_APRESENTADO:1571.40,OBSERVACAO:'Trilhas + complementares + literaturas + diário'},
+   {ID_PRODUTO:'CAM',PRODUTO:'Camiseta gola V malha piquê',CATEGORIA:'Fardamento',VALOR_APRESENTADO:74.80},
+   {ID_PRODUTO:'CAL',PRODUTO:'Calça comprida terbrim azul marinho',CATEGORIA:'Fardamento',VALOR_APRESENTADO:143},
+   {ID_PRODUTO:'CAS',PRODUTO:'Casaco de moletom',CATEGORIA:'Fardamento',VALOR_APRESENTADO:126.50}
+  ];
+  x.w.__pdfRec=rec;x.w.__pdfItens=itens;
+  await x.run('gfDownloadAttendancePdf(window.__pdfRec,window.__pdfItens)');
   assert.match(x.w.generatedPdf,/^%PDF-/);
+  assert.equal(x.w.generatedPages,1);
  }finally{x.dom.window.close()}
 });
