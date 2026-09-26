@@ -745,6 +745,12 @@ const GF_TUITION_HISTORY = Object.freeze({
   }
 });
 function dashRound2(v){return Math.round((Number(v||0)+Number.EPSILON)*100)/100}
+function dashPlanFromAnnual(annual,n){
+  const cents=Math.round(Number(annual||0)*100);n=Math.max(1,Math.trunc(Number(n||0)));
+  if(!cents||!n)return {first:0,recurring:0};
+  const recurringCents=Math.round(cents/(n+1)),firstCents=cents-(recurringCents*n);
+  return {first:firstCents/100,recurring:recurringCents/100};
+}
 function dashTuitionFromCatalog(products,year){
   const specs=[
     {key:"infantil",label:"Educação Infantil",series:"Infantil 2 ao 5"},
@@ -758,13 +764,11 @@ function dashTuitionFromCatalog(products,year){
     const p12=rows.find(p=>bySeries(p)&&Number(p.QTD_PARCELAS)===12);
     const p11=rows.find(p=>bySeries(p)&&Number(p.QTD_PARCELAS)===11);
     const anu=Number(annual?.VALOR_BASE||0),anuPost=Number(annual?.["VALOR_PÓS_VENCIMENTO"]||0);
-    const v12=Number(p12?.VALOR_BASE||0),v12Post=Number(p12?.["VALOR_PÓS_VENCIMENTO"]||0);
-    const v11=Number(p11?.VALOR_BASE||0),v11Post=Number(p11?.["VALOR_PÓS_VENCIMENTO"]||0);
+    const calc12=dashPlanFromAnnual(anu,12),calc12Post=dashPlanFromAnnual(anuPost,12),calc11=dashPlanFromAnnual(anu,11),calc11Post=dashPlanFromAnnual(anuPost,11);
+    const v12=calc12.recurring||Number(p12?.VALOR_BASE||0),v12Post=calc12Post.recurring||Number(p12?.["VALOR_PÓS_VENCIMENTO"]||0);
+    const v11=calc11.recurring||Number(p11?.VALOR_BASE||0),v11Post=calc11Post.recurring||Number(p11?.["VALOR_PÓS_VENCIMENTO"]||0);
     return {...s,year:Number(year),annual:anu,annualPost:anuPost,plan12:v12,plan12Post:v12Post,plan11:v11,plan11Post:v11Post,
-      first12:anu&&v12?dashRound2(anu-v12*12):0,
-      first12Post:anuPost&&v12Post?dashRound2(anuPost-v12Post*12):0,
-      first11:anu&&v11?dashRound2(anu-v11*11):0,
-      first11Post:anuPost&&v11Post?dashRound2(anuPost-v11Post*11):0
+      first12:calc12.first,first12Post:calc12Post.first,first11:calc11.first,first11Post:calc11Post.first
     };
   });
 }
