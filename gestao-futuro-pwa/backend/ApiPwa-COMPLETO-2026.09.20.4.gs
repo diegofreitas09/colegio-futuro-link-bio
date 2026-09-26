@@ -4,8 +4,8 @@
  * Este arquivo deve substituir o conteúdo atual de ApiPwa.gs no MESMO projeto Apps Script.
  * O Código.gs existente permanece como base de Secretaria/Financeiro.
  */
-const PWA_API_VERSION="2026.09.20.4";
-const PWA_CAPABILITIES=Object.freeze({testMode:true,clearTest:true,modeTagging:true,modeFilteredFinance:true,modeIsolationGuard:true,cashSaveIdempotency:true,cashDeleteIndividual:true,studentMigration:true,studentProgression:true,documentAdd:true});
+const PWA_API_VERSION="2026.09.26.1";
+const PWA_CAPABILITIES=Object.freeze({testMode:true,clearTest:true,modeTagging:true,modeFilteredFinance:true,modeIsolationGuard:true,cashSaveIdempotency:true,cashDeleteIndividual:true,studentMigration:true,studentProgression:true,documentAdd:true,attendanceDelete:true});
 const PWA_GATEWAY_PROP="FUTURO_PWA_GATEWAY_KEY";
 const PWA_STAFF_HASH_PROP="FUTURO_STAFF_PASSWORD_SHA256";
 const PWA_DEBUG_PROP="FUTURO_PWA_DEBUG";
@@ -354,6 +354,31 @@ function getAtendimentoPwa_(token,id,modo){
   var itens=pwaFilterMode_(rows_(GF_TABS.ITENS_ATENDIMENTO),modo).filter(function(x){return x.ID_ATENDIMENTO===id&&x.SELECIONADO!=="Não"});
   return {atendimento:atendimento,itens:itens};
 }
+function pwaDeleteRowsByField_(sheetName,key,value){
+  var sh=SpreadsheetApp.getActive().getSheetByName(sheetName);if(!sh||sh.getLastRow()<5)return 0;
+  var lastCol=sh.getLastColumn(),lastRow=sh.getLastRow(),headers=sh.getRange(4,1,1,lastCol).getDisplayValues()[0],col=headers.indexOf(key)+1;
+  if(!col)return 0;
+  var vals=sh.getRange(5,col,lastRow-4,1).getDisplayValues(),removed=0,target=String(value||"").trim();
+  for(var i=vals.length-1;i>=0;i--){if(String(vals[i][0]||"").trim()===target){sh.deleteRow(i+5);removed++}}
+  return removed;
+}
+function excluirAtendimentoPwa_(token,id,modo){
+  pwaAdmin_(token);id=String(id||"").trim();if(!id)throw new Error("Atendimento não informado.");
+  return pwaWithLock_(function(){
+    var rec=findById_(GF_TABS.ATENDIMENTOS,"ID_ATENDIMENTO",id);if(!rec)throw new Error("Atendimento não encontrado.");
+    pwaAssertRowMode_(rec,modo,"Atendimento");
+    var itens=rows_(GF_TABS.ITENS_ATENDIMENTO).filter(function(x){return String(x.ID_ATENDIMENTO||"")===id});
+    var solicitacoes=rows_(GF_TABS.SOLICITACOES).filter(function(x){return String(x.ID_ATENDIMENTO||"")===id});
+    audit_("Gestão","EXCLUIR","Atendimento",id,JSON.stringify({atendimento:rec,itens:itens,solicitacoes:solicitacoes}),JSON.stringify({excluido:true}));
+    var itensRemovidos=pwaDeleteRowsByField_(GF_TABS.ITENS_ATENDIMENTO,"ID_ATENDIMENTO",id);
+    var solicitacoesRemovidas=pwaDeleteRowsByField_(GF_TABS.SOLICITACOES,"ID_ATENDIMENTO",id);
+    var atendimentosRemovidos=pwaDeleteRowsByField_(GF_TABS.ATENDIMENTOS,"ID_ATENDIMENTO",id);
+    if(!atendimentosRemovidos)throw new Error("O atendimento não pôde ser removido da planilha.");
+    SpreadsheetApp.flush();
+    return {ok:true,id:id,itensRemovidos:itensRemovidos,solicitacoesRemovidas:solicitacoesRemovidas};
+  });
+}
+
 function salvarAtendimentoPwa_(token,data,itens,modo,sessao){
   pwaStaff_(token);data=data||{};itens=Array.isArray(itens)?itens:[];
   if(!data.NOME_ALUNO||!data.ANO_LETIVO||!data.SERIE_PRETENDIDA)throw new Error("Aluno, ano letivo e série são obrigatórios.");
@@ -659,6 +684,7 @@ function doPost(e){
       case "listarAtendimentos":data=listarAtendimentosPwa_(body.token,body.modo);break;
       case "getAtendimento":data=getAtendimentoPwa_(body.token,body.id,body.modo);break;
       case "salvarAtendimento":data=salvarAtendimentoPwa_(body.token,body.data,body.itens,body.modo,body.sessaoTeste);break;
+      case "excluirAtendimento":data=excluirAtendimentoPwa_(body.token,body.id,body.modo);break;
       case "solicitarDesconto":data=solicitarDescontoPwa_(body.token,body.data,body.modo,body.sessaoTeste);break;
       case "listarSolicitacoesDesconto":data=listarSolicitacoesDescontoPwa_(body.token,body.modo);break;
       case "decidirSolicitacaoDesconto":data=decidirSolicitacaoDescontoPwa_(body.token,body.id,body.status,body.valorAutorizado,body.observacao,body.modo);break;
