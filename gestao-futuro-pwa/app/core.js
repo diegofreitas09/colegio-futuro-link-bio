@@ -807,7 +807,7 @@ function dashTuitionHistoryHtml(products){
   const rows=dashTuitionHistoryRows(products);
   const avg=(from,to)=>{const arr=rows.filter(r=>r[from]&&r[to]).map(r=>dashPct(r[from],r[to]));return arr.length?arr.reduce((a,b)=>a+b,0)/arr.length:0};
   const p2425=avg("v2024","v2025"),p2526=avg("v2025","v2026"),p2627=avg("v2026","v2027"),p2427=avg("v2024","v2027");
-  return "<section class='card tuition-history'><div class='section-head compact'><div><h2>Panorama histórico • 2024 → 2027</h2><span class='muted'>Evolução da anuidade até o vencimento. 2024–2026: Guias oficiais; 2027: catálogo Gestão Futuro.</span></div></div>"+
+  return "<section class='card tuition-history'><div class='section-head compact'><div><h2>Panorama histórico • 2024 → 2027</h2><span class='muted'>Evolução da anuidade até o vencimento. 2024–2025: Guias oficiais; 2026–2027: catálogo Gestão Futuro, com 2026 conferido no Guia oficial.</span></div></div>"+
     "<div class='tuition-history-kpis'><div><small>2024 → 2025</small><b>+"+p2425.toLocaleString("pt-BR",{maximumFractionDigits:2})+"%</b><span>média dos segmentos</span></div><div><small>2025 → 2026</small><b>+"+p2526.toLocaleString("pt-BR",{maximumFractionDigits:2})+"%</b><span>média dos segmentos</span></div><div><small>2026 → 2027</small><b>+"+p2627.toLocaleString("pt-BR",{maximumFractionDigits:2})+"%</b><span>média dos segmentos</span></div><div class='cumulative'><small>2024 → 2027</small><b>+"+p2427.toLocaleString("pt-BR",{maximumFractionDigits:2})+"%</b><span>evolução acumulada média</span></div></div>"+
     "<div class='tuition-table-wrap'><table class='tuition-table tuition-history-table'><thead><tr><th>SEGMENTO</th><th>2024</th><th>2025</th><th>2026</th><th>2027</th><th>EVOLUÇÃO 24→27</th></tr></thead><tbody>"+
     rows.map(r=>{const total=r.v2024&&r.v2027?dashPct(r.v2024,r.v2027):0;return "<tr><td><b>"+esc(r.label)+"</b><small>"+esc(r.series)+"</small></td><td>"+money(r.v2024)+"</td><td>"+money(r.v2025)+"</td><td>"+money(r.v2026)+"</td><td>"+money(r.v2027)+"</td><td><span class='variation up'>+"+total.toLocaleString("pt-BR",{maximumFractionDigits:2})+"%</span></td></tr>"}).join("")+
@@ -838,7 +838,7 @@ function dashTuitionDownloadModal(products,currentView){
       columns=[{key:"segmento",label:"Segmento",width:2.2},{key:"y24",label:"2024",width:1.2,align:"right"},{key:"y25",label:"2025",width:1.2,align:"right"},{key:"y26",label:"2026",width:1.2,align:"right"},{key:"y27",label:"2027",width:1.2,align:"right"},{key:"pct",label:"24→27",width:1}];
       rows=history.map(r=>({segmento:r.label+" • "+r.series,y24:money(r.v2024),y25:money(r.v2025),y26:money(r.v2026),y27:money(r.v2027),pct:dashPct(r.v2024,r.v2027).toLocaleString("pt-BR",{maximumFractionDigits:2})+"%"}));
     }
-    await gfDownloadReport({format:fmt,title,subtitle,filename:gfReportFile("anuidades",[scope]),orientation:"landscape",meta:gfReportMeta([{label:"Fonte",value:scope==="history"?"Guias oficiais 2024–2026 + Gestão Futuro 2027":"Catálogo oficial Gestão Futuro"}]),columns,rows},$("#generateTuitionDownload"));
+    await gfDownloadReport({format:fmt,title,subtitle,filename:gfReportFile("anuidades",[scope]),orientation:"landscape",meta:gfReportMeta([{label:"Fonte",value:scope==="history"?"Guias oficiais 2024–2025 + Gestão Futuro 2026–2027":"Catálogo oficial Gestão Futuro"}]),columns,rows},$("#generateTuitionDownload"));
   };
 }
 function dashMountTuitionDashboard(products){
