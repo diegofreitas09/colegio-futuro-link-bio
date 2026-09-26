@@ -568,3 +568,43 @@ body.home-active .shell{filter:blur(2px) saturate(.8);pointer-events:none;user-s
   .stage-flow{scroll-snap-type:x proximity}
   .stage-flow button{min-width:86px;scroll-snap-align:start}
 }
+
+
+/* Tabela de anuidades e panorama histórico da Gestão */
+.tuition-dashboard{padding:0;overflow:hidden;margin-top:16px;border:1px solid #d7e1ee}
+.tuition-dashboard-head{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:18px 20px;background:linear-gradient(135deg,#123b76,#174f95);color:#fff}
+.tuition-dashboard-head small{display:block;font-size:10px;font-weight:900;letter-spacing:.12em;color:#bcd8f8}
+.tuition-dashboard-head h2{margin:3px 0 4px;font-size:23px;color:#fff}.tuition-dashboard-head p{margin:0;color:#dceafd;font-size:11px}
+.tuition-dashboard-head .btn{white-space:nowrap;background:#fff;color:#123b76;border-color:#fff}
+.tuition-tabs{display:flex;gap:8px;padding:12px 16px;background:#f6f9fd;border-bottom:1px solid #dbe4ef;overflow:auto}
+.tuition-tabs button{appearance:none;border:1px solid #cad8e9;background:#fff;color:#35516f;border-radius:999px;padding:8px 18px;font-weight:900;cursor:pointer;white-space:nowrap}
+.tuition-tabs button.active{background:#123b76;color:#fff;border-color:#123b76;box-shadow:0 4px 12px rgba(18,59,118,.18)}
+#tuitionDashboardBody{padding:16px}
+.tuition-year-caption{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:12px}
+.tuition-year-caption>div{display:grid;gap:2px}.tuition-year-caption b{font-size:18px;color:#123b76}.tuition-year-caption span{font-size:10px;color:var(--muted)}
+.tuition-source{background:#eef4fc;padding:5px 9px;border-radius:999px;font-weight:800}
+.tuition-segment{margin-bottom:13px;border:1px solid #cfd9e7;border-radius:12px;overflow:hidden;background:#fff}
+.tuition-segment-title{background:#ffea27;color:#17253b;text-align:center;font-size:14px;font-weight:950;text-transform:uppercase;padding:6px 10px;border-bottom:1px solid #b8a90a}
+.tuition-segment-title small{font-size:9px;font-weight:800;opacity:.72;margin-left:7px;text-transform:none}
+.tuition-table-wrap{overflow:auto;-webkit-overflow-scrolling:touch}
+.tuition-table{width:100%;border-collapse:collapse;min-width:720px;font-size:11px}
+.tuition-table th{background:#fff026;color:#1d2d45;border:1px solid #9ea6a8;padding:7px 9px;text-align:center;font-size:10px;font-weight:950}
+.tuition-table th small{font-size:9px}.tuition-table td{border:1px solid #aeb9c4;padding:8px 10px;text-align:center;color:#253a55;background:#fff}
+.tuition-table td:first-child{font-weight:850;text-align:left;min-width:150px}.tuition-table tr.after td{background:#cfe9fb}
+.tuition-table td:not(:first-child){font-weight:800}.tuition-first{min-width:150px}.tuition-first span{display:block;white-space:nowrap;font-size:9px}.tuition-first span+span{margin-top:3px}.tuition-first b{color:#123b76}
+.tuition-legend{font-size:10px;color:#5d6b7b;background:#f5f8fc;border-radius:10px;padding:9px 11px;margin-top:6px}.tuition-legend b{color:#123b76}
+.tuition-compare td:first-child,.tuition-history-table td:first-child{display:grid;gap:2px}.tuition-compare td:first-child small,.tuition-history-table td:first-child small{font-size:9px;color:var(--muted);font-weight:500}
+.tuition-compare td i{font-style:normal;color:#7f8a98;padding:0 3px}
+.tuition-history{margin-top:16px;overflow:hidden}.tuition-history .section-head{padding-bottom:10px}
+.tuition-history-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:4px 0 14px}
+.tuition-history-kpis>div{background:#f3f7fc;border:1px solid #dbe5f0;border-radius:12px;padding:11px;display:grid;gap:3px}
+.tuition-history-kpis small{font-size:9px;font-weight:900;color:#66788d}.tuition-history-kpis b{font-size:20px;color:#123b76}.tuition-history-kpis span{font-size:9px;color:var(--muted)}
+.tuition-history-kpis .cumulative{background:#fff8dc;border-color:#ead17d}.tuition-history-kpis .cumulative b{color:#795900}
+.tuition-history-table td:nth-child(n+2){white-space:nowrap}.tuition-insight{margin-top:12px;background:linear-gradient(90deg,#eef5ff,#f8fbff);border-left:4px solid #1e63d8;border-radius:9px;padding:10px 12px;display:grid;gap:4px}
+.tuition-insight b{color:#123b76;font-size:11px}.tuition-insight span{color:#5c6d80;font-size:10px;line-height:1.45}
+@media(max-width:760px){
+  .tuition-dashboard-head{align-items:flex-start;flex-direction:column}.tuition-dashboard-head .btn{width:100%}
+  .tuition-history-kpis{grid-template-columns:1fr 1fr}
+  #tuitionDashboardBody{padding:11px}.tuition-year-caption{align-items:flex-start;flex-direction:column}
+  .tuition-segment-title{text-align:left}.tuition-segment-title small{display:block;margin:2px 0 0}
+}
