@@ -70,6 +70,13 @@ function pwaWithLock_(fn){var lock=LockService.getScriptLock();lock.waitLock(300
 function pwaUser_(fallback){return Session.getActiveUser().getEmail()||fallback||"PWA"}
 function pwaNum_(v){var n=Number(String(v==null?"":v).replace(",","."));return Number.isFinite(n)?n:0}
 function gfRoundMoneyPwa_(v){return Math.round((Number(v||0)+Number.EPSILON)*100)/100}
+function pwaMoneyChecked_(v,label){
+  if(v===null||v===undefined||v==="")return 0;
+  var s=String(v).trim().replace(/\s/g,"");
+  if(s.indexOf(",")>=0){if(s.indexOf(".")>=0)s=s.replace(/\./g,"");s=s.replace(",",".")}
+  var n=Number(s);if(!Number.isFinite(n)||n<0)throw new Error((label||"Valor")+" inválido.");
+  return gfRoundMoneyPwa_(n);
+}
 function pwaSlug_(v){return String(v||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase().replace(/[^A-Z0-9]+/g,"-").replace(/^-+|-+$/g,"")}
 function pwaNorm_(v){return String(v||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase()}
 function pwaMode_(mode){return String(mode||"PRODUCAO").toUpperCase()==="TESTE"?"TESTE":"PRODUCAO"}
@@ -425,9 +432,9 @@ function solicitarDescontoPwa_(token,d,modo,sessao){
   if(!d.ID_ATENDIMENTO||!d.ID_PRODUTO)throw new Error("Atendimento e produto são obrigatórios.");
   return pwaWithLock_(function(){
     var at=findById_(GF_TABS.ATENDIMENTOS,"ID_ATENDIMENTO",d.ID_ATENDIMENTO);if(!at)throw new Error("Atendimento não encontrado.");pwaAssertRowMode_(at,modo,"Atendimento");
-    var prod=findById_(S.PRODUTOS,"ID_PRODUTO",d.ID_PRODUTO),id=nextId_("SOL-",GF_TABS.SOLICITACOES,"ID_SOLICITACAO"),now=new Date();
+    var prod=findById_(S.PRODUTOS,"ID_PRODUTO",d.ID_PRODUTO);if(!prod)throw new Error("Produto não encontrado.");var official=pwaMoneyChecked_(prod.VALOR_BASE,"Valor oficial"),requested=pwaMoneyChecked_(d.VALOR_SOLICITADO,"Valor solicitado");if(requested>official)throw new Error("Valor solicitado acima do valor oficial.");var id=nextId_("SOL-",GF_TABS.SOLICITACOES,"ID_SOLICITACAO"),now=new Date();
     append_(GF_TABS.SOLICITACOES,{
-      ID_SOLICITACAO:id,ID_ATENDIMENTO:d.ID_ATENDIMENTO,ID_ALUNO:at.ID_ALUNO||"",ID_PRODUTO:d.ID_PRODUTO,ANO_LETIVO:Number(d.ANO_LETIVO||at.ANO_LETIVO),SERIE:d.SERIE||at.SERIE_PRETENDIDA||"",VALOR_TABELA:pwaNum_(d.VALOR_TABELA), "DESCONTO_SOLICITADO_%":pwaNum_(d.DESCONTO_SOLICITADO),VALOR_SOLICITADO:pwaNum_(d.VALOR_SOLICITADO),MOTIVO:d.MOTIVO||"",STATUS:"Aguardando",VALOR_AUTORIZADO:"",OBSERVACAO_GESTAO:"",SOLICITADO_POR:pwaUser_("Atendimento"),SOLICITADO_EM:now,DECIDIDO_POR:"",DECIDIDO_EM:"",ALERTA_ENVIADO:"Não",CONCLUIDO_EM:"",OBSERVACAO_FINAL:"",MODO_REGISTRO:pwaMode_(modo),SESSAO_TESTE:pwaMode_(modo)==="TESTE"?String(sessao||""):""
+      ID_SOLICITACAO:id,ID_ATENDIMENTO:d.ID_ATENDIMENTO,ID_ALUNO:at.ID_ALUNO||"",ID_PRODUTO:d.ID_PRODUTO,ANO_LETIVO:Number(d.ANO_LETIVO||at.ANO_LETIVO),SERIE:d.SERIE||at.SERIE_PRETENDIDA||"",VALOR_TABELA:official, "DESCONTO_SOLICITADO_%":official?gfRoundMoneyPwa_(((official-requested)/official)*100):0,VALOR_SOLICITADO:requested,MOTIVO:d.MOTIVO||"",STATUS:"Aguardando",VALOR_AUTORIZADO:"",OBSERVACAO_GESTAO:"",SOLICITADO_POR:pwaUser_("Atendimento"),SOLICITADO_EM:now,DECIDIDO_POR:"",DECIDIDO_EM:"",ALERTA_ENVIADO:"Não",CONCLUIDO_EM:"",OBSERVACAO_FINAL:"",MODO_REGISTRO:pwaMode_(modo),SESSAO_TESTE:pwaMode_(modo)==="TESTE"?String(sessao||""):""
     });
     updateById_(GF_TABS.ATENDIMENTOS,"ID_ATENDIMENTO",d.ID_ATENDIMENTO,{PEDIDO_DESCONTO_PENDENTE:"Sim",ATUALIZADO_EM:now});
     audit_("Atendimento","SOLICITAR_DESCONTO","Solicitação",id,"",JSON.stringify(d));SpreadsheetApp.flush();return {ok:true,id:id,produto:prod&&prod.PRODUTO||""};
@@ -441,11 +448,11 @@ function decidirSolicitacaoDescontoPwa_(token,id,status,valor,obs,modo){
   pwaAdmin_(token);if(["Autorizado","Negado"].indexOf(status)<0)throw new Error("Decisão inválida.");
   return pwaWithLock_(function(){
     var r=findById_(GF_TABS.SOLICITACOES,"ID_SOLICITACAO",id);if(!r)throw new Error("Solicitação não encontrada.");pwaAssertRowMode_(r,modo,"Solicitação");
-    var now=new Date(),patch={STATUS:status,VALOR_AUTORIZADO:status==="Autorizado"?pwaNum_(valor):"",OBSERVACAO_GESTAO:obs||"",DECIDIDO_POR:pwaUser_("Gestão"),DECIDIDO_EM:now};
+    var table=pwaMoneyChecked_(r.VALOR_TABELA,"Valor de tabela"),aut=status==="Autorizado"?pwaMoneyChecked_(valor,"Valor autorizado"):0;if(status==="Autorizado"&&aut>table)throw new Error("Valor autorizado acima do valor de tabela.");var now=new Date(),patch={STATUS:status,VALOR_AUTORIZADO:status==="Autorizado"?aut:"",OBSERVACAO_GESTAO:obs||"",DECIDIDO_POR:pwaUser_("Gestão"),DECIDIDO_EM:now};
     updateById_(GF_TABS.SOLICITACOES,"ID_SOLICITACAO",id,patch);
     if(status==="Autorizado"){
       var item=pwaFilterMode_(rows_(GF_TABS.ITENS_ATENDIMENTO),modo).find(function(x){return x.ID_ATENDIMENTO===r.ID_ATENDIMENTO&&x.ID_PRODUTO===r.ID_PRODUTO&&x.SELECIONADO==="Sim"});
-      if(item){var table=pwaNum_(r.VALOR_TABELA),aut=pwaNum_(valor),desc=table?((table-aut)/table)*100:0;updateById_(GF_TABS.ITENS_ATENDIMENTO,"ID_ITEM_ATENDIMENTO",item.ID_ITEM_ATENDIMENTO,{"DESCONTO_%":desc,VALOR_APRESENTADO:aut,ATUALIZADO_EM:now})}
+      if(item){var desc=table?((table-aut)/table)*100:0;updateById_(GF_TABS.ITENS_ATENDIMENTO,"ID_ITEM_ATENDIMENTO",item.ID_ITEM_ATENDIMENTO,{"DESCONTO_%":desc,VALOR_APRESENTADO:aut,ATUALIZADO_EM:now})}
     }
     var pend=pwaFilterMode_(rows_(GF_TABS.SOLICITACOES),modo).filter(function(x){return x.ID_ATENDIMENTO===r.ID_ATENDIMENTO&&x.ID_SOLICITACAO!==id&&x.STATUS==="Aguardando"});
     updateById_(GF_TABS.ATENDIMENTOS,"ID_ATENDIMENTO",r.ID_ATENDIMENTO,{PEDIDO_DESCONTO_PENDENTE:pend.length?"Sim":"Não",ATUALIZADO_EM:now});
