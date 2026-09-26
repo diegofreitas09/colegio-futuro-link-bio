@@ -76,7 +76,8 @@ function openStudentForm(a={}){
   $("#saveStudent").onclick=async()=>{
     const f=$("#studentForm"); if(!f.reportValidity()) return;
     syncNext();
-    const data=Object.fromEntries(new FormData(f).entries()); if(a.ID_ALUNO)data.ID_ALUNO=a.ID_ALUNO;
+    const data=Object.fromEntries(new FormData(f).entries());
+    data.CLIENT_REQUEST_ID=data.CLIENT_REQUEST_ID||("MAT-"+Date.now()+"-"+Math.random().toString(36).slice(2)); if(a.ID_ALUNO)data.ID_ALUNO=a.ID_ALUNO;
     const btn=$("#saveStudent");btn.disabled=true;btn.textContent="Salvando…";
     try{await api("salvarAluno",{token:tokenFor("staff"),data});state.bootstrap=null;closeModal();setNotice("Aluno salvo com sucesso.","ok");await renderAlunos();}catch(e){alert(e.message);btn.disabled=false;btn.textContent="Salvar aluno";}
   };
