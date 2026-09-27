@@ -193,3 +193,42 @@ test('secretaria matricula uses the published catalog for year and series',()=>{
   assert.equal(x.w.document.querySelector('[data-mat-service]').dataset.matService,'MAT-6-2027');
  }finally{x.dom.window.close()}
 });
+
+
+test('panfleto always prefers fresh published management catalog values',async()=>{
+ const x=setup();try{
+  const fresh=[
+   {ID_PRODUTO:'ANU-INF-2027',ANO_LETIVO:2027,ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Sim',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Anuidade',PRODUTO:'Anuidade 2027 - Educação Infantil','SEGMENTO_SÉRIE':'Infantil 2 ao 5',VALOR_BASE:6270.40,QTD_PARCELAS:1,ORDEM_EXIBICAO:1},
+   {ID_PRODUTO:'MEN-INF-12-2027',ANO_LETIVO:2027,ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Sim',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Plano 12 parcelas',PRODUTO:'Mensalidade regular - Infantil','SEGMENTO_SÉRIE':'Infantil 2 ao 5',VALOR_BASE:482.12,VALOR_PARCELA:482.12,QTD_PARCELAS:12,ORDEM_EXIBICAO:2},
+   {ID_PRODUTO:'MAT-INF2-2027',ANO_LETIVO:2027,ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Sim',CATEGORIA:'Material Didático',PRODUTO:'Material Didático - Infantil 2','SEGMENTO_SÉRIE':'Infantil 2',VALOR_BASE:524.34,QTD_PARCELAS:1,ORDEM_EXIBICAO:10},
+   {ID_PRODUTO:'OCULTO-2027',ANO_LETIVO:2027,ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Não',CATEGORIA:'Serviço',PRODUTO:'Produto oculto','SEGMENTO_SÉRIE':'Infantil 2',VALOR_BASE:999,QTD_PARCELAS:1,ORDEM_EXIBICAO:0}
+  ];
+  x.w.fetch=async(url,opts)=>{
+   const b=JSON.parse(opts.body);
+   if(b.action==='listarProdutosPublicos')return Response.json({ok:true,data:fresh});
+   if(b.action==='getPanfletoSerie')return Response.json({ok:true,data:{config:{TITULO:'Infantil 2'},produtos:[{...fresh[0],VALOR_BASE:9999}]}});
+   if(b.action==='bootstrapSecretaria')return Response.json({ok:true,data:{alunos:[],responsaveis:[],produtos:fresh}});
+   return Response.json({ok:true,data:[]});
+  };
+  x.run('state.view="panfletos";state.navSeq=77;state.staffToken="fixture";state.flyerYear=2027;state.flyerSeries="Infantil 2"');
+  await x.run('renderPanfletos()');
+  const textContent=x.w.document.querySelector('#flyerArea').textContent;
+  assert.match(textContent,/R\$\s*6\.270,40/);
+  assert.match(textContent,/R\$\s*524,34/);
+  assert.doesNotMatch(textContent,/9\.999/);
+  assert.doesNotMatch(textContent,/Produto oculto/);
+  assert.match(x.w.document.querySelector('#flyerCatalogSync').textContent,/sincronizada/i);
+ }finally{x.dom.window.close()}
+});
+
+test('official catalog orders published products using management display order',()=>{
+ const x=setup();try{
+  x.w.__ps=[
+   {ID_PRODUTO:'B',ANO_LETIVO:2027,ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Sim',CATEGORIA:'Serviço',PRODUTO:'Segundo','SEGMENTO_SÉRIE':'Todos',ORDEM_EXIBICAO:20},
+   {ID_PRODUTO:'A',ANO_LETIVO:2027,ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Sim',CATEGORIA:'Serviço',PRODUTO:'Primeiro','SEGMENTO_SÉRIE':'Todos',ORDEM_EXIBICAO:10},
+   {ID_PRODUTO:'X',ANO_LETIVO:2027,ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Não',CATEGORIA:'Serviço',PRODUTO:'Oculto','SEGMENTO_SÉRIE':'Todos',ORDEM_EXIBICAO:1}
+  ];
+  const ids=x.run('gfCatalog(window.__ps,2027,"6º Ano").map(p=>p.ID_PRODUTO)');
+  assert.deepEqual(ids,['A','B']);
+ }finally{x.dom.window.close()}
+});
