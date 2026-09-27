@@ -104,7 +104,7 @@ async function renderMatriculas(){
   $("#matReport").onclick=()=>openMatriculaReport(mats,alunos); $("#newMat").onclick=()=>openMatForm(b);
 }
 function openMatForm(b){
-  const alunos=b.alunos||[], resp=b.responsaveis||[], prods=(b.produtos||[]).filter(p=>p.ATIVO==="Sim"&&String(p.PUBLICADO_ATENDIMENTO||"Sim")!=="Não");
+  const alunos=b.alunos||[], resp=b.responsaveis||[], prods=(b.produtos||[]).filter(p=>p.ATIVO==="Sim"&&String(p.PUBLICADO_ATENDIMENTO||"").trim().toLowerCase()==="sim");
   const inferYear=p=>Number(p.ANO_LETIVO)||Number((String(p.ID_PRODUTO||"")+" "+String(p.PRODUTO||"")).match(/20\d{2}/)?.[0])||0;
   const years=[...new Set(prods.map(inferYear).filter(Boolean))].sort((a,b)=>b-a);
   const currentYear=years[0]||new Date().getFullYear();
