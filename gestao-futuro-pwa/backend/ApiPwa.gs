@@ -215,7 +215,7 @@ function pwaProductApplies_(p,serie){
   if(s.indexOf("em")>=0)return a.indexOf("medio")>=0||a.indexOf("ensino medio")>=0||a.indexOf(s)>=0;
   return a.indexOf(s)>=0;
 }
-function pwaPublished_(p){var v=pwaNorm_(p.PUBLICADO_ATENDIMENTO);return v!=="nao"&&v!=="não"}
+function pwaPublished_(p){var v=pwaNorm_(p.PUBLICADO_ATENDIMENTO);return v==="sim"}
 function pwaCatalogo_(ano,serie){
   return rows_(S.PRODUTOS).filter(function(p){return p.ATIVO==="Sim"&&Number(p.ANO_LETIVO)===Number(ano)&&pwaPublished_(p)&&pwaProductApplies_(p,serie)});
 }
