@@ -71,7 +71,7 @@ function openSchoolYearForm(years){
     <div class="field"><label>Ano de destino</label><input type="number" name="anoDestino" value="${destino}" min="2026" max="2100" required></div>
     <div class="field"><label>Reajuste (%)</label><input type="number" step="0.01" name="percentual" value="0" required></div>
     <div class="field"><label>Categoria</label><select name="categoria"><option>Todas</option><option>Mensalidade</option><option>Material Didático</option><option>Fardamento</option><option>Adicional</option><option>Serviço</option><option>Taxa</option><option>Outros</option></select></div>
-    <div class="field"><label>Publicar no Atendimento</label><select name="publicar"><option>Sim</option><option>Não</option></select></div>
+    <div class="field"><label>Publicar no Atendimento, Panfleto e Secretaria</label><select name="publicar"><option>Sim</option><option>Não</option></select></div>
     <div class="field span-3"><label>Regra</label><div class="muted">Ex.: 2026 → 2027, 8%. O sistema calcula todos os itens selecionados; depois você pode ajustar qualquer produto individualmente.</div></div>
   </form></div>
   <div class="modal-foot"><button class="btn btn-soft" data-close>Cancelar</button><button class="btn btn-primary" id="createYear">Aplicar reajuste</button></div>`);
@@ -79,7 +79,7 @@ function openSchoolYearForm(years){
   $("#createYear").onclick=async()=>{
     const f=$("#yearForm");if(!f.reportValidity())return;const data=Object.fromEntries(new FormData(f).entries());
     const btn=$("#createYear");btn.disabled=true;btn.textContent="Aplicando…";
-    try{const res=await api("aplicarReajusteCatalogo",{token:state.adminToken,data});state.productYear=Number(data.anoDestino);state.catalogProducts=null;state.bootstrap=null;state.flyerCache={};closeModal();setNotice(`Reajuste aplicado em ${res.quantidade||0} produto(s). O catálogo ${data.anoDestino} está ${data.publicar==="Sim"?"publicado":"em rascunho"} para o Atendimento.`,"ok");await renderProdutos()}catch(e){alert(e.message);btn.disabled=false;btn.textContent="Aplicar reajuste"}
+    try{const res=await api("aplicarReajusteCatalogo",{token:state.adminToken,data});state.productYear=Number(data.anoDestino);clearApiCache();closeModal();setNotice(`Reajuste aplicado em ${res.quantidade||0} produto(s). O catálogo ${data.anoDestino} está ${data.publicar==="Sim"?"publicado":"em rascunho"} para o Atendimento.`,"ok");await renderProdutos()}catch(e){alert(e.message);btn.disabled=false;btn.textContent="Aplicar reajuste"}
   };
 }
 
@@ -94,7 +94,7 @@ function openIndividualAdjustment(list,years){
     <div class="field span-2"><label>Produto / serviço</label><select name="idProduto" id="indProduct" required></select></div>
     <div class="field"><label>Modo</label><select name="modo" id="indMode"><option value="percentual">Percentual (%)</option><option value="valor">Novo valor</option></select></div>
     <div class="field"><label id="indValueLabel">Reajuste (%)</label><input type="number" step="0.01" name="valor" id="indValue" value="0" required></div>
-    <div class="field"><label>Publicar no Atendimento</label><select name="publicar"><option>Sim</option><option>Não</option></select></div>
+    <div class="field"><label>Publicar no Atendimento, Panfleto e Secretaria</label><select name="publicar"><option>Sim</option><option>Não</option></select></div>
     <div class="field span-3"><label>Observação</label><input name="observacao" placeholder="Ex.: reajuste negociado individualmente para 2027"></div>
   </form></div>
   <div class="modal-foot"><button class="btn btn-soft" data-close>Cancelar</button><button class="btn btn-primary" id="applyIndividual">Aplicar reajuste individual</button></div>`);
@@ -106,7 +106,7 @@ function openIndividualAdjustment(list,years){
     const data=Object.fromEntries(new FormData(f).entries()),btn=$("#applyIndividual");btn.disabled=true;btn.textContent="Aplicando…";
     try{
       const res=await api("aplicarReajusteIndividual",{token:state.adminToken,data});
-      state.productYear=Number(data.anoDestino);state.catalogProducts=null;state.bootstrap=null;closeModal();
+      state.productYear=Number(data.anoDestino);clearApiCache();closeModal();
       setNotice(`Reajuste individual aplicado em ${esc(res.produto||data.idProduto)}. O item já fica disponível no catálogo ${data.anoDestino} conforme a publicação escolhida.`,"ok");
       await renderProdutos();
     }catch(e){alert(e.message);btn.disabled=false;btn.textContent="Aplicar reajuste individual"}
@@ -134,7 +134,7 @@ function openNewProductService(){
     <div class="field"><label>Valor da parcela</label><input type="number" step="0.01" name="VALOR_PARCELA" value="0"></div>
     <div class="field"><label>Vencimento padrão</label><input name="VENCIMENTO_PADRÃO" placeholder="Ex.: Dia 5 / Na compra"></div>
     <div class="field"><label>Disponível na matrícula</label><select name="DISPONIVEL_MATRICULA"><option>Sim</option><option>Não</option></select></div>
-    <div class="field"><label>Publicado no atendimento/panfleto</label><select name="PUBLICADO_ATENDIMENTO"><option>Sim</option><option>Não</option></select></div>
+    <div class="field"><label>Publicado no Atendimento, Panfleto e Secretaria</label><select name="PUBLICADO_ATENDIMENTO"><option>Sim</option><option>Não</option></select></div>
     <div class="field"><label>Ativo</label><select name="ATIVO"><option>Sim</option><option>Não</option></select></div>
     <div class="field"><label>Ordem de exibição</label><input type="number" name="ORDEM_EXIBICAO" value="100"></div>
   </form></div>
@@ -144,7 +144,7 @@ function openNewProductService(){
     const f=$("#newServiceForm");if(!f.reportValidity())return;const data=Object.fromEntries(new FormData(f).entries()),btn=$("#saveNewService");btn.disabled=true;btn.textContent="Integrando…";
     try{
       const res=await api("criarProdutoServico",{token:state.adminToken,data});
-      state.productYear=Number(data.ANO_LETIVO);state.catalogProducts=null;state.bootstrap=null;state.flyerCache={};closeModal();
+      state.productYear=Number(data.ANO_LETIVO);clearApiCache();closeModal();
       setNotice(`${esc(data.PRODUTO)} cadastrado com ID ${esc(res.id)} e integrado ao catálogo oficial.`,"ok");
       await renderProdutos();
     }catch(e){alert(e.message);btn.disabled=false;btn.textContent="Cadastrar e integrar"}
@@ -169,7 +169,7 @@ function openProductForm(p){
     <div class="field"><label>Qtd parcelas</label><input type="number" name="QTD_PARCELAS" value="${esc(p.QTD_PARCELAS||1)}"></div>
     <div class="field"><label>Vencimento padrão</label><input name="VENCIMENTO_PADRÃO" value="${esc(p.VENCIMENTO_PADRÃO||"")}"></div>
     <div class="field"><label>Disponível na matrícula</label><select name="DISPONIVEL_MATRICULA"><option ${p.DISPONIVEL_MATRICULA!=="Não"?"selected":""}>Sim</option><option ${p.DISPONIVEL_MATRICULA==="Não"?"selected":""}>Não</option></select></div>
-    <div class="field"><label>Publicado no Atendimento/Panfleto</label><select name="PUBLICADO_ATENDIMENTO"><option ${p.PUBLICADO_ATENDIMENTO!=="Não"?"selected":""}>Sim</option><option ${p.PUBLICADO_ATENDIMENTO==="Não"?"selected":""}>Não</option></select></div>
+    <div class="field"><label>Publicado no Atendimento, Panfleto e Secretaria</label><select name="PUBLICADO_ATENDIMENTO"><option ${p.PUBLICADO_ATENDIMENTO!=="Não"?"selected":""}>Sim</option><option ${p.PUBLICADO_ATENDIMENTO==="Não"?"selected":""}>Não</option></select></div>
     <div class="field"><label>Ativo</label><select name="ATIVO"><option ${p.ATIVO==="Sim"?"selected":""}>Sim</option><option ${p.ATIVO==="Não"?"selected":""}>Não</option></select></div>
     <div class="field"><label>Ordem de exibição</label><input type="number" name="ORDEM_EXIBICAO" value="${esc(p.ORDEM_EXIBICAO||100)}"></div>
   </form></div><div class="modal-foot"><button class="btn btn-soft" data-close>Cancelar</button><button class="btn btn-primary" id="saveProd">Salvar e sincronizar</button></div>`);
@@ -179,7 +179,7 @@ function openProductForm(p){
     try{
       await api("atualizarProduto",{token:state.adminToken,id:p.ID_PRODUTO,data});
       state.productYear=Number(data.ANO_LETIVO)||state.productYear;
-      state.catalogProducts=null;state.bootstrap=null;state.flyerCache={};
+      clearApiCache();
       closeModal();setNotice("Produto/serviço atualizado e sincronizado com Atendimento, Panfletos e Matrícula.","ok");renderProdutos();
     }catch(e){alert(e.message)}
   };
