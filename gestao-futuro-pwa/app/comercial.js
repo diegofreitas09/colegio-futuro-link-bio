@@ -34,7 +34,7 @@ function gfApplies(p,serie){
   if(s.includes("em"))return a.includes("medio")||a.includes("ensino medio")||a.includes(s);
   return a.includes(s)
 }
-function gfCatalog(ps,y,s){return (ps||[]).filter(function(p){var pub=gfNorm(p.PUBLICADO_ATENDIMENTO);return p.ATIVO==="Sim"&&gfYear(p)===Number(y)&&pub==="sim"&&gfApplies(p,s)})}
+function gfCatalog(ps,y,s){return (ps||[]).filter(function(p){var pub=gfNorm(p.PUBLICADO_ATENDIMENTO);return p.ATIVO==="Sim"&&gfYear(p)===Number(y)&&pub==="sim"&&gfApplies(p,s)}).sort(function(a,b){var oa=Number(a.ORDEM_EXIBICAO||100),ob=Number(b.ORDEM_EXIBICAO||100);return oa-ob||String(a.CATEGORIA||"").localeCompare(String(b.CATEGORIA||""),"pt-BR")||String(a.PRODUTO||"").localeCompare(String(b.PRODUTO||""),"pt-BR",{numeric:true})})}
 function gfGroups(list){var m={};list.forEach(function(p){var k=p.CATEGORIA||"Outros";(m[k]||(m[k]=[])).push(p)});return m}
 function gfRound2(v){return Math.round((Number(v||0)+Number.EPSILON)*100)/100}
 function gfAnnualProduct(list){return (list||[]).find(function(p){return p.CATEGORIA==="Mensalidade"&&(gfNorm(p.SUBCATEGORIA).includes("anuidade")||gfNorm(p.PRODUTO).includes("anuidade")||Number(p.QTD_PARCELAS)===1)})||null}
@@ -459,7 +459,7 @@ function gfOpenDeleteAttendance(row){
   setTimeout(function(){pass?.focus()},50);
 }
 async function renderAtendimento(){
-  var loaded=await Promise.all([loadBootstrap(),loadCatalogProducts()]),b=loaded[0],products=loaded[1]||[],students=b.alunos||[],at=[];
+  var loaded=await Promise.all([loadBootstrap(),loadCatalogProducts(true)]),b=loaded[0],products=loaded[1]||[],students=b.alunos||[],at=[];
   try{at=await api("listarAtendimentos",{token:tokenFor("staff")})||[]}catch(e){}
   var resume=state.resumeAttendance||null;
   var years=[...new Set(products.map(gfYear).filter(Boolean))].sort(function(a,b){return b-a}),year=Number(resume?.ANO_LETIVO||state.attendanceYear||years[0]||2027);
@@ -838,14 +838,16 @@ async function renderPanfletos(){
   var defaultYear=Number(state.flyerYear||2027),serie=state.flyerSeries||"Infantil 2";
   const view=$("#view");
   if(!view)return;
-  view.innerHTML="<div class='section-head'><div><h2>Panfleto por série</h2><span class='muted'>Modelo vertical A4 • uma página • pronto para família.</span></div><div class='toolbar'><select id='flyerYear' class='search'><option>"+defaultYear+"</option><option>"+(defaultYear-1)+"</option></select><select id='flyerSerie' class='search'>"+gfOptions(serie)+"</select><button class='btn btn-primary' id='generateFlyer'>Atualizar</button></div></div><div id='flyerArea'><div class='card flyer-loading'><b>Carregando panfleto…</b><span class='muted'>Abrindo a visualização imediatamente e atualizando os dados em segundo plano.</span></div></div>";
+  view.innerHTML="<div class='section-head'><div><h2>Panfleto por série</h2><span class='muted'>Valores, mensalidades, material, fardamento e adicionais publicados vêm automaticamente da Gestão.</span></div><div class='toolbar'><span class='catalog-sync-badge' id='flyerCatalogSync'>Sincronizando Gestão…</span><select id='flyerYear' class='search'><option>"+defaultYear+"</option><option>"+(defaultYear-1)+"</option></select><select id='flyerSerie' class='search'>"+gfOptions(serie)+"</select><button class='btn btn-primary' id='generateFlyer'>Atualizar dados</button></div></div><div id='flyerArea'><div class='card flyer-loading'><b>Carregando panfleto…</b><span class='muted'>Consultando o catálogo oficial publicado pela Gestão.</span></div></div>";
 
   var products=[];
   try{
-    products=state.catalogProducts||[];
-    if(!products.length)products=await loadCatalogProducts();
+    products=await loadCatalogProducts(true);
+    var syncBadge=$("#flyerCatalogSync");if(syncBadge){syncBadge.textContent="Gestão sincronizada ✓";syncBadge.classList.add("ok")}
   }catch(e){
-    try{var b=await loadBootstrap();products=b.produtos||[]}catch(_e){}
+    products=state.catalogProducts||[];
+    if(!products.length){try{var b=await loadBootstrap();products=b.produtos||[]}catch(_e){}}
+    var syncBadge=$("#flyerCatalogSync");if(syncBadge){syncBadge.textContent="Usando última tabela disponível";syncBadge.classList.add("warn")}
   }
   if(!activePage())return;
 
@@ -869,18 +871,30 @@ async function renderPanfletos(){
     gfBindFlyerActions(y,s,cfg,localList);
 
     try{
-      var d=await api("getPanfletoSerie",{token:tokenFor("staff"),ano:y,serie:s});
-      state.flyerCache=state.flyerCache||{};state.flyerCache[cacheKey]=d;
+      var results=await Promise.allSettled([
+        loadCatalogProducts(true),
+        api("getPanfletoSerie",{token:tokenFor("staff"),ano:y,serie:s})
+      ]);
       if(!activePage()||myRequest!==requestSeq)return;
 
-      cfg=d.config||{};
-      var list=gfCatalog(d.produtos||localList,y,s),currentArea=$("#flyerArea");
+      if(results[0].status==="fulfilled"){
+        products=results[0].value||[];
+        var syncBadge=$("#flyerCatalogSync");if(syncBadge){syncBadge.textContent="Gestão sincronizada ✓";syncBadge.className="catalog-sync-badge ok"}
+      }else{
+        var syncBadge=$("#flyerCatalogSync");if(syncBadge){syncBadge.textContent="Última tabela disponível";syncBadge.className="catalog-sync-badge warn"}
+      }
+
+      var d=results[1].status==="fulfilled"?(results[1].value||{}):{};
+      if(results[1].status==="fulfilled"){state.flyerCache=state.flyerCache||{};state.flyerCache[cacheKey]=d}
+      cfg=d.config||cfg||{};
+      var list=gfCatalog(products.length?products:localList,y,s),currentArea=$("#flyerArea");
       if(!currentArea)return;
       currentArea.innerHTML=gfFlyerMarkup(y,s,cfg,list)+"<div class='flyer-actions'><button class='btn btn-primary' id='printFlyer'>Imprimir / Salvar PDF</button>"+(state.adminToken?"<button class='btn btn-gold' id='editFlyer'>Editar conteúdo e adicionais</button>":"")+"</div>";
       gfBindFlyerActions(y,s,cfg,list);
+      if(results[1].status==="rejected")setNotice("Valores sincronizados com a Gestão; a personalização do panfleto está usando a última versão disponível.","error");
     }catch(e){
       if(!activePage()||myRequest!==requestSeq)return;
-      setNotice("Panfleto exibido com os dados locais. A personalização não pôde ser atualizada agora.","error");
+      setNotice("Panfleto exibido com a última tabela disponível. Não foi possível atualizar agora.","error");
     }
   }
 
