@@ -139,7 +139,7 @@ function openMatForm(b){
     refreshServiceTotal();
   };
   const refreshServiceTotal=()=>{
-    const ids=$("[data-mat-service]:checked").map(x=>x.dataset.matService);
+    const ids=$$("[data-mat-service]:checked").map(x=>x.dataset.matService);
     const total=prods.filter(p=>ids.includes(String(p.ID_PRODUTO))).reduce((s,p)=>s+Number(p.VALOR_BASE||0),0);
     $("#matServicesTotal").textContent=money(total);
     return {ids,total};
