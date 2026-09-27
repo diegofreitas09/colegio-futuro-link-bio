@@ -34,7 +34,7 @@ function gfApplies(p,serie){
   if(s.includes("em"))return a.includes("medio")||a.includes("ensino medio")||a.includes(s);
   return a.includes(s)
 }
-function gfCatalog(ps,y,s){return (ps||[]).filter(function(p){var pub=gfNorm(p.PUBLICADO_ATENDIMENTO);return p.ATIVO==="Sim"&&gfYear(p)===Number(y)&&pub!=="nao"&&pub!=="não"&&gfApplies(p,s)})}
+function gfCatalog(ps,y,s){return (ps||[]).filter(function(p){var pub=gfNorm(p.PUBLICADO_ATENDIMENTO);return p.ATIVO==="Sim"&&gfYear(p)===Number(y)&&pub==="sim"&&gfApplies(p,s)})}
 function gfGroups(list){var m={};list.forEach(function(p){var k=p.CATEGORIA||"Outros";(m[k]||(m[k]=[])).push(p)});return m}
 function gfRound2(v){return Math.round((Number(v||0)+Number.EPSILON)*100)/100}
 function gfAnnualProduct(list){return (list||[]).find(function(p){return p.CATEGORIA==="Mensalidade"&&(gfNorm(p.SUBCATEGORIA).includes("anuidade")||gfNorm(p.PRODUTO).includes("anuidade")||Number(p.QTD_PARCELAS)===1)})||null}
