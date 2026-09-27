@@ -148,3 +148,48 @@ test('dashboard prefers explicit official installment values when catalog has th
   assert.equal(r.plan11Post,513.87);
  }finally{x.dom.window.close()}
 });
+
+
+test('2027 audited values follow 8 percent annual and first-payment rule',()=>{
+ const x=setup();try{
+  x.w.__products=[
+   {ID_PRODUTO:'ANU-INF-2027',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Anuidade',PRODUTO:'Anuidade 2027 - Educação Infantil','SEGMENTO_SÉRIE':'Infantil 2 ao 5',VALOR_BASE:6270.40,'VALOR_PÓS_VENCIMENTO':6600.50,ANO_LETIVO:2027,ATIVO:'Sim'},
+   {ID_PRODUTO:'MEN-INF-12-2027',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Plano 12 parcelas',PRODUTO:'Mensalidade regular - Infantil','SEGMENTO_SÉRIE':'Infantil 2 ao 5',VALOR_BASE:482.12,VALOR_PARCELA:482.12,'VALOR_PÓS_VENCIMENTO':509.63,QTD_PARCELAS:12,ANO_LETIVO:2027,ATIVO:'Sim'},
+   {ID_PRODUTO:'MEN-INF-11-2027',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Plano 11 parcelas',PRODUTO:'Mensalidade regular - Infantil','SEGMENTO_SÉRIE':'Infantil 2 ao 5',VALOR_BASE:525.95,VALOR_PARCELA:525.95,'VALOR_PÓS_VENCIMENTO':555.96,QTD_PARCELAS:11,ANO_LETIVO:2027,ATIVO:'Sim'},
+   {ID_PRODUTO:'ANU-AI-2027',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Anuidade',PRODUTO:'Anuidade 2027 - Anos Iniciais','SEGMENTO_SÉRIE':'1º ao 5º Ano',VALOR_BASE:6433.59,'VALOR_PÓS_VENCIMENTO':6772.20,ANO_LETIVO:2027,ATIVO:'Sim'},
+   {ID_PRODUTO:'MEN-AI-12-2027',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Plano 12 parcelas',PRODUTO:'Mensalidade regular - Anos Iniciais','SEGMENTO_SÉRIE':'1º ao 5º Ano',VALOR_BASE:494.82,VALOR_PARCELA:494.82,'VALOR_PÓS_VENCIMENTO':523.04,QTD_PARCELAS:12,ANO_LETIVO:2027,ATIVO:'Sim'},
+   {ID_PRODUTO:'MEN-AI-11-2027',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Plano 11 parcelas',PRODUTO:'Mensalidade regular - Anos Iniciais','SEGMENTO_SÉRIE':'1º ao 5º Ano',VALOR_BASE:539.81,VALOR_PARCELA:539.81,'VALOR_PÓS_VENCIMENTO':570.59,QTD_PARCELAS:11,ANO_LETIVO:2027,ATIVO:'Sim'},
+   {ID_PRODUTO:'ANU-AF-2027',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Anuidade',PRODUTO:'Anuidade 2027 - Anos Finais','SEGMENTO_SÉRIE':'6º ao 9º Ano',VALOR_BASE:6596.87,'VALOR_PÓS_VENCIMENTO':6943.88,ANO_LETIVO:2027,ATIVO:'Sim'},
+   {ID_PRODUTO:'MEN-AF-12-2027',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Plano 12 parcelas',PRODUTO:'Mensalidade regular - Anos Finais','SEGMENTO_SÉRIE':'6º ao 9º Ano',VALOR_BASE:507.53,VALOR_PARCELA:507.53,'VALOR_PÓS_VENCIMENTO':536.45,QTD_PARCELAS:12,ANO_LETIVO:2027,ATIVO:'Sim'},
+   {ID_PRODUTO:'MEN-AF-11-2027',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Plano 11 parcelas',PRODUTO:'Mensalidade regular - Anos Finais','SEGMENTO_SÉRIE':'6º ao 9º Ano',VALOR_BASE:553.67,VALOR_PARCELA:553.67,'VALOR_PÓS_VENCIMENTO':585.21,QTD_PARCELAS:11,ANO_LETIVO:2027,ATIVO:'Sim'}
+  ];
+  const rows=x.run('dashTuitionRowsForYear(window.__products,2027)');
+  assert.equal(rows[0].first,484.92);
+  assert.equal(rows[0].annual,6270.40);
+  assert.equal(rows[0].plan12,482.12);
+  assert.equal(rows[0].plan11,525.95);
+  assert.equal(rows[1].first,495.72);
+  assert.equal(rows[2].first,506.52);
+  assert.equal(rows[2].annualPost,6943.88);
+  assert.equal(rows[2].plan12Post,536.45);
+  assert.equal(rows[2].plan11Post,585.21);
+ }finally{x.dom.window.close()}
+});
+
+test('secretaria matricula uses the published catalog for year and series',()=>{
+ const x=setup();try{
+  x.w.__b={alunos:[],responsaveis:[],produtos:[
+   {ID_PRODUTO:'ANU-AF-2027',ANO_LETIVO:2027,ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Sim',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Anuidade',PRODUTO:'Anuidade 2027 - Anos Finais','SEGMENTO_SÉRIE':'6º ao 9º Ano',VALOR_BASE:6596.87,QTD_PARCELAS:1},
+   {ID_PRODUTO:'MEN-AF-12-2027',ANO_LETIVO:2027,ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Sim',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Plano 12 parcelas',PRODUTO:'Mensalidade regular - Anos Finais','SEGMENTO_SÉRIE':'6º ao 9º Ano',VALOR_BASE:507.53,VALOR_PARCELA:507.53,QTD_PARCELAS:12},
+   {ID_PRODUTO:'MEN-AF-11-2027',ANO_LETIVO:2027,ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Sim',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Plano 11 parcelas',PRODUTO:'Mensalidade regular - Anos Finais','SEGMENTO_SÉRIE':'6º ao 9º Ano',VALOR_BASE:553.67,VALOR_PARCELA:553.67,QTD_PARCELAS:11},
+   {ID_PRODUTO:'MAT-6-2027',ANO_LETIVO:2027,ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Sim',CATEGORIA:'Material Didático',PRODUTO:'Material Didático - 6º Ano','SEGMENTO_SÉRIE':'6º Ano',VALOR_BASE:1809,QTD_PARCELAS:10},
+   {ID_PRODUTO:'HIDDEN-2027',ANO_LETIVO:2027,ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Não',CATEGORIA:'Serviço',PRODUTO:'Oculto','SEGMENTO_SÉRIE':'6º Ano',VALOR_BASE:1,QTD_PARCELAS:1}
+  ]};
+  x.run('openMatForm(window.__b)');
+  const serie=x.w.document.querySelector('#matSerie');serie.value='6º Ano';serie.dispatchEvent(new x.w.Event('change'));
+  const options=[...x.w.document.querySelectorAll('#matPlano option')].map(o=>o.value);
+  assert.deepEqual(options,['','ANU-AF-2027','MEN-AF-12-2027','MEN-AF-11-2027']);
+  assert.equal(x.w.document.querySelectorAll('[data-mat-service]').length,1);
+  assert.equal(x.w.document.querySelector('[data-mat-service]').dataset.matService,'MAT-6-2027');
+ }finally{x.dom.window.close()}
+});
