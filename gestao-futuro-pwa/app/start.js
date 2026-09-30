@@ -85,7 +85,9 @@ navigate("dashboard");
 
 // Evita várias chamadas concorrentes logo na abertura.
 const runIdle=cb=>("requestIdleCallback" in window?requestIdleCallback(cb,{timeout:2500}):setTimeout(cb,1200));
-runIdle(()=>checkApi());
+runIdle(()=>checkApi({attempts:2}));
+if($("#apiStatus"))$("#apiStatus").onclick=()=>checkApi({attempts:3});
+setInterval(()=>{if(document.visibilityState==="visible")checkApi({attempts:1})},30000);
 
 // Alertas da Direção: consulta leve e sem sobrepor requisições.
 setInterval(()=>{ if(document.visibilityState==="visible"&&typeof pollApprovals==="function") pollApprovals(); },60000);
