@@ -20,6 +20,8 @@ const state = {
   backendVersion: "",
   backendCaps: {},
   backendChecked: false,
+  backendHealthPromise: null,
+  lastBackendOkAt: Number(sessionStorage.getItem('gf_backend_ok_at')||0),
   navSeq: 0
 };
 
@@ -412,28 +414,37 @@ async function api(action, payload={}) {
   return request;
 }
 
-async function checkApi() {
-  const dot=$("#apiDot"), text=$("#apiStatus");
-  try {
-    const r = await fetch(API, {cache:"no-store",signal:AbortSignal.timeout(25000)});
-    const data = await r.json();
-    if (r.ok && data.ok) {
-      state.backendVersion=String(data.version||"");
-      state.backendCaps=data.capabilities&&typeof data.capabilities==="object"?data.capabilities:{};
-      state.backendChecked=true;
-      dot.className="status-dot online";
-      const safeTest=state.backendCaps.testMode===true&&state.backendCaps.modeTagging===true;
-      text.textContent=safeTest?"backend conectado • API "+state.backendVersion:"backend conectado • atualização pendente";
-      refreshModeButton();
-      return data;
+async function checkApi(options={}) {
+  if(state.backendHealthPromise)return state.backendHealthPromise;
+  const dot=$("#apiDot"), statusText=$("#apiStatus"), attempts=Math.max(1,Number(options.attempts||2));
+  state.backendHealthPromise=(async()=>{
+    for(let attempt=1;attempt<=attempts;attempt++){
+      if(statusText&&attempt>1)statusText.textContent="reconectando ao backend…";
+      try{
+        const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),12000);
+        let r;
+        try{r=await fetch(API,{cache:"no-store",signal:ctrl.signal})}finally{clearTimeout(timer)}
+        let data;try{data=await r.json()}catch{throw new Error("Resposta inválida do gateway.")}
+        if(r.ok&&data&&data.ok){
+          state.backendVersion=String(data.version||"");
+          state.backendCaps=data.capabilities&&typeof data.capabilities==="object"?data.capabilities:{};
+          state.backendChecked=true;state.lastBackendOkAt=Date.now();
+          sessionStorage.setItem("gf_backend_ok_at",String(state.lastBackendOkAt));
+          if(dot)dot.className="status-dot online";
+          const safeTest=state.backendCaps.testMode===true&&state.backendCaps.modeTagging===true;
+          if(statusText)statusText.textContent=safeTest?"backend conectado • API "+state.backendVersion:"backend conectado • atualização pendente";
+          refreshModeButton();return data;
+        }
+      }catch(e){}
+      if(attempt<attempts)await new Promise(resolve=>setTimeout(resolve,1200));
     }
-    throw new Error();
-  } catch {
     state.backendChecked=true;state.backendCaps={};
-    dot.className="status-dot offline"; text.textContent="backend indisponível";
-    refreshModeButton();
-    return null;
-  }
+    const recentlyOk=state.lastBackendOkAt&&Date.now()-state.lastBackendOkAt<120000;
+    if(dot)dot.className="status-dot offline";
+    if(statusText)statusText.textContent=recentlyOk?"backend instável • tentando reconectar":"backend indisponível • clique para tentar novamente";
+    refreshModeButton();return null;
+  })();
+  try{return await state.backendHealthPromise}finally{state.backendHealthPromise=null}
 }
 
 function sessionLabel() {
