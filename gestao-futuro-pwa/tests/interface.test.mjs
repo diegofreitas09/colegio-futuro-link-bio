@@ -232,3 +232,51 @@ test('official catalog orders published products using management display order'
   assert.deepEqual(ids,['A','B']);
  }finally{x.dom.window.close()}
 });
+
+
+test('veteran attendance separates suggested and confirmed series for 2027',async()=>{
+ const x=setup();try{
+  const student={ID_ALUNO:'ALU-6',NOME_COMPLETO:'Aluno Veterano','SÉRIE':'6º Ano',SERIE_ORIGEM_2026:'6º Ano',PROXIMA_SERIE_2027:'7º Ano',TIPO_ALUNO:'Veterano',MATRICULA_ORIGEM:'2026001',STATUS:'Ativo'};
+  const products=[
+   {ID_PRODUTO:'ANU-AF-2027',ANO_LETIVO:2027,ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Sim',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Anuidade',PRODUTO:'Anuidade 2027','SEGMENTO_SÉRIE':'6º ao 9º Ano',VALOR_BASE:6596.87,QTD_PARCELAS:1},
+   {ID_PRODUTO:'MEN-AF-12-2027',ANO_LETIVO:2027,ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Sim',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Plano 12 parcelas',PRODUTO:'Mensalidade','SEGMENTO_SÉRIE':'6º ao 9º Ano',VALOR_BASE:507.53,VALOR_PARCELA:507.53,QTD_PARCELAS:12}
+  ];
+  x.w.fetch=async(url,opts)=>{
+   const b=JSON.parse(opts.body);
+   if(b.action==='bootstrapSecretaria')return Response.json({ok:true,data:{alunos:[student],matriculas:[{'ID_MATRÍCULA':'MAT-2026',ID_ALUNO:'ALU-6',ANO_LETIVO:2026,'SÉRIE':'6º Ano'}],responsaveis:[],produtos:products}});
+   if(b.action==='listarProdutosPublicos')return Response.json({ok:true,data:products});
+   if(b.action==='listarAtendimentos')return Response.json({ok:true,data:[]});
+   return Response.json({ok:true,data:[]});
+  };
+  x.run('state.view="atendimento";state.navSeq=1;state.attendanceYear=2027');
+  await x.run('renderAtendimento()');
+  const sel=x.w.document.querySelector('#attStudent');sel.value='ALU-6';sel.dispatchEvent(new x.w.Event('change'));
+  assert.equal(x.w.document.querySelector('#attYear').value,'2027');
+  assert.equal(x.w.document.querySelector('#attCurrentSeries').value,'6º Ano');
+  assert.equal(x.w.document.querySelector('#attSuggestedSeries').value,'7º Ano');
+  assert.equal(x.w.document.querySelector('#attSerie').value,'7º Ano');
+  assert.equal(x.w.document.querySelector('#attConfirmedSeriesHidden').value,'7º Ano');
+  assert.equal(x.w.document.querySelector('#attRematriculaCard').classList.contains('hidden'),false);
+  const sit=x.w.document.querySelector('#attProgressionSituation');sit.value='Retido / repetir série';sit.dispatchEvent(new x.w.Event('change'));
+  assert.equal(x.w.document.querySelector('#attSerie').value,'6º Ano');
+  assert.equal(x.w.document.querySelector('#attConfirmedSeriesHidden').value,'6º Ano');
+ }finally{x.dom.window.close()}
+});
+
+test('new rematricula uses suggested series but lets school confirm retention',()=>{
+ const x=setup();try{
+  const student={ID_ALUNO:'ALU-6',NOME_COMPLETO:'Aluno Veterano','SÉRIE':'6º Ano',SERIE_ORIGEM_2026:'6º Ano',PROXIMA_SERIE_2027:'7º Ano',TIPO_ALUNO:'Veterano',MATRICULA_ORIGEM:'2026001',STATUS:'Ativo'};
+  const products=[
+   {ID_PRODUTO:'ANU-AF-2027',ANO_LETIVO:2027,ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Sim',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Anuidade',PRODUTO:'Anuidade 2027','SEGMENTO_SÉRIE':'6º ao 9º Ano',VALOR_BASE:6596.87,QTD_PARCELAS:1},
+   {ID_PRODUTO:'MEN-AF-12-2027',ANO_LETIVO:2027,ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Sim',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Plano 12 parcelas',PRODUTO:'Mensalidade','SEGMENTO_SÉRIE':'6º ao 9º Ano',VALOR_BASE:507.53,VALOR_PARCELA:507.53,QTD_PARCELAS:12}
+  ];
+  x.run('openMatForm({alunos:window.__a=[{ID_ALUNO:"ALU-6",NOME_COMPLETO:"Aluno Veterano","SÉRIE":"6º Ano",SERIE_ORIGEM_2026:"6º Ano",PROXIMA_SERIE_2027:"7º Ano",TIPO_ALUNO:"Veterano",MATRICULA_ORIGEM:"2026001",STATUS:"Ativo"}],responsaveis:[],produtos:window.__p='+JSON.stringify(products)+',matriculas:[{"ID_MATRÍCULA":"MAT-2026",ID_ALUNO:"ALU-6",ANO_LETIVO:2026,"SÉRIE":"6º Ano"}]})');
+  const search=x.w.document.querySelector('#matAlunoSearch');search.value='Aluno Veterano — 6º Ano — 2026001';search.dispatchEvent(new x.w.Event('change'));
+  assert.equal(x.w.document.querySelector('#matType').value,'Veterano');
+  assert.equal(x.w.document.querySelector('#matOriginSeries').value,'6º Ano');
+  assert.equal(x.w.document.querySelector('#matSuggestedSeries').value,'7º Ano');
+  assert.equal(x.w.document.querySelector('#matSerie').value,'7º Ano');
+  const sit=x.w.document.querySelector('#matProgressionSituation');sit.value='Retido / repetir série';sit.dispatchEvent(new x.w.Event('change'));
+  assert.equal(x.w.document.querySelector('#matSerie').value,'6º Ano');
+ }finally{x.dom.window.close()}
+});
