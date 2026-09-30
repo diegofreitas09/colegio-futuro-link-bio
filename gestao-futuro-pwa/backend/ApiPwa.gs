@@ -4,8 +4,8 @@
  * Este arquivo deve substituir o conteúdo atual de ApiPwa.gs no MESMO projeto Apps Script.
  * O Código.gs existente permanece como base de Secretaria/Financeiro.
  */
-const PWA_API_VERSION="2026.09.26.2";
-const PWA_CAPABILITIES=Object.freeze({testMode:true,clearTest:true,modeTagging:true,modeFilteredFinance:true,modeIsolationGuard:true,cashSaveIdempotency:true,cashDeleteIndividual:true,studentMigration:true,studentProgression:true,documentAdd:true,attendanceDelete:true});
+const PWA_API_VERSION="2026.09.30.1";
+const PWA_CAPABILITIES=Object.freeze({testMode:true,clearTest:true,modeTagging:true,modeFilteredFinance:true,modeIsolationGuard:true,cashSaveIdempotency:true,cashDeleteIndividual:true,studentMigration:true,studentProgression:true,studentConfirmedSeries:true,rematriculaFlow:true,rematriculaCorrection:true,documentAdd:true,attendanceDelete:true});
 const PWA_GATEWAY_PROP="FUTURO_PWA_GATEWAY_KEY";
 const PWA_STAFF_HASH_PROP="FUTURO_STAFF_PASSWORD_SHA256";
 const PWA_DEBUG_PROP="FUTURO_PWA_DEBUG";
@@ -348,6 +348,25 @@ function pwaCriarMatricula_(token,data,modo,sessao){
       pwaMarkWhere_("DOCUMENTOS_ALUNO",["ID_MATRICULA","ID_MATRÍCULA"],id,modo,sessao);
       pwaMarkWhere_("RECEBIMENTOS",["ID_MATRÍCULA","ID_MATRICULA"],id,modo,sessao);
       pwaMarkWhere_("ITENS_CONTRATO",["ID_MATRÍCULA","ID_MATRICULA"],id,modo,sessao);
+      if(String(data.TIPO_MATRICULA||"").toLowerCase()==="veterano"&&Number(data.ANO_LETIVO)===2027){
+        var rematPatch={
+          ANO_ORIGEM:Number(data.ANO_ORIGEM||2026),
+          SERIE_ORIGEM:data.SERIE_ORIGEM||"",
+          SERIE_SUGERIDA:data.SERIE_SUGERIDA||"",
+          SITUACAO_PROGRESSAO:data.SITUACAO_PROGRESSAO||"",
+          REMATRICULA_DE:data.REMATRICULA_DE||""
+        };
+        updateById_(S.MATRICULAS||"MATRICULAS","ID_MATRÍCULA",id,rematPatch);
+        if(data.ID_ALUNO){
+          updateById_(S.ALUNOS||"ALUNOS","ID_ALUNO",data.ID_ALUNO,{
+            SERIE_CONFIRMADA_2027:data["SÉRIE"]||"",
+            RESULTADO_2026:String(data.SITUACAO_PROGRESSAO||"").indexOf("Retido")===0?"Retido":"Aprovado",
+            PROGRESSAO_STATUS:data.SITUACAO_PROGRESSAO||"Confirmada",
+            REMATRICULA_STATUS:"Realizada",
+            REMATRICULA_ATUALIZADA_EM:new Date()
+          });
+        }
+      }
     }
     try{services=JSON.parse(String(data.SERVICOS_ADICIONAIS||"[]"))}catch(e){services=[]}
     if(id&&Array.isArray(services)&&services.length){
@@ -377,6 +396,44 @@ function pwaCriarMatricula_(token,data,modo,sessao){
     if(res&&typeof res==="object")res.servicos=services.length;
     pwaOperationCache_("matricula",data.CLIENT_REQUEST_ID,res);return res;
   })
+}
+
+function corrigirRematriculaPwa_(token,data,modo){
+  pwaStaff_(token);data=data||{};
+  var id=String(data.ID_MATRICULA||data["ID_MATRÍCULA"]||"").trim(),idAluno=String(data.ID_ALUNO||"").trim(),serie=String(data.SERIE_CONFIRMADA||"").trim();
+  if(!id||!idAluno||!serie)throw new Error("Matrícula, aluno e nova série são obrigatórios.");
+  return pwaWithLock_(function(){
+    var mat=findById_(S.MATRICULAS||"MATRICULAS","ID_MATRÍCULA",id);if(!mat)throw new Error("Matrícula não encontrada.");
+    pwaAssertRowMode_(mat,modo,"Matrícula");
+    if(String(mat.ID_ALUNO||"")!==idAluno)throw new Error("A matrícula não pertence ao aluno informado.");
+    if(Number(mat.ANO_LETIVO)!==2027)throw new Error("A correção de progressão está disponível para a rematrícula 2027.");
+    var aluno=findById_(S.ALUNOS||"ALUNOS","ID_ALUNO",idAluno);if(!aluno)throw new Error("Aluno não encontrado.");
+    var oldSerie=String(mat["SÉRIE"]||""),now=new Date(),suggested=String(data.SERIE_SUGERIDA||aluno.PROXIMA_SERIE_2027||""),situation=String(data.SITUACAO_PROGRESSAO||"Definido manualmente");
+    var oldCatalog=pwaCatalogo_(2027,oldSerie),newCatalog=pwaCatalogo_(2027,serie);
+    function annual(list){return list.find(function(p){return p.CATEGORIA==="Mensalidade"&&(pwaNorm_(p.SUBCATEGORIA).indexOf("anuidade")>=0||pwaNorm_(p.PRODUTO).indexOf("anuidade")>=0)})||null}
+    var oldAnnual=annual(oldCatalog),newAnnual=annual(newCatalog),financialChanged=!!(newAnnual&&oldAnnual&&Math.abs(pwaNum_(newAnnual.VALOR_BASE)-pwaNum_(oldAnnual.VALOR_BASE))>.009);
+    var obs=String(mat["OBSERVAÇÃO"]||"");var note="Correção de rematrícula: "+oldSerie+" → "+serie+" | "+situation+(data.MOTIVO?" | "+data.MOTIVO:"");
+    var patch={
+      "SÉRIE":serie,
+      SERIE_ORIGEM:data.SERIE_ORIGEM||mat.SERIE_ORIGEM||aluno.SERIE_ORIGEM_2026||aluno["SÉRIE"]||"",
+      SERIE_SUGERIDA:suggested,
+      SITUACAO_PROGRESSAO:situation,
+      ALTERACAO_SERIE_EM:now,
+      ALTERACAO_SERIE_POR:pwaUser_("Secretaria"),
+      "OBSERVAÇÃO":(obs?obs+"\n":"")+note+(financialChanged?" | REVISAR FINANCEIRO: a nova série possui valor de tabela diferente.":"")
+    };
+    updateById_(S.MATRICULAS||"MATRICULAS","ID_MATRÍCULA",id,patch);
+    updateById_(S.ALUNOS||"ALUNOS","ID_ALUNO",idAluno,{
+      SERIE_CONFIRMADA_2027:serie,
+      RESULTADO_2026:situation.indexOf("Retido")===0?"Retido":"Aprovado",
+      PROGRESSAO_STATUS:situation,
+      REMATRICULA_STATUS:"Corrigida",
+      REMATRICULA_ATUALIZADA_EM:now
+    });
+    audit_("Secretaria","CORRIGIR_REMATRICULA","Matrícula",id,JSON.stringify({serie:oldSerie}),JSON.stringify({serie:serie,situacao:situation,motivo:data.MOTIVO||"",financeiroRevisaoNecessaria:financialChanged}));
+    SpreadsheetApp.flush();
+    return {ok:true,id:id,serieAnterior:oldSerie,serieConfirmada:serie,recalculado:false,financeiroRevisaoNecessaria:financialChanged,valorAnuidadeAnterior:oldAnnual?pwaNum_(oldAnnual.VALOR_BASE):0,valorAnuidadeNova:newAnnual?pwaNum_(newAnnual.VALOR_BASE):0};
+  });
 }
 
 function listarAtendimentosPwa_(token,modo){pwaStaff_(token);return pwaFilterMode_(rows_(GF_TABS.ATENDIMENTOS),modo)}
@@ -463,6 +520,12 @@ function salvarAtendimentoPwa_(token,data,itens,modo,sessao){
       VALOR_PARCELA_FINAL:plan?plan.recurringFinal:pwaMoneyChecked_(data.VALOR_PARCELA_FINAL,"Parcela final"),
       TOTAL_PLANO:planTotal,
       ECONOMIA_PLANO:plan?plan.economy:pwaMoneyChecked_(data.ECONOMIA_PLANO,"Economia"),
+      ANO_ORIGEM:Number(data.ANO_ORIGEM||0)||"",
+      SERIE_ATUAL:data.SERIE_ATUAL||"",
+      SERIE_SUGERIDA:data.SERIE_SUGERIDA||"",
+      SITUACAO_PROGRESSAO:data.SITUACAO_PROGRESSAO||"",
+      SERIE_CONFIRMADA:data.SERIE_CONFIRMADA||data.SERIE_PRETENDIDA||"",
+      REMATRICULA_STATUS:data.REMATRICULA_STATUS||"",
       MODO_REGISTRO:pwaMode_(modo),SESSAO_TESTE:pwaMode_(modo)==="TESTE"?String(sessao||""):""
     };
     if(old)updateById_(GF_TABS.ATENDIMENTOS,"ID_ATENDIMENTO",id,rec);else append_(GF_TABS.ATENDIMENTOS,rec);
@@ -695,6 +758,7 @@ function doPost(e){
       case "salvarAluno":data=pwaSalvarAluno_(body.token,body.data,body.modo,body.sessaoTeste);break;
       case "salvarResponsavel":data=pwaSalvarResponsavel_(body.token,body.data,body.modo,body.sessaoTeste);break;
       case "criarMatriculaCompleta":data=pwaCriarMatricula_(body.token,body.data,body.modo,body.sessaoTeste);break;
+      case "corrigirRematricula":data=corrigirRematriculaPwa_(body.token,body.data,body.modo);break;
       case "atualizarDocumento":data=pwaAtualizarDocumento_(body.token,body.id||(body.data&&body.data.ID_DOCUMENTO),body.data||{},body.modo,body.sessaoTeste);break;
       case "listarDocumentosAluno":data=pwaListarDocumentosAluno_(body.token,body.idAluno,body.modo);break;
       case "adicionarDocumentoAluno":data=pwaAdicionarDocumentoAluno_(body.token,body.data||{},body.modo,body.sessaoTeste);break;
