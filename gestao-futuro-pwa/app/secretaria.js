@@ -162,7 +162,9 @@ function openMatForm(b){
     <div class="field"><label>Ano letivo *</label><select name="ANO_LETIVO" id="matYear" required>${years.map(y=>`<option value="${y}">${y}</option>`).join("")}</select></div>
     <div class="field"><label>Série *</label><select name="SÉRIE" id="matSerie" required><option value="">Selecione</option>${seriesOptions()}</select></div>
     <div class="field"><label>Turno</label><select name="TURNO" id="matTurno"><option>Manhã</option><option>Tarde</option><option>Integral</option></select></div>
-    <div class="field"><label>Tipo</label><select name="TIPO_MATRICULA"><option>Novato</option><option>Veterano</option></select></div>
+    <div class="field"><label>Tipo</label><select name="TIPO_MATRICULA" id="matType"><option>Novato</option><option>Veterano</option></select></div>
+    <input type="hidden" name="ANO_ORIGEM" id="matOriginYear"><input type="hidden" name="SERIE_ORIGEM" id="matOriginSeries"><input type="hidden" name="SERIE_SUGERIDA" id="matSuggestedSeries"><input type="hidden" name="REMATRICULA_DE" id="matRematFrom">
+    <div class="field span-3 hidden" id="matProgressionCard"><div class="rematricula-flow-card"><div><small>SÉRIE 2026</small><b id="matOriginSeriesView">—</b></div><div><small>SÉRIE SUGERIDA PARA 2027</small><b id="matSuggestedSeriesView">—</b></div><div><small>SÉRIE CONFIRMADA NA REMATRÍCULA</small><b id="matConfirmedSeriesView">—</b></div><div class="field progression-choice"><label>Situação do aluno</label><select name="SITUACAO_PROGRESSAO" id="matProgressionSituation"><option>Aprovado / progredir</option><option>Retido / repetir série</option><option>Definido manualmente</option></select></div></div></div>
     <div class="field span-2"><label>Plano / produto principal</label><select name="ID_PRODUTO_PLANO" id="matPlano"><option value="">Definir manualmente</option></select></div>
     <div class="field"><label>Parcelas</label><input type="number" name="PLANO_PARCELAS" id="matPlanCount" value="12" min="1"></div>
     <div class="field"><label>Valor contratado</label><input type="number" step="0.01" name="VALOR_ANUIDADE_CONTRATADO" id="matAnnualValue" value="0"></div>
@@ -211,24 +213,59 @@ function openMatForm(b){
   };
   refreshPlans();
 
-  $("#matYear").onchange=()=>{refreshPlans();syncFirstDue();};
-  $("#matSerie").onchange=refreshPlans;
+  const selectedMatStudent=()=>alunos.find(a=>String(a.ID_ALUNO)===String($("#matAluno").value))||null;
+  const syncProgressionCard=()=>{
+    const a=selectedMatStudent(),year=Number($("#matYear").value),card=$("#matProgressionCard");
+    if(!a){card?.classList.add("hidden");return}
+    const origin=a.SERIE_ORIGEM_2026||a["SÉRIE"]||"",suggested=gfSuggestedSeries(a,year),priorConfirmed=year===2027?gfConfirmedSeries(a,2027):"";
+    const isRemat=year===2027&&(a.TIPO_ALUNO==="Veterano"||!!a.MATRICULA_ORIGEM);
+    $("#matType").value=isRemat?"Veterano":($("#matType").value||"Novato");
+    if(!isRemat){
+      card?.classList.add("hidden");
+      $("#matOriginYear").value="";$("#matOriginSeries").value="";$("#matSuggestedSeries").value="";$("#matRematFrom").value="";
+      if(a["SÉRIE"])$("#matSerie").value=a["SÉRIE"];
+      refreshPlans();return;
+    }
+    const prior=(b.matriculas||[]).find(m=>String(m.ID_ALUNO)===String(a.ID_ALUNO)&&Number(m.ANO_LETIVO)===2026);
+    $("#matOriginYear").value=2026;$("#matOriginSeries").value=origin;$("#matSuggestedSeries").value=suggested;$("#matRematFrom").value=prior?.["ID_MATRÍCULA"]||"";
+    $("#matOriginSeriesView").textContent=origin||"—";$("#matSuggestedSeriesView").textContent=suggested||"—";
+    let situation=a.RESULTADO_2026==="Retido"?"Retido / repetir série":a.RESULTADO_2026==="Aprovado"?"Aprovado / progredir":"Aprovado / progredir";
+    $("#matProgressionSituation").value=situation;
+    const target=priorConfirmed||(situation.startsWith("Retido")?origin:suggested)||origin;
+    if(target)$("#matSerie").value=target;
+    $("#matConfirmedSeriesView").textContent=$("#matSerie").value||"A confirmar";
+    card?.classList.remove("hidden");refreshPlans();
+  };
+  const resolveMatStudent=()=>{
+    const q=gfStudentNorm($("#matAlunoSearch").value),a=alunos.find(x=>gfStudentNorm(x.NOME_COMPLETO+" — "+(x["SÉRIE"]||"")+" — "+(x.MATRICULA_ORIGEM||x.ID_ALUNO||""))===q)||gfStudentSearchRows(alunos,$("#matAlunoSearch").value,1)[0];
+    $("#matAluno").value=a?.ID_ALUNO||"";
+    if(a){$("#matAlunoSearch").value=a.NOME_COMPLETO+" — "+(a["SÉRIE"]||"")+" — "+(a.MATRICULA_ORIGEM||a.ID_ALUNO||"");if(a.TURNO)$("#matTurno").value=a.TURNO}
+    const rr=resp.filter(r=>r.ID_ALUNO===a?.ID_ALUNO);
+    $("#matResp").innerHTML=`<option value="">Selecione</option>${rr.map(r=>`<option value="${esc(r.ID_RESPONSAVEL)}">${esc(r.NOME_COMPLETO)}${r.RESPONSAVEL_FINANCEIRO==="Sim"?" • financeiro":""}</option>`).join("")}`;
+    syncProgressionCard();return a;
+  };
+  $("#matYear").onchange=()=>{syncProgressionCard();syncFirstDue();};
+  $("#matSerie").onchange=()=>{if($("#matConfirmedSeriesView"))$("#matConfirmedSeriesView").textContent=$("#matSerie").value||"A confirmar";refreshPlans();};
+  $("#matProgressionSituation").onchange=()=>{
+    const a=selectedMatStudent();if(!a)return;
+    const origin=a.SERIE_ORIGEM_2026||a["SÉRIE"]||"",suggested=gfSuggestedSeries(a,Number($("#matYear").value)),v=$("#matProgressionSituation").value;
+    if(v.startsWith("Retido"))$("#matSerie").value=origin;else if(v.startsWith("Aprovado")&&suggested)$("#matSerie").value=suggested;
+    $("#matConfirmedSeriesView").textContent=$("#matSerie").value||"A confirmar";refreshPlans();
+  };
   $("#matPlano").onchange=syncSelectedPlan;
   $("#matDueDay").onchange=syncFirstDue;
-  $("#matAluno").onchange=()=>{
-    const o=$("#matAluno").selectedOptions[0];
-    if(o?.dataset.serie)$("#matSerie").value=o.dataset.serie;
-    if(o?.dataset.turno)$("#matTurno").value=o.dataset.turno;
-    refreshPlans();
-    const id=$("#matAluno").value;
-    const rr=resp.filter(r=>r.ID_ALUNO===id);
-    $("#matResp").innerHTML=`<option value="">Selecione</option>${rr.map(r=>`<option value="${esc(r.ID_RESPONSAVEL)}">${esc(r.NOME_COMPLETO)}${r.RESPONSAVEL_FINANCEIRO==="Sim"?" • financeiro":""}</option>`).join("")}`;
-  };
+  $("#matAluno").onchange=()=>{const a=selectedMatStudent();if(a)$("#matAlunoSearch").value=a.NOME_COMPLETO+" — "+(a["SÉRIE"]||"")+" — "+(a.MATRICULA_ORIGEM||a.ID_ALUNO||"");resolveMatStudent();};
+  $("#matAlunoSearch").onchange=resolveMatStudent;
   $("#saveMat").onclick=async()=>{
-    const f=$("#matForm");if(!f.reportValidity())return;
+    const picked=resolveMatStudent(),f=$("#matForm");if(!picked){showToast("Selecione um aluno válido.","error");return}if(!f.reportValidity())return;
     const data=Object.fromEntries(new FormData(f).entries());
     const selectedAluno=$("#matAluno").selectedOptions[0];
     data.NOME_ALUNO=(selectedAluno?.textContent||"").split(" — ")[0].trim();
+    if(data.TIPO_MATRICULA==="Veterano"&&Number(data.ANO_LETIVO)===2027){
+      data.SERIE_ORIGEM=data.SERIE_ORIGEM||picked.SERIE_ORIGEM_2026||picked["SÉRIE"]||"";
+      data.SERIE_SUGERIDA=data.SERIE_SUGERIDA||gfSuggestedSeries(picked,2027);
+      data.SITUACAO_PROGRESSAO=data.SITUACAO_PROGRESSAO||gfProgressionSituation(data.SERIE_ORIGEM,data.SERIE_SUGERIDA,data["SÉRIE"]);
+    }
     const serviceInfo=refreshServiceTotal(),selectedServices=prods.filter(p=>serviceInfo.ids.includes(String(p.ID_PRODUTO)));
     data.SERVICOS_ADICIONAIS=JSON.stringify(selectedServices.map(p=>({ID_PRODUTO:p.ID_PRODUTO,PRODUTO:p.PRODUTO,CATEGORIA:p.CATEGORIA,VALOR:Number(p.VALOR_BASE||0)})));
     data.VALOR_SERVICOS_ADICIONAIS=serviceInfo.total;
@@ -239,7 +276,19 @@ function openMatForm(b){
     const btn=$("#saveMat");btn.disabled=true;btn.textContent="Criando…";
     try{
       const res=await api("criarMatriculaCompleta",{token:tokenFor("staff"),data});
-      state.bootstrap=null;closeModal();
+      if(data.TIPO_MATRICULA==="Veterano"&&Number(data.ANO_LETIVO)===2027){
+        const studentPatch=Object.assign({},picked,{
+          ID_ALUNO:picked.ID_ALUNO,
+          PROXIMA_SERIE_2027:data.SERIE_SUGERIDA||gfSuggestedSeries(picked,2027),
+          SERIE_CONFIRMADA_2027:data["SÉRIE"],
+          RESULTADO_2026:String(data.SITUACAO_PROGRESSAO||"").startsWith("Retido")?"Retido":"Aprovado",
+          PROGRESSAO_STATUS:data.SITUACAO_PROGRESSAO||"Confirmada",
+          REMATRICULA_STATUS:"Realizada",
+          REMATRICULA_ATUALIZADA_EM:new Date().toISOString()
+        });
+        try{await api("salvarAluno",{token:tokenFor("staff"),data:studentPatch})}catch(_syncErr){}
+      }
+      clearApiCache();closeModal();
       setNotice(`Matrícula ${esc(res.id)} criada para ${esc(data.ANO_LETIVO)}. ${res.parcelas||0} parcela(s) gerada(s) e ${res.servicos||0} produto(s)/serviço(s) adicional(is) integrado(s).`,"ok");
       appAlert("matricula","Matrícula realizada com sucesso ✓");
       await renderMatriculas();
