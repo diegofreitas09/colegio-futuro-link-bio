@@ -302,3 +302,23 @@ test('document dialog accepts multiple device files and drag-drop',async()=>{
   assert.match(x.w.document.querySelector('#modalRoot').textContent,/Organização automática no Drive/);
  }finally{x.dom.window.close()}
 });
+
+
+test('matriculas page renders even without rematricula action buttons',async()=>{
+ const x=setup();try{
+  x.w.fetch=async(url,opts)=>{
+   const b=opts?JSON.parse(opts.body):{};
+   if(b.action==='bootstrapSecretaria')return Response.json({ok:true,data:{
+    alunos:[{ID_ALUNO:'ALU-1',NOME_COMPLETO:'Aluno Teste','SÉRIE':'8º Ano',STATUS:'Ativo'}],
+    matriculas:[{'ID_MATRÍCULA':'MAT-1',ID_ALUNO:'ALU-1',ANO_LETIVO:2026,'SÉRIE':'8º Ano',TIPO_MATRICULA:'Novato',PLANO_PARCELAS:12,VALOR_ANUIDADE_CONTRATADO:6000,STATUS:'Ativa'}],
+    itensContrato:[],responsaveis:[],produtos:[]
+   }});
+   if(b.action==='listarProdutosPublicos')return Response.json({ok:true,data:[]});
+   return Response.json({ok:true,data:[]});
+  };
+  await x.run('renderMatriculas()');
+  assert.match(x.w.document.querySelector('#view').textContent,/Aluno Teste/);
+  assert.equal(x.w.document.querySelectorAll('[data-correct-remat]').length,0);
+  assert.equal(x.w.document.querySelectorAll('[data-remat-pending]').length,0);
+ }finally{x.dom.window.close()}
+});
