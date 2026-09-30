@@ -3,6 +3,26 @@ function gfNextSeries(serie){
   const map={"Infantil 2":"Infantil 3","Infantil 3":"Infantil 4","Infantil 4":"Infantil 5","Infantil 5":"1º Ano","1º Ano":"2º Ano","2º Ano":"3º Ano","3º Ano":"4º Ano","4º Ano":"5º Ano","5º Ano":"6º Ano","6º Ano":"7º Ano","7º Ano":"8º Ano","8º Ano":"9º Ano","9º Ano":"1º EM","1º EM":"2º EM","2º EM":"3º EM","3º EM":"Concluinte"};
   return map[String(serie||"")]||"";
 }
+function gfSuggestedSeries(a,targetYear=2027){
+  if(!a)return "";
+  if(Number(targetYear)===2027)return a.PROXIMA_SERIE_2027||gfNextSeries(a.SERIE_ORIGEM_2026||a["SÉRIE"]||"");
+  return gfNextSeries(a["SÉRIE"]||"");
+}
+function gfConfirmedSeries(a,targetYear=2027){
+  if(!a)return "";
+  if(Number(targetYear)===2027)return a.SERIE_CONFIRMADA_2027||"";
+  return "";
+}
+function gfProgressionSituation(current,suggested,confirmed,stored=""){
+  if(stored)return stored;
+  if(!confirmed)return "Pendente de confirmação";
+  if(confirmed===current)return "Retido / repetir série";
+  if(confirmed===suggested)return "Aprovado / progredir";
+  return "Definido manualmente";
+}
+function gfRematriculaStatus(a){
+  return a?.REMATRICULA_STATUS|| (a?.SERIE_CONFIRMADA_2027?"Confirmada":"Não iniciada");
+}
 function gfStudentSearchRows(alunos,q,limit=10){
   q=gfStudentNorm(q);if(!q)return [];
   return (alunos||[]).map(a=>{
@@ -36,7 +56,7 @@ async function renderAlunos(){
   const draw=()=>{
     const q=$("#studentSearch").value.trim(),qn=gfStudentNorm(q);
     const list=!qn?alunos:alunos.filter(a=>[a.NOME_COMPLETO,a.CPF,a["SÉRIE"],a.TURMA,a.MATRICULA_ORIGEM,a.ID_ALUNO].some(v=>gfStudentNorm(v).includes(qn)));
-    $("#studentsTable").innerHTML=`<div class="table-wrap"><table><thead><tr><th>Matrícula</th><th>Aluno</th><th>Série atual</th><th>Próxima série</th><th>Tipo</th><th>Status</th><th>Ações</th></tr></thead><tbody>${list.map(a=>`<tr><td><b>${esc(a.MATRICULA_ORIGEM||"—")}</b><br><span class="muted">${esc(a.ID_ALUNO)}</span></td><td><strong>${esc(a.NOME_COMPLETO)}</strong><br><span class="muted">${esc(a.TURMA||"")}</span></td><td>${esc(a["SÉRIE"]||"")}</td><td><span class="progression-chip">${esc(a.PROXIMA_SERIE_2027||gfNextSeries(a["SÉRIE"])||"—")}</span></td><td>${pill(a.TIPO_ALUNO||"")}</td><td>${pill(a.STATUS||"",a.STATUS==="Ativo"?"ok":"")}</td><td><div class="row-actions"><button class="icon-btn" data-edit-student="${esc(a.ID_ALUNO)}">Editar dados</button><button class="icon-btn" data-doc-student="${esc(a.ID_ALUNO)}">Documentos</button></div></td></tr>`).join("")||`<tr><td colspan="7" class="empty">Nenhum aluno encontrado.</td></tr>`}</tbody></table></div>`;
+    $("#studentsTable").innerHTML=`<div class="table-wrap"><table><thead><tr><th>Matrícula</th><th>Aluno</th><th>Série 2026</th><th>Série sugerida 2027</th><th>Série confirmada 2027</th><th>Rematrícula</th><th>Ações</th></tr></thead><tbody>${list.map(a=>`<tr><td><b>${esc(a.MATRICULA_ORIGEM||"—")}</b><br><span class="muted">${esc(a.ID_ALUNO)}</span></td><td><strong>${esc(a.NOME_COMPLETO)}</strong><br><span class="muted">${esc(a.TURMA||"")}</span></td><td>${esc(a.SERIE_ORIGEM_2026||a["SÉRIE"]||"")}</td><td><span class="progression-chip">${esc(gfSuggestedSeries(a,2027)||"—")}</span></td><td><span class="progression-chip confirmed">${esc(gfConfirmedSeries(a,2027)||"A confirmar")}</span></td><td>${pill(gfRematriculaStatus(a),a.REMATRICULA_STATUS==="Realizada"?"ok":"")}</td><td><div class="row-actions"><button class="icon-btn" data-edit-student="${esc(a.ID_ALUNO)}">Editar dados</button><button class="icon-btn" data-doc-student="${esc(a.ID_ALUNO)}">Documentos</button></div></td></tr>`).join("")||`<tr><td colspan="7" class="empty">Nenhum aluno encontrado.</td></tr>`}</tbody></table></div>`;
     bindRows();
     const sug=$("#studentSuggest"),matches=q?gfStudentSearchRows(alunos,q,8):[];
     if(matches.length){sug.innerHTML=gfStudentSuggestHtml(matches);sug.classList.remove("hidden");$$("[data-student-pick]").forEach(btn=>btn.onclick=()=>{const a=alunos.find(x=>x.ID_ALUNO===btn.dataset.studentPick);sug.classList.add("hidden");$("#studentSearch").value=a?.NOME_COMPLETO||"";openStudentForm(a||{})})}
@@ -51,11 +71,12 @@ async function renderAlunos(){
 
 function seriesOptions(selected=""){ const s=["Infantil 2","Infantil 3","Infantil 4","Infantil 5","1º Ano","2º Ano","3º Ano","4º Ano","5º Ano","6º Ano","7º Ano","8º Ano","9º Ano","1º EM","2º EM","3º EM"]; return s.map(x=>`<option ${x===selected?"selected":""}>${x}</option>`).join(""); }
 function openStudentForm(a={}){
-  const migrated=!!a.MATRICULA_ORIGEM,next=a.PROXIMA_SERIE_2027||gfNextSeries(a["SÉRIE"]||"");
+  const migrated=!!a.MATRICULA_ORIGEM,next=gfSuggestedSeries(a,2027),confirmed=gfConfirmedSeries(a,2027);
   modal(`<div class="modal-head"><h3>${a.ID_ALUNO?"Editar aluno":"Novo aluno"}</h3><button class="icon-btn" data-close>✕</button></div><div class="modal-body">
-    ${migrated?`<section class="migration-card"><div><small>MATRÍCULA DE ORIGEM</small><b>${esc(a.MATRICULA_ORIGEM||"")}</b></div><div><small>SÉRIE 2026</small><b>${esc(a.SERIE_ORIGEM_2026||a["SÉRIE"]||"")}</b></div><div><small>PROGRESSÃO 2027</small><b id="nextSeriesCard">${esc(next||"—")}</b></div><div><small>STATUS DA MIGRAÇÃO</small><b>${esc(a.PROGRESSAO_STATUS||"Migrado")}</b></div></section>`:""}
+    ${migrated?`<section class="migration-card"><div><small>MATRÍCULA DE ORIGEM</small><b>${esc(a.MATRICULA_ORIGEM||"")}</b></div><div><small>SÉRIE 2026</small><b>${esc(a.SERIE_ORIGEM_2026||a["SÉRIE"]||"")}</b></div><div><small>SÉRIE SUGERIDA 2027</small><b id="nextSeriesCard">${esc(next||"—")}</b></div><div><small>SÉRIE CONFIRMADA 2027</small><b>${esc(confirmed||"A confirmar")}</b></div><div><small>STATUS</small><b>${esc(gfRematriculaStatus(a))}</b></div></section>`:""}
     <form id="studentForm" class="form-grid">
-    <input type="hidden" name="MATRICULA_ORIGEM" value="${esc(a.MATRICULA_ORIGEM||"")}"><input type="hidden" name="STATUS_ORIGEM" value="${esc(a.STATUS_ORIGEM||"")}"><input type="hidden" name="SERIE_ORIGEM_2026" value="${esc(a.SERIE_ORIGEM_2026||"")}"><input type="hidden" name="PROXIMA_SERIE_2027" id="nextSeriesHidden" value="${esc(next)}"><input type="hidden" name="PROGRESSAO_STATUS" value="${esc(a.PROGRESSAO_STATUS||"Prevista para 2027")}"><input type="hidden" name="FONTE_MIGRACAO" value="${esc(a.FONTE_MIGRACAO||"")}"><input type="hidden" name="DATA_MIGRACAO" value="${esc(a.DATA_MIGRACAO||"")}"><input type="hidden" name="LOCAL_ORIGEM" value="${esc(a.LOCAL_ORIGEM||"")}">
+    <input type="hidden" name="MATRICULA_ORIGEM" value="${esc(a.MATRICULA_ORIGEM||"")}"><input type="hidden" name="STATUS_ORIGEM" value="${esc(a.STATUS_ORIGEM||"")}"><input type="hidden" name="SERIE_ORIGEM_2026" value="${esc(a.SERIE_ORIGEM_2026||"")}"><input type="hidden" name="PROXIMA_SERIE_2027" id="nextSeriesHidden" value="${esc(next)}"><input type="hidden" name="FONTE_MIGRACAO" value="${esc(a.FONTE_MIGRACAO||"")}"><input type="hidden" name="DATA_MIGRACAO" value="${esc(a.DATA_MIGRACAO||"")}"><input type="hidden" name="LOCAL_ORIGEM" value="${esc(a.LOCAL_ORIGEM||"")}">
+    <div class="field"><label>Resultado 2026</label><select name="RESULTADO_2026"><option value="" ${!a.RESULTADO_2026?"selected":""}>A definir</option><option ${a.RESULTADO_2026==="Aprovado"?"selected":""}>Aprovado</option><option ${a.RESULTADO_2026==="Retido"?"selected":""}>Retido</option></select></div><div class="field"><label>Série confirmada 2027</label><select name="SERIE_CONFIRMADA_2027"><option value="">A confirmar</option>${seriesOptions(confirmed)}</select></div><div class="field"><label>Status da rematrícula</label><select name="REMATRICULA_STATUS"><option ${gfRematriculaStatus(a)==="Não iniciada"?"selected":""}>Não iniciada</option><option ${gfRematriculaStatus(a)==="Em preparação"?"selected":""}>Em preparação</option><option ${gfRematriculaStatus(a)==="Realizada"?"selected":""}>Realizada</option><option ${gfRematriculaStatus(a)==="Corrigida"?"selected":""}>Corrigida</option></select></div><input type="hidden" name="PROGRESSAO_STATUS" value="${esc(a.PROGRESSAO_STATUS||"Prevista para 2027")}"><input type="hidden" name="REMATRICULA_ATUALIZADA_EM" value="${esc(a.REMATRICULA_ATUALIZADA_EM||"")}">
     <div class="field span-2"><label>Nome completo *</label><input name="NOME_COMPLETO" value="${esc(a.NOME_COMPLETO||"")}" required></div><div class="field"><label>Nome social</label><input name="NOME_SOCIAL" value="${esc(a.NOME_SOCIAL||"")}"></div>
     <div class="field"><label>Data de nascimento</label><input type="date" name="DATA_NASCIMENTO" value="${esc(a.DATA_NASCIMENTO||"")}"></div><div class="field"><label>Ano letivo</label><input type="number" name="ANO_LETIVO" min="2026" max="2100" value="${esc(a.ANO_LETIVO||2026)}"></div><div class="field"><label>CPF</label><input name="CPF" inputmode="numeric" value="${esc(a.CPF||"")}"></div><div class="field"><label>RG</label><input name="RG" value="${esc(a.RG||"")}"></div>
     <div class="field"><label>Série *</label><select name="SÉRIE" id="studentSeries" required><option value="">Selecione</option>${seriesOptions(a["SÉRIE"]||"")}</select></div><div class="field"><label>Turma</label><input name="TURMA" value="${esc(a.TURMA||"")}"></div><div class="field"><label>Turno</label><select name="TURNO"><option value=""></option><option ${a.TURNO==="Manhã"?"selected":""}>Manhã</option><option ${a.TURNO==="Tarde"?"selected":""}>Tarde</option><option ${a.TURNO==="Integral"?"selected":""}>Integral</option></select></div>
