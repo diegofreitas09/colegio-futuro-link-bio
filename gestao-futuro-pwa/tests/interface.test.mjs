@@ -280,3 +280,25 @@ test('new rematricula uses suggested series but lets school confirm retention',(
   assert.equal(x.w.document.querySelector('#matSerie').value,'6º Ano');
  }finally{x.dom.window.close()}
 });
+
+
+test('document dialog accepts multiple device files and drag-drop',async()=>{
+ const x=setup();try{
+  x.w.fetch=async(url,opts)=>{
+   const b=opts?JSON.parse(opts.body):{};
+   if(b.action==='bootstrapSecretaria')return Response.json({ok:true,data:{alunos:[{ID_ALUNO:'ALU-1',NOME_COMPLETO:'Aluno Teste','SÉRIE':'8º Ano',MATRICULA_ORIGEM:'2024010',STATUS:'Ativo'}],matriculas:[{'ID_MATRÍCULA':'MAT-1',ID_ALUNO:'ALU-1',ANO_LETIVO:2027,'SÉRIE':'9º Ano'}],responsaveis:[]}});
+   if(b.action==='listarDocumentosAluno')return Response.json({ok:true,data:[]});
+   return Response.json({ok:true,data:[]});
+  };
+  x.run('state.docsStudentId="ALU-1"');
+  await x.run('renderDocumentos()');
+  x.w.document.querySelector('#addStudentDoc').click();
+  const input=x.w.document.querySelector('#docFilesInput');
+  assert.ok(input);
+  assert.equal(input.multiple,true);
+  assert.match(input.getAttribute('accept'),/pdf/);
+  assert.ok(x.w.document.querySelector('#docDropZone'));
+  assert.match(x.w.document.querySelector('#modalRoot').textContent,/Arraste e solte os documentos aqui/);
+  assert.match(x.w.document.querySelector('#modalRoot').textContent,/Organização automática no Drive/);
+ }finally{x.dom.window.close()}
+});
