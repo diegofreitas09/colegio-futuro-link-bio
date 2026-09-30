@@ -774,3 +774,8 @@ body.home-active .shell{filter:blur(2px) saturate(.8);pointer-events:none;user-s
 
 /* Identidade 2026-09-30 • nova logo branca vetorizada */
 .logo-on-dark{filter:drop-shadow(0 12px 24px rgba(0,0,0,.18))}
+
+/* Ajuste final da marca no topo */
+.brand-logo.official{background:transparent!important;border:0!important;box-shadow:none!important;padding:0!important;border-radius:0!important;overflow:visible!important}
+.brand-logo.official img{width:100%!important;height:100%!important;object-fit:contain!important;padding:0!important;filter:drop-shadow(0 5px 10px rgba(0,0,0,.16))!important}
+@media(max-width:760px){.brand-logo.official{width:58px!important;height:58px!important}}
