@@ -4,10 +4,11 @@ import webpush from "web-push";
 
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwzZJUloa6YdIfJZdCmYw5ch_GkjuS20gUa5zyhulMiAiQj9pH9B3BOE7UU5jZvb_svig/exec";
 const UPSTREAM_TIMEOUT_MS = 20000;
-const ALLOWED_ACTIONS = new Set(["loginGestao","loginSecretaria","logout","bootstrapSecretaria","salvarAluno","salvarResponsavel","criarMatriculaCompleta","atualizarDocumento","listarDocumentosAluno","adicionarDocumentoAluno","listarRecebimentosAluno","listarProdutosPublicos","dashboardPublico","dashboardGestao","listarRecebimentos","listarCaixa","listarProdutosGestao","atualizarProduto","criarProdutoServico","aplicarReajusteIndividual","listarBeneficios","listarCategorias","listarAtendimentos","getAtendimento","salvarAtendimento","excluirAtendimento","solicitarDesconto","listarSolicitacoesDesconto","decidirSolicitacaoDesconto","getPanfletoSerie","salvarPanfletoSerie","registrarPagamento","salvarMovimentoCaixa","excluirMovimentoCaixa","getFechamento","aplicarReajusteCatalogo","limparDadosTeste","limparAutorizacoesTeste","importarLoteIntegracao"]);
+const ALLOWED_ACTIONS = new Set(["loginGestao","loginSecretaria","logout","bootstrapSecretaria","salvarAluno","salvarResponsavel","criarMatriculaCompleta","atualizarDocumento","listarDocumentosAluno","adicionarDocumentoAluno","uploadDocumentoAluno","listarRecebimentosAluno","listarProdutosPublicos","dashboardPublico","dashboardGestao","listarRecebimentos","listarCaixa","listarProdutosGestao","atualizarProduto","criarProdutoServico","aplicarReajusteIndividual","listarBeneficios","listarCategorias","listarAtendimentos","getAtendimento","salvarAtendimento","excluirAtendimento","solicitarDesconto","listarSolicitacoesDesconto","decidirSolicitacaoDesconto","getPanfletoSerie","salvarPanfletoSerie","registrarPagamento","salvarMovimentoCaixa","excluirMovimentoCaixa","getFechamento","aplicarReajusteCatalogo","limparDadosTeste","limparAutorizacoesTeste","importarLoteIntegracao"]);
 async function upstreamFetch(body: Record<string, unknown>) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
+  const timeoutMs = body.action === "uploadDocumentoAluno" ? 45000 : UPSTREAM_TIMEOUT_MS;
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   const started = Date.now();
   try {
     const response = await fetch(APPS_SCRIPT_URL, { method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify(body), redirect:"follow", signal:controller.signal });
