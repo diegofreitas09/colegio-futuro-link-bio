@@ -4,12 +4,14 @@
  * Este arquivo deve substituir o conteúdo atual de ApiPwa.gs no MESMO projeto Apps Script.
  * O Código.gs existente permanece como base de Secretaria/Financeiro.
  */
-const PWA_API_VERSION="2026.09.30.1";
-const PWA_CAPABILITIES=Object.freeze({testMode:true,clearTest:true,modeTagging:true,modeFilteredFinance:true,modeIsolationGuard:true,cashSaveIdempotency:true,cashDeleteIndividual:true,studentMigration:true,studentProgression:true,studentConfirmedSeries:true,rematriculaFlow:true,rematriculaCorrection:true,documentAdd:true,attendanceDelete:true});
+const PWA_API_VERSION="2026.09.30.2";
+const PWA_CAPABILITIES=Object.freeze({testMode:true,clearTest:true,modeTagging:true,modeFilteredFinance:true,modeIsolationGuard:true,cashSaveIdempotency:true,cashDeleteIndividual:true,studentMigration:true,studentProgression:true,studentConfirmedSeries:true,rematriculaFlow:true,rematriculaCorrection:true,documentAdd:true,documentDriveUpload:true,multiDocumentUpload:true,attendanceDelete:true});
 const PWA_GATEWAY_PROP="FUTURO_PWA_GATEWAY_KEY";
 const PWA_STAFF_HASH_PROP="FUTURO_STAFF_PASSWORD_SHA256";
 const PWA_DEBUG_PROP="FUTURO_PWA_DEBUG";
 const PWA_SESSION_TTL=21600;
+const PWA_DOCUMENTOS_ROOT_FOLDER_ID="1ej2vcq_c9yGGGGM7xvs281RHLZd7hw9a";
+const PWA_DOCUMENT_MAX_BYTES=4*1024*1024;
 
 const GF_TABS=Object.freeze({
   ANOS:"ANOS_LETIVOS",
@@ -266,6 +268,83 @@ function pwaAdicionarDocumentoAluno_(token,data,modo,sessao){
     return {ok:true,id:id};
   })
 }
+
+function pwaSafeDriveName_(value){
+  return String(value||"").replace(/[\\/:*?"<>|#%{}~&]/g," ").replace(/\s+/g," ").trim().slice(0,120)||"Sem nome";
+}
+function pwaChildFolder_(parent,name){
+  var safe=pwaSafeDriveName_(name),it=parent.getFoldersByName(safe);
+  return it.hasNext()?it.next():parent.createFolder(safe);
+}
+function pwaDriveFolderIdFromUrl_(url){
+  var m=String(url||"").match(/\/folders\/([A-Za-z0-9_-]+)/);
+  return m?m[1]:"";
+}
+function pwaAlunoDriveFolder_(aluno,modo,sessao){
+  var root=DriveApp.getFolderById(PWA_DOCUMENTOS_ROOT_FOLDER_ID),mode=pwaMode_(modo);
+  if(mode==="PRODUCAO"){
+    var existing=pwaDriveFolderIdFromUrl_(aluno.LINK_DOCUMENTOS);
+    if(existing){try{return DriveApp.getFolderById(existing)}catch(_e){}}
+    var prod=pwaChildFolder_(root,"PRODUCAO");
+    var folder=pwaChildFolder_(prod,String(aluno.ID_ALUNO||"ALUNO")+" - "+String(aluno.NOME_COMPLETO||"Aluno"));
+    updateById_(S.ALUNOS||"ALUNOS","ID_ALUNO",aluno.ID_ALUNO,{LINK_DOCUMENTOS:folder.getUrl()});
+    return folder;
+  }
+  var test=pwaChildFolder_(root,"TESTE"),sessionFolder=pwaChildFolder_(test,String(sessao||"sem-sessao"));
+  return pwaChildFolder_(sessionFolder,String(aluno.ID_ALUNO||"ALUNO")+" - "+String(aluno.NOME_COMPLETO||"Aluno"));
+}
+function pwaUploadDocumentoAluno_(token,data,modo,sessao){
+  pwaStaff_(token);data=data||{};
+  if(!data.ID_ALUNO)throw new Error("Aluno não informado.");
+  if(!data.NOME_ARQUIVO)throw new Error("Nome do arquivo não informado.");
+  if(!data.BASE64)throw new Error("Arquivo não recebido.");
+  return pwaWithLock_(function(){
+    var aluno=findById_(S.ALUNOS||"ALUNOS","ID_ALUNO",data.ID_ALUNO);
+    if(!aluno)throw new Error("Aluno não encontrado.");
+    pwaAssertRowMode_(aluno,modo,"Aluno");
+    var raw=String(data.BASE64||"").replace(/^data:[^;]+;base64,/,""),bytes;
+    try{bytes=Utilities.base64Decode(raw)}catch(_e){throw new Error("Arquivo inválido ou corrompido.");}
+    if(!bytes||!bytes.length)throw new Error("Arquivo vazio.");
+    if(bytes.length>PWA_DOCUMENT_MAX_BYTES)throw new Error("O arquivo ultrapassa 4 MB. Reduza o tamanho antes de enviar.");
+    var original=pwaSafeDriveName_(data.NOME_ARQUIVO),mime=String(data.MIME_TYPE||"application/octet-stream");
+    var studentFolder=pwaAlunoDriveFolder_(aluno,modo,sessao);
+    var year=Number(data.ANO_LETIVO||0)||new Date().getFullYear();
+    var yearFolder=pwaChildFolder_(studentFolder,String(year));
+    var stamp=Utilities.formatDate(new Date(),Session.getScriptTimeZone()||"America/Fortaleza","yyyyMMdd-HHmmss");
+    var storedName=stamp+" - "+original;
+    var file=yearFolder.createFile(Utilities.newBlob(bytes,mime,storedName));
+    var id=nextId_("DOC-","DOCUMENTOS_ALUNO","ID_DOCUMENTO"),now=new Date();
+    var label=String(data.DOCUMENTO||"").trim()||original.replace(/\.[^.]+$/,"");
+    append_("DOCUMENTOS_ALUNO",{
+      ID_DOCUMENTO:id,
+      ID_ALUNO:data.ID_ALUNO,
+      ID_MATRICULA:data.ID_MATRICULA||"",
+      ID_REGRA:data.ID_REGRA||"",
+      DOCUMENTO:label,
+      STATUS:data.STATUS||"Entregue",
+      DATA_ENTREGA:data.DATA_ENTREGA||Utilities.formatDate(now,Session.getScriptTimeZone()||"America/Fortaleza","yyyy-MM-dd"),
+      DATA_VALIDADE:data.DATA_VALIDADE||"",
+      LINK_DRIVE:file.getUrl(),
+      OBSERVACAO:data.OBSERVACAO||"",
+      CONFERIDO_POR:data.CONFERIDO_POR||"",
+      CONFERIDO_EM:data.CONFERIDO_EM||"",
+      OBRIGATORIO:data.OBRIGATORIO||"A conferir",
+      PENDENCIA:data.PENDENCIA||"",
+      MODO_REGISTRO:pwaMode_(modo),
+      SESSAO_TESTE:pwaMode_(modo)==="TESTE"?String(sessao||""):"",
+      ARQUIVO_ID:file.getId(),
+      NOME_ARQUIVO:original,
+      MIME_TYPE:mime,
+      TAMANHO_BYTES:bytes.length,
+      PASTA_DRIVE:yearFolder.getUrl(),
+      ORIGEM_UPLOAD:"Dispositivo / arrastar e soltar"
+    });
+    audit_("Secretaria","UPLOAD_DOCUMENTO","Aluno",data.ID_ALUNO,"",JSON.stringify({id:id,arquivo:original,tamanho:bytes.length,ano:year,modo:pwaMode_(modo)}));
+    SpreadsheetApp.flush();
+    return {ok:true,id:id,fileId:file.getId(),url:file.getUrl(),folderUrl:yearFolder.getUrl(),nome:original,tamanho:bytes.length};
+  });
+}
+
 function pwaListarRecebimentosAluno_(token,idAluno,modo){pwaStaff_(token);return pwaFilterMode_(listarRecebimentosAluno(idAluno)||[],modo)}
 function pwaListarRecebimentos_(token,modo){pwaAdmin_(token);return pwaFilterMode_(listarRecebimentos(token)||[],modo)}
 function pwaListarCaixa_(token,modo){pwaAdmin_(token);return pwaFilterMode_(listarCaixa(token)||[],modo)}
@@ -762,6 +841,7 @@ function doPost(e){
       case "atualizarDocumento":data=pwaAtualizarDocumento_(body.token,body.id||(body.data&&body.data.ID_DOCUMENTO),body.data||{},body.modo,body.sessaoTeste);break;
       case "listarDocumentosAluno":data=pwaListarDocumentosAluno_(body.token,body.idAluno,body.modo);break;
       case "adicionarDocumentoAluno":data=pwaAdicionarDocumentoAluno_(body.token,body.data||{},body.modo,body.sessaoTeste);break;
+      case "uploadDocumentoAluno":data=pwaUploadDocumentoAluno_(body.token,body.data||{},body.modo,body.sessaoTeste);break;
       case "listarRecebimentosAluno":data=pwaListarRecebimentosAluno_(body.token,body.idAluno,body.modo);break;
       case "listarProdutosPublicos":data=listarProdutosPublicos();break;
       case "dashboardPublico":data=pwaDashboardPublico_(body.modo);break;
