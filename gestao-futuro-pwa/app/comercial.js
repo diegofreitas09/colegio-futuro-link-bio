@@ -495,12 +495,38 @@ async function renderAtendimento(){
   "<input type='hidden' name='VALOR_PARCELA_FINAL' value='"+esc(resume?.VALOR_PARCELA_FINAL||"")+"'>"+
   "<input type='hidden' name='TOTAL_PLANO' value='"+esc(resume?.TOTAL_PLANO||"")+"'>"+
   "<input type='hidden' name='ECONOMIA_PLANO' value='"+esc(resume?.ECONOMIA_PLANO||"")+"'>"+
-  "<div class='field span-2 student-lookup-field'><label>Pesquisar aluno já cadastrado</label><input id='attStudentSearch' list='attStudentDatalist' autocomplete='off' placeholder='Digite as primeiras letras do nome…'><datalist id='attStudentDatalist'>"+studentLookupOpts+"</datalist><small class='muted'>Nome • série atual • progressão 2027</small><select id='attStudent' class='hidden'><option value=''>Novo / não localizado</option>"+studentOpts+"</select></div><div class='field'><label>Tipo</label><select name='TIPO_ALUNO' id='attType'><option>Novato</option><option>Veterano</option></select></div><div class='field span-2'><label>Nome do aluno *</label><input name='NOME_ALUNO' id='attName' required></div><div class='field'><label>Responsável *</label><input name='RESPONSAVEL' required></div><div class='field'><label>Telefone</label><input name='TELEFONE'></div><div class='field'><label>E-mail</label><input name='EMAIL' type='email'></div><div class='field'><label>Ano letivo *</label><select name='ANO_LETIVO' id='attYear'>"+yearOpts+"</select></div><div class='field'><label>Série pretendida *</label><select name='SERIE_PRETENDIDA' id='attSerie' required><option value=''>Selecione</option>"+gfOptions(resume?.SERIE_PRETENDIDA||"")+"</select></div><div class='field'><label>Turno</label><select name='TURNO'><option>Manhã</option><option>Tarde</option><option>Integral</option></select></div><div class='field'><label>Modalidade</label><input name='MODALIDADE' value='Regular'></div><div class='field'><label>Origem</label><select name='ORIGEM'><option></option><option>Instagram</option><option>Google</option><option>Indicação</option><option>WhatsApp</option><option>Aluno da casa</option><option>Outros</option></select></div><div class='field span-2'><label>Observações</label><textarea name='OBSERVACAO'></textarea></div></form></div>"+
+  "<input type='hidden' name='ANO_ORIGEM' id='attOriginYear' value='"+esc(resume?.ANO_ORIGEM||"")+"'>"+
+  "<input type='hidden' name='SERIE_ATUAL' id='attCurrentSeries' value='"+esc(resume?.SERIE_ATUAL||"")+"'>"+
+  "<input type='hidden' name='SERIE_SUGERIDA' id='attSuggestedSeries' value='"+esc(resume?.SERIE_SUGERIDA||"")+"'>"+
+  "<input type='hidden' name='SERIE_CONFIRMADA' id='attConfirmedSeriesHidden' value='"+esc(resume?.SERIE_CONFIRMADA||resume?.SERIE_PRETENDIDA||"")+"'>"+
+  "<input type='hidden' name='REMATRICULA_STATUS' id='attRematriculaStatus' value='"+esc(resume?.REMATRICULA_STATUS||"")+"'>"+
+  "<div class='field span-2 student-lookup-field'><label>Pesquisar aluno já cadastrado</label><input id='attStudentSearch' list='attStudentDatalist' autocomplete='off' placeholder='Digite as primeiras letras do nome…'><datalist id='attStudentDatalist'>"+studentLookupOpts+"</datalist><small class='muted'>Nome • série atual • progressão 2027</small><select id='attStudent' class='hidden'><option value=''>Novo / não localizado</option>"+studentOpts+"</select></div><div class='field'><label>Tipo</label><select name='TIPO_ALUNO' id='attType'><option>Novato</option><option>Veterano</option></select></div><div class='field span-2'><label>Nome do aluno *</label><input name='NOME_ALUNO' id='attName' required></div><div class='field'><label>Responsável *</label><input name='RESPONSAVEL' required></div><div class='field'><label>Telefone</label><input name='TELEFONE'></div><div class='field'><label>E-mail</label><input name='EMAIL' type='email'></div><div class='field'><label>Ano letivo *</label><select name='ANO_LETIVO' id='attYear'>"+yearOpts+"</select></div><div class='field'><label>Série confirmada / pretendida *</label><select name='SERIE_PRETENDIDA' id='attSerie' required><option value=''>Selecione</option>"+gfOptions(resume?.SERIE_PRETENDIDA||"")+"</select></div><div class='field span-3 hidden' id='attRematriculaCard'><div class='rematricula-flow-card'><div><small>SÉRIE ATUAL • 2026</small><b id='attCurrentSeriesView'>—</b></div><div><small>SÉRIE SUGERIDA • 2027</small><b id='attSuggestedSeriesView'>—</b></div><div><small>SÉRIE CONFIRMADA</small><b id='attConfirmedSeriesView'>—</b></div><div class='field progression-choice'><label>Situação para 2027</label><select name='SITUACAO_PROGRESSAO' id='attProgressionSituation'><option>Aprovado / progredir</option><option>Retido / repetir série</option><option>Definido manualmente</option></select></div><p class='muted'>A sugestão é automática, mas a série confirmada é definida pela escola e pode ser corrigida depois sem alterar o histórico de 2026.</p></div></div><div class='field'><label>Turno</label><select name='TURNO'><option>Manhã</option><option>Tarde</option><option>Integral</option></select></div><div class='field'><label>Modalidade</label><input name='MODALIDADE' value='Regular'></div><div class='field'><label>Origem</label><select name='ORIGEM'><option></option><option>Instagram</option><option>Google</option><option>Indicação</option><option>WhatsApp</option><option>Aluno da casa</option><option>Outros</option></select></div><div class='field span-2'><label>Observações</label><textarea name='OBSERVACAO'></textarea></div></form></div>"+
   "<div class='card stage-card'><div class='section-head compact'><h2>Etapa</h2><span id='stagePct' class='pill'>"+GF_PCT[state.attendanceStage]+"%</span></div><div class='stage-flow' id='stageFlow'>"+gfStageButtons()+"</div><div class='progress-line'><i id='stageBar' style='width:"+GF_PCT[state.attendanceStage]+"%'></i></div></div><div id='catalogArea' class='empty card'>Escolha a série.</div><div class='crm-actions'><div><span class='muted'>Total apresentado</span><strong id='attTotal'>R$ 0,00</strong></div><div class='pdf-actions'><button class='btn btn-soft' id='downloadAttendancePdf' "+((!state.currentAttendanceId||(String(state.currentAttendanceId).startsWith("LOCAL-")&&currentRunMode()!=="TESTE"))?"disabled":"")+">Baixar PDF</button><button class='btn btn-primary' id='saveAttendance'>"+(state.currentAttendanceId?"Atualizar atendimento":"Salvar atendimento")+"</button></div></div><div class='section-head'><h2>Atendimentos salvos</h2><div class='toolbar'><span class='muted'>Clique em “Continuar” para retomar depois.</span><button class='btn btn-report btn-sm' id='attendanceReport'>📄 Relatório</button></div></div><div class='table-wrap'><table><thead><tr><th>Aluno</th><th>Ano</th><th>Série</th><th>Etapa</th><th>Status</th><th>Total</th><th></th></tr></thead><tbody>"+(recent||"<tr><td colspan='7' class='empty'>Nenhum atendimento salvo ainda.</td></tr>")+"</tbody></table></div>";
 
   $("#changeModeInline").onclick=openModeModal;
   if($("#attendanceReport"))$("#attendanceReport").onclick=()=>openAttendanceReport(combined.map(function(x){return x.a||{}}));
   function setHidden(name,value){var el=$("#attForm").elements[name];if(el)el.value=value==null?"":value}
+  function attendanceStudent(){return students.find(function(x){return String(x.ID_ALUNO)===String($("#attStudent")?.value||"")})||null}
+  function syncAttendanceRematricula(a,keepConfirmed){
+    var card=$("#attRematriculaCard"),targetYear=Number($("#attYear")?.value||0);
+    if(!a||$("#attType")?.value!=="Veterano"||targetYear!==2027){
+      card?.classList.add("hidden");setHidden("ANO_ORIGEM","");setHidden("SERIE_ATUAL","");setHidden("SERIE_SUGERIDA","");setHidden("SERIE_CONFIRMADA",$("#attSerie")?.value||"");setHidden("REMATRICULA_STATUS","");return;
+    }
+    var current=a.SERIE_ORIGEM_2026||a["SÉRIE"]||"",suggested=typeof gfSuggestedSeries==="function"?gfSuggestedSeries(a,2027):(a.PROXIMA_SERIE_2027||gfNextSeries(current)),existing=a.SERIE_CONFIRMADA_2027||"",situation=$("#attProgressionSituation")?.value||"";
+    if(!situation||!keepConfirmed){
+      situation=a.RESULTADO_2026==="Retido"?"Retido / repetir série":a.RESULTADO_2026==="Aprovado"?"Aprovado / progredir":"Aprovado / progredir";
+      if($("#attProgressionSituation"))$("#attProgressionSituation").value=situation;
+    }
+    var confirmed=keepConfirmed?($("#attSerie")?.value||existing||suggested||current):(existing||(situation.indexOf("Retido")===0?current:suggested)||current);
+    if(confirmed&&$("#attSerie"))$("#attSerie").value=confirmed;
+    setHidden("ANO_ORIGEM",2026);setHidden("SERIE_ATUAL",current);setHidden("SERIE_SUGERIDA",suggested);setHidden("SERIE_CONFIRMADA",confirmed);
+    var already=(b.matriculas||[]).some(function(m){return String(m.ID_ALUNO)===String(a.ID_ALUNO)&&Number(m.ANO_LETIVO)===2027});
+    setHidden("REMATRICULA_STATUS",already?"Realizada":"Em preparação");
+    if($("#attCurrentSeriesView"))$("#attCurrentSeriesView").textContent=current||"—";
+    if($("#attSuggestedSeriesView"))$("#attSuggestedSeriesView").textContent=suggested||"—";
+    if($("#attConfirmedSeriesView"))$("#attConfirmedSeriesView").textContent=confirmed||"A confirmar";
+    card?.classList.remove("hidden");
+  }
   function currentPlanDiscounts(){
     return {
       first:Number($("#attForm").elements["DESCONTO_PRIMEIRA_%"].value||0),
@@ -579,15 +605,19 @@ async function renderAtendimento(){
     if(resume.ID_ALUNO&&$("#attStudent")){ $("#attStudent").value=resume.ID_ALUNO;var ra=students.find(function(x){return x.ID_ALUNO===resume.ID_ALUNO});if(ra&&$("#attStudentSearch"))$("#attStudentSearch").value=ra.NOME_COMPLETO+" — "+(ra["SÉRIE"]||""); }
     if(resume.SERIE_PRETENDIDA)$("#attSerie").value=resume.SERIE_PRETENDIDA;
     if(resume.ANO_LETIVO)$("#attYear").value=String(resume.ANO_LETIVO);
+    var resumeStudent=students.find(function(x){return String(x.ID_ALUNO)===String(resume.ID_ALUNO||"")});
+    if($("#attProgressionSituation")&&resume.SITUACAO_PROGRESSAO)$("#attProgressionSituation").value=resume.SITUACAO_PROGRESSAO;
+    syncAttendanceRematricula(resumeStudent,true);
   }
-  $("#attSerie").onchange=function(){gfSaveAttendanceDraft();drawCatalog()};
-  $("#attYear").onchange=function(){gfSaveAttendanceDraft();drawCatalog()};
+  $("#attSerie").onchange=function(){var a=attendanceStudent();if(a&&$("#attType").value==="Veterano"&&Number($("#attYear").value)===2027){setHidden("SERIE_CONFIRMADA",$("#attSerie").value);if($("#attConfirmedSeriesView"))$("#attConfirmedSeriesView").textContent=$("#attSerie").value||"A confirmar";var suggested=$("#attSuggestedSeries").value,current=$("#attCurrentSeries").value;if($("#attSerie").value!==suggested&&$("#attSerie").value!==current)$("#attProgressionSituation").value="Definido manualmente"}gfSaveAttendanceDraft();drawCatalog()};
+  $("#attYear").onchange=function(){syncAttendanceRematricula(attendanceStudent(),false);gfSaveAttendanceDraft();drawCatalog()};
+  $("#attProgressionSituation")?.addEventListener("change",function(){var a=attendanceStudent();if(!a)return;var current=a.SERIE_ORIGEM_2026||a["SÉRIE"]||"",suggested=typeof gfSuggestedSeries==="function"?gfSuggestedSeries(a,2027):(a.PROXIMA_SERIE_2027||gfNextSeries(current));if(this.value.indexOf("Retido")===0)$("#attSerie").value=current;else if(this.value.indexOf("Aprovado")===0&&suggested)$("#attSerie").value=suggested;syncAttendanceRematricula(a,true);gfSaveAttendanceDraft();drawCatalog()});
   $$("#stageFlow [data-stage]").forEach(function(x){
     x.classList.toggle("active",x.dataset.stage===state.attendanceStage);
     x.onclick=function(){state.attendanceStage=x.dataset.stage;gfRefreshStage(false)}
   });
   gfRefreshStage(true);
-  $("#attStudent").onchange=function(){var a=students.find(function(x){return x.ID_ALUNO===$("#attStudent").value});if(a){$("#attName").value=a.NOME_COMPLETO||"";$("#attType").value="Veterano";$("#attSerie").value=a["SÉRIE"]||"";if($("#attStudentSearch"))$("#attStudentSearch").value=a.NOME_COMPLETO+" — "+(a["SÉRIE"]||"");drawCatalog()}gfSaveAttendanceDraft()};
+  $("#attStudent").onchange=function(){var a=students.find(function(x){return x.ID_ALUNO===$("#attStudent").value});if(a){$("#attName").value=a.NOME_COMPLETO||"";$("#attType").value="Veterano";if(years.includes(2027))$("#attYear").value="2027";if($("#attStudentSearch"))$("#attStudentSearch").value=a.NOME_COMPLETO+" — "+(a["SÉRIE"]||"");syncAttendanceRematricula(a,false);drawCatalog()}else{$("#attType").value="Novato";syncAttendanceRematricula(null,false)}gfSaveAttendanceDraft()};
   if($("#attStudentSearch")){
     const pickStudentFromSearch=function(){
       const q=gfStudentNorm($("#attStudentSearch").value),a=students.find(function(x){return gfStudentNorm(x.NOME_COMPLETO+" — "+(x["SÉRIE"]||""))===q})||gfStudentSearchRows(students,$("#attStudentSearch").value,1)[0];
@@ -595,6 +625,7 @@ async function renderAtendimento(){
     };
     $("#attStudentSearch").onchange=pickStudentFromSearch;
   }
+  $("#attType").onchange=function(){syncAttendanceRematricula(attendanceStudent(),false);drawCatalog();gfSaveAttendanceDraft()};
   $("#attForm").addEventListener("input",function(){clearTimeout(state.attDraftTimer);state.attDraftTimer=setTimeout(function(){gfRefreshStage(true);var el=$("#autosaveStatus");if(el){el.textContent="Salvo ✓";el.className="autosave-status sync-saved";setTimeout(function(){var x=$("#autosaveStatus");if(x){x.textContent="Rascunho automático ativo";x.className="muted autosave-status"}},1200)}},350)});
   $("#attForm").addEventListener("change",function(){gfRefreshStage(true)});
   $("#clearAttend").onclick=function(){state.currentAttendanceId="";state.resumeAttendance=null;state.resumeItems=[];state.attendanceItems=new Set();state.attendanceStage="Contato";gfClearAttendanceDraft();renderAtendimento()};
@@ -658,6 +689,19 @@ async function renderAtendimento(){
       if(!r?.id)throw new Error("O servidor não confirmou o ID do atendimento.");
       gfRemoveLocalAttendance(localId);
       state.currentAttendanceId=r.id;data.ID_ATENDIMENTO=r.id;data.SYNC_STATUS="Sincronizado";state.resumeAttendance=data;state.resumeItems=selected;gfCacheSavedAttendance(r.id,data,selected);
+      var veteran=attendanceStudent();
+      if(veteran&&data.TIPO_ALUNO==="Veterano"&&Number(data.ANO_LETIVO)===2027){
+        var studentPatch=Object.assign({},veteran,{
+          ID_ALUNO:veteran.ID_ALUNO,
+          PROXIMA_SERIE_2027:data.SERIE_SUGERIDA||veteran.PROXIMA_SERIE_2027||gfNextSeries(data.SERIE_ATUAL||veteran["SÉRIE"]||""),
+          SERIE_CONFIRMADA_2027:data.SERIE_CONFIRMADA||data.SERIE_PRETENDIDA||"",
+          RESULTADO_2026:String(data.SITUACAO_PROGRESSAO||"").indexOf("Retido")===0?"Retido":"Aprovado",
+          PROGRESSAO_STATUS:data.SITUACAO_PROGRESSAO||"Em definição",
+          REMATRICULA_STATUS:data.REMATRICULA_STATUS||"Em preparação",
+          REMATRICULA_ATUALIZADA_EM:new Date().toISOString()
+        });
+        try{await api("salvarAluno",{token:tokenFor("staff"),data:studentPatch});state.bootstrap=null}catch(_e){}
+      }
       setNotice("Atendimento "+esc(r.id)+" salvo no banco. Você pode continuar depois em “Atendimentos salvos”.","ok");
       await renderAtendimento();
     }catch(e){
