@@ -362,28 +362,85 @@ async function renderDocumentos(){
     }catch(e){$("#docsArea").innerHTML=`<div class="notice error">${esc(e.message)}</div>`}
   }
 
+
   function openAddDocument(aluno,docs){
-    modal(`<div class="modal-head"><h3>Adicionar documento</h3><button class="icon-btn" data-close>✕</button></div><div class="modal-body">
+    let selectedFiles=[];
+    modal(`<div class="modal-head"><h3>Adicionar documentos</h3><button class="icon-btn" data-close>✕</button></div><div class="modal-body">
       <div class="report-intro"><b>${esc(aluno.NOME_COMPLETO||"")}</b><span>${esc(aluno["SÉRIE"]||"")} • ${esc(aluno.MATRICULA_ORIGEM?"Matrícula "+aluno.MATRICULA_ORIGEM:"")}</span></div>
       <form id="addDocForm" class="form-grid">
-        <div class="field span-2"><label>Documento *</label><input name="DOCUMENTO" required placeholder="Ex.: Certidão de nascimento"></div>
+        <div class="field span-3">
+          <label>Arquivos do dispositivo</label>
+          <input id="docFilesInput" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" class="hidden">
+          <div id="docDropZone" class="doc-dropzone" tabindex="0">
+            <div class="doc-drop-icon">☁️</div>
+            <b>Arraste e solte os documentos aqui</b>
+            <span>ou escolha vários arquivos de uma vez no computador ou celular</span>
+            <button type="button" class="btn btn-soft" id="pickDocFiles">Selecionar arquivos do dispositivo</button>
+            <small>PDF, JPG, PNG, WEBP, DOC e DOCX • até 4 MB por arquivo • imagens grandes são compactadas automaticamente</small>
+          </div>
+          <div id="docFilesList" class="doc-files-list"></div>
+        </div>
+        <div class="field span-2"><label>Nome/categoria do documento</label><input name="DOCUMENTO" placeholder="Opcional. Com vários arquivos, o nome de cada arquivo será usado."></div>
         <div class="field"><label>Obrigatório</label><select name="OBRIGATORIO"><option>A conferir</option><option>Sim</option><option>Não</option><option>Condicional</option></select></div>
-        <div class="field"><label>Status</label><select name="STATUS"><option>Pendente</option><option>Entregue</option><option>Dispensado</option></select></div>
-        <div class="field"><label>Data de entrega</label><input type="date" name="DATA_ENTREGA"></div>
-        <div class="field span-2"><label>Link do arquivo/pasta</label><input type="url" name="LINK_DRIVE" placeholder="https://..."></div>
+        <div class="field"><label>Status</label><select name="STATUS" id="docStatus"><option>Entregue</option><option>Pendente</option><option>Dispensado</option></select></div>
+        <div class="field"><label>Data de entrega</label><input type="date" name="DATA_ENTREGA" id="docDeliveryDate" value="${new Date().toISOString().slice(0,10)}"></div>
+        <div class="field span-2"><label>Link manual do Drive/pasta</label><input type="url" name="LINK_DRIVE" placeholder="Opcional — use quando o arquivo já estiver no Drive"></div>
         <div class="field span-3"><label>Observação</label><textarea name="OBSERVACAO"></textarea></div>
-      </form></div><div class="modal-foot"><button class="btn btn-soft" data-close>Cancelar</button><button class="btn btn-primary" id="saveNewDoc">Salvar documento</button></div>`);
+      </form>
+      <div class="doc-drive-note"><b>✓ Organização automática no Drive</b><span>Os arquivos enviados serão salvos em Gestão Futuro - Documentos de Alunos → aluno → ano letivo e o link ficará registrado no cadastro.</span></div>
+    </div><div class="modal-foot"><button class="btn btn-soft" data-close>Cancelar</button><button class="btn btn-primary" id="saveNewDoc">Salvar documento</button></div>`);
     $$('[data-close]').forEach(x=>x.onclick=closeModal);
-    $("#saveNewDoc").onclick=async()=>{
-      const form=$("#addDocForm");if(!form.reportValidity())return;
-      const data=Object.fromEntries(new FormData(form).entries());data.ID_ALUNO=aluno.ID_ALUNO;
-      const mat=(b.matriculas||[]).find(m=>String(m.ID_ALUNO)===String(aluno.ID_ALUNO)&&String(m.ANO_LETIVO||"")==="2026");
-      if(mat)data.ID_MATRICULA=mat["ID_MATRÍCULA"]||mat.ID_MATRICULA||"";
-      const btn=$("#saveNewDoc");btn.disabled=true;btn.textContent="Salvando…";
-      try{await api("adicionarDocumentoAluno",{token:tokenFor("staff"),data});closeModal();state.bootstrap=null;await loadDocs(aluno.ID_ALUNO);showToast("Documento adicionado ✓","ok")}catch(e){showToast(e.message||"Não foi possível adicionar o documento.","error");btn.disabled=false;btn.textContent="Salvar documento"}
+    const input=$("#docFilesInput"),zone=$("#docDropZone"),list=$("#docFilesList"),save=$("#saveNewDoc");
+    const renderFiles=()=>{
+      list.innerHTML=selectedFiles.length?selectedFiles.map((f,i)=>`<div class="doc-file-row"><span class="doc-file-type">${esc((f.name.split(".").pop()||"ARQ").toUpperCase())}</span><div><b>${esc(f.name)}</b><small>${gfDocFormatBytes(f.size)}</small></div><button type="button" class="icon-btn" data-remove-file="${i}" title="Remover">✕</button></div>`).join(""):"";
+      save.textContent=selectedFiles.length>1?`Salvar ${selectedFiles.length} documentos`:"Salvar documento";
+      $$("[data-remove-file]",list).forEach(btn=>btn.onclick=()=>{selectedFiles.splice(Number(btn.dataset.removeFile),1);renderFiles()});
+    };
+    const addFiles=files=>{
+      const incoming=[...(files||[])];
+      incoming.forEach(file=>{
+        const key=file.name+"|"+file.size+"|"+file.lastModified;
+        if(!selectedFiles.some(x=>x.name+"|"+x.size+"|"+x.lastModified===key))selectedFiles.push(file);
+      });
+      if(selectedFiles.length>10){selectedFiles=selectedFiles.slice(0,10);showToast("Máximo de 10 documentos por envio.","error")}
+      if(selectedFiles.length){$("#docStatus").value="Entregue";$("#docDeliveryDate").value=new Date().toISOString().slice(0,10)}
+      renderFiles();
+    };
+    $("#pickDocFiles").onclick=()=>input.click();
+    zone.onclick=e=>{if(!e.target.closest("button"))input.click()};
+    zone.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();input.click()}};
+    input.onchange=()=>{addFiles(input.files);input.value=""};
+    ["dragenter","dragover"].forEach(ev=>zone.addEventListener(ev,e=>{e.preventDefault();zone.classList.add("dragging")}));
+    ["dragleave","drop"].forEach(ev=>zone.addEventListener(ev,e=>{e.preventDefault();zone.classList.remove("dragging")}));
+    zone.addEventListener("drop",e=>addFiles(e.dataTransfer&&e.dataTransfer.files||[]));
+    save.onclick=async()=>{
+      const form=$("#addDocForm"),data=Object.fromEntries(new FormData(form).entries());
+      if(!selectedFiles.length&&!String(data.DOCUMENTO||"").trim()&&!String(data.LINK_DRIVE||"").trim()){showToast("Selecione um arquivo, arraste um documento ou informe um link do Drive.","error");return}
+      const mats=(b.matriculas||[]).filter(m=>String(m.ID_ALUNO)===String(aluno.ID_ALUNO)).sort((a,z)=>Number(z.ANO_LETIVO||0)-Number(a.ANO_LETIVO||0));
+      const mat=mats[0]||null;data.ID_ALUNO=aluno.ID_ALUNO;data.ANO_LETIVO=Number(mat&&mat.ANO_LETIVO||2027);data.ID_MATRICULA=mat&&(mat["ID_MATRÍCULA"]||mat.ID_MATRICULA)||"";
+      save.disabled=true;
+      try{
+        if(selectedFiles.length){
+          let done=0;
+          for(const file of selectedFiles){
+            save.textContent=`Preparando ${done+1} de ${selectedFiles.length}…`;
+            const prepared=await gfDocPrepareFile(file);
+            const label=selectedFiles.length===1&&String(data.DOCUMENTO||"").trim()?String(data.DOCUMENTO).trim():prepared.name.replace(/\.[^.]+$/,"");
+            save.textContent=`Enviando ${done+1} de ${selectedFiles.length} para o Drive…`;
+            await api("uploadDocumentoAluno",{token:tokenFor("staff"),data:{...data,DOCUMENTO:label,NOME_ARQUIVO:prepared.name,MIME_TYPE:prepared.mime,TAMANHO_BYTES:prepared.size,BASE64:prepared.base64,STATUS:data.STATUS||"Entregue"}});
+            done++;
+          }
+          showToast(selectedFiles.length+" documento(s) salvo(s) no Drive ✓","ok");
+        }else{
+          await api("adicionarDocumentoAluno",{token:tokenFor("staff"),data});
+          showToast("Documento adicionado ✓","ok");
+        }
+        closeModal();clearApiCache();await loadDocs(aluno.ID_ALUNO);
+      }catch(e){
+        showToast(e.message||"Não foi possível salvar os documentos.","error");save.disabled=false;renderFiles();
+      }
     };
   }
-
   const input=$("#docsSearch"),suggest=$("#docsSuggest");
   input.oninput=()=>{
     const q=input.value.trim(),matches=q?gfStudentSearchRows(alunos,q,10):[];
