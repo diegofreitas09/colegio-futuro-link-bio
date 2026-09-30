@@ -748,3 +748,26 @@ body.home-active .shell{filter:blur(2px) saturate(.8);pointer-events:none;user-s
 @media(max-width:480px){
   .rematricula-flow-card,.rematricula-summary{grid-template-columns:1fr}
 }
+
+
+/* Upload múltiplo de documentos no Drive */
+.doc-dropzone{display:grid;justify-items:center;gap:8px;padding:22px 18px;border:2px dashed #9eb9d8;border-radius:16px;background:linear-gradient(180deg,#f8fbff,#eef5fc);text-align:center;cursor:pointer;transition:.18s ease;outline:none}
+.doc-dropzone:hover,.doc-dropzone:focus,.doc-dropzone.dragging{border-color:#246ac1;background:#eaf3ff;box-shadow:0 0 0 4px rgba(36,106,193,.08)}
+.doc-drop-icon{font-size:30px;line-height:1}
+.doc-dropzone>b{font-size:15px;color:#123b76}
+.doc-dropzone>span{font-size:11px;color:#5e7187}
+.doc-dropzone>small{font-size:9px;color:#7b8b9d;line-height:1.35}
+.doc-dropzone .btn{margin-top:2px}
+.doc-files-list{display:grid;gap:7px;margin-top:9px}
+.doc-file-row{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:9px 10px;border:1px solid #d4e0ed;border-radius:10px;background:#fff}
+.doc-file-row>div{display:grid;min-width:0}
+.doc-file-row b{font-size:11px;color:#243f60;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.doc-file-row small{font-size:9px;color:#7a8b9c}
+.doc-file-type{display:grid;place-items:center;min-width:42px;height:30px;padding:0 7px;border-radius:7px;background:#e7f0fb;color:#17559b;font-size:9px;font-weight:950}
+.doc-drive-note{display:grid;gap:3px;margin-top:12px;padding:10px 12px;border:1px solid #bfe1c9;border-radius:10px;background:#eef9f2;color:#226641}
+.doc-drive-note b{font-size:10px}
+.doc-drive-note span{font-size:9px;line-height:1.4}
+@media(max-width:600px){
+  .doc-dropzone{padding:18px 12px}
+  .doc-file-row{grid-template-columns:auto minmax(0,1fr) auto}
+}
