@@ -297,6 +297,35 @@ function openMatForm(b){
   };
 }
 
+
+function gfDocFormatBytes(bytes){
+  const n=Number(bytes||0);if(!n)return "0 KB";
+  if(n<1024*1024)return (n/1024).toLocaleString("pt-BR",{maximumFractionDigits:0})+" KB";
+  return (n/1024/1024).toLocaleString("pt-BR",{maximumFractionDigits:1})+" MB";
+}
+function gfDocReadDataUrl(blob){
+  return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result||""));r.onerror=()=>reject(new Error("Não foi possível ler o arquivo."));r.readAsDataURL(blob)});
+}
+async function gfDocPrepareFile(file){
+  const name=String(file&&file.name||"arquivo"),ext=(name.split(".").pop()||"").toLowerCase();
+  const allowedExt=["pdf","jpg","jpeg","png","webp","doc","docx"];
+  if(!allowedExt.includes(ext))throw new Error(name+": formato não permitido. Use PDF, imagem, DOC ou DOCX.");
+  let blob=file,mime=file.type||({"pdf":"application/pdf","jpg":"image/jpeg","jpeg":"image/jpeg","png":"image/png","webp":"image/webp","doc":"application/msword","docx":"application/vnd.openxmlformats-officedocument.wordprocessingml.document"}[ext]||"application/octet-stream"),outName=name;
+  if(/^image\//.test(mime)&&file.size>1500000){
+    const url=URL.createObjectURL(file);
+    try{
+      const img=await new Promise((resolve,reject)=>{const x=new Image();x.onload=()=>resolve(x);x.onerror=()=>reject(new Error(name+": imagem inválida."));x.src=url});
+      const max=1800,scale=Math.min(1,max/Math.max(img.width,img.height)),w=Math.max(1,Math.round(img.width*scale)),h=Math.max(1,Math.round(img.height*scale));
+      const canvas=document.createElement("canvas");canvas.width=w;canvas.height=h;canvas.getContext("2d").drawImage(img,0,0,w,h);
+      blob=await new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(new Error(name+": falha ao compactar imagem.")),"image/jpeg",.84));
+      mime="image/jpeg";outName=name.replace(/\.[^.]+$/,"")+".jpg";
+    }finally{URL.revokeObjectURL(url)}
+  }
+  if(blob.size>4*1024*1024)throw new Error(outName+": arquivo acima de 4 MB. Compacte o documento antes do envio.");
+  const dataUrl=await gfDocReadDataUrl(blob),base64=dataUrl.includes(",")?dataUrl.split(",")[1]:dataUrl;
+  return {name:outName,mime:mime,size:blob.size,base64:base64};
+}
+
 async function renderDocumentos(){
   const b=await loadBootstrap();const alunos=b.alunos||[];
   $("#view").innerHTML=`<div class="section-head"><h2>Documentos do aluno</h2></div>
