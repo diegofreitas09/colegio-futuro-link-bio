@@ -731,3 +731,20 @@ body.home-active .shell{filter:blur(2px) saturate(.8);pointer-events:none;user-s
 @media(max-width:720px){
   .section-head .toolbar .catalog-sync-badge{order:-1;width:100%;justify-content:center}
 }
+
+
+/* Fluxo de rematrícula e progressão */
+.rematricula-flow-card,.rematricula-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:13px;border:1px solid #c9dbee;border-radius:14px;background:linear-gradient(180deg,#f8fbff,#edf5fd)}
+.rematricula-flow-card>div:not(.field),.rematricula-summary>div{display:grid;gap:3px;align-content:start}
+.rematricula-flow-card small,.rematricula-summary small{font-size:8px;font-weight:950;letter-spacing:.07em;color:#6a7f96}
+.rematricula-flow-card b,.rematricula-summary b{font-size:15px;color:#123b76;line-height:1.2}
+.rematricula-flow-card .progression-choice{margin:0}
+.rematricula-flow-card .progression-choice label{font-size:9px;font-weight:900;color:#49647e}
+.rematricula-flow-card p{grid-column:1/-1;margin:0;padding-top:2px;font-size:10px}
+.progression-chip.confirmed{background:#e9f8ef;border-color:#b8e1c7;color:#177041}
+@media(max-width:760px){
+  .rematricula-flow-card,.rematricula-summary{grid-template-columns:1fr 1fr}
+}
+@media(max-width:480px){
+  .rematricula-flow-card,.rematricula-summary{grid-template-columns:1fr}
+}
