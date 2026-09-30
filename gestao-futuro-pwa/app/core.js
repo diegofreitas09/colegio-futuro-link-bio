@@ -692,14 +692,14 @@ function renderAcessos(){
       nome:"Site oficial do Colégio Futuro",
       descricao:"Portal institucional da escola, informações, projetos e contatos.",
       url:"https://colegiofuturoce.com.br",
-      icon:"/assets/app-icon-192.png",
+      icon:"/assets/app-icon-futuro.svg",
       fallback:"F"
     },
     {
       nome:"Gestão Futuro",
       descricao:"Plataforma interna de Secretaria, Gestão, Financeiro e Matrículas.",
       url:"https://gestao.colegiofuturoce.com.br",
-      icon:"/assets/app-icon-192.png",
+      icon:"/assets/app-icon-futuro.svg",
       fallback:"G"
     }
   ];
@@ -1068,7 +1068,7 @@ async function renderDashboard(){
   const heroLabel=roleNow==="admin"?"Gestão • Financeiro • Autorizações":roleNow==="staff"?"Secretaria • Atendimento • Matrículas":"Gestão escolar integrada";
   $("#view").innerHTML=`<section class="dashboard-brand-hero">
     <div class="dashboard-brand-visual">
-      <img class="dashboard-hero-logo" src="${window.FUTURO_BRAND?.icon||"/assets/app-icon-512.png"}" alt="Colégio Futuro">
+      <img class="dashboard-hero-logo" src="${window.FUTURO_BRAND?.logoWide||window.FUTURO_BRAND?.icon||"/assets/logo-futuro-white.svg"}" alt="Colégio Futuro">
       <div class="dashboard-hero-copy"><small>COLÉGIO FUTURO</small><strong>Gestão Futuro</strong><p>Secretaria • Atendimento • Matrículas • Gestão • Financeiro</p></div>
     </div>
     <div class="dashboard-brand-caption"><span>${heroLabel}</span></div>
