@@ -79,6 +79,21 @@ function gfPlanCalc(list,n,discFirst,discRecurring){
   return {n:n,annual:annual,annualValue:annualValue,monthly:monthly,firstBase:firstBase,recurringBase:recurringBase,discFirst:discFirst,discRecurring:discRecurring,firstFinal:firstFinal,recurringFinal:recurringFinal,total:total,economy:economy,tableTotal:tableTotalCents/100};
 }
 function gfPlanSummary(plan){return "1ª parcela "+money(plan.firstFinal)+" + "+plan.n+"x de "+money(plan.recurringFinal)}
+function gfStiPlanSync(plan,stiValue){
+  var n=Math.max(1,Number(plan&&plan.n||12)),regular=parseMoney(plan&&plan.recurringFinal||0),sti=parseMoney(stiValue||0),aligned=Math.min(n,12),stiOnly=Math.max(0,12-n);
+  return {
+    regularInstallments:n,
+    stiInstallments:12,
+    alignedInstallments:aligned,
+    stiOnlyInstallments:stiOnly,
+    firstRegular:parseMoney(plan&&plan.firstFinal||0),
+    regularValue:regular,
+    stiValue:sti,
+    combinedValue:gfRound2(regular+sti),
+    label:n===12?("1ª parcela regular + 12x de "+money(regular+sti)):("1ª parcela regular + "+n+"x de "+money(regular+sti)+(stiOnly?(" + "+stiOnly+"x final de "+money(sti)+" somente S.T.I."):"")),
+    note:n===12?"O S.T.I. acompanha as 12 parcelas regulares e não entra na 1ª parcela.":"O S.T.I. continua em 12 parcelas: acompanha as parcelas regulares e completa o restante sozinho."
+  };
+}
 function gfFlyerPlanMeta(p,list){
   if(p.CATEGORIA!=="Mensalidade")return null;
   var q=Number(p.QTD_PARCELAS||0);
@@ -418,9 +433,10 @@ async function gfDownloadAttendancePdf(rec,itens){
   if(stiItems.length){
     section("Orçamento S.T.I. • Sistema de Tempo Integral");
     stiItems.forEach(function(sti){
-      var stiValue=Number(sti.VALOR_APRESENTADO||sti.VALOR_TABELA||0),regularValue=parseMoney(rec.VALOR_PARCELA_FINAL||rec.VALOR_PARCELA_BASE||0);
-      pair("Mensalidade regular",money(regularValue),"Investimento S.T.I.",stiValue>0?("12x de "+money(stiValue)):"Sob consulta");
-      pair("Valor mensal com S.T.I.",stiValue>0?money(regularValue+stiValue):"A definir","Cobrança S.T.I.","12 parcelas");
+      var stiValue=Number(sti.VALOR_APRESENTADO||sti.VALOR_TABELA||0),planSync=gfStiPlanSync({n:Number(rec.PLANO_PARCELAS||12),firstFinal:rec.VALOR_PRIMEIRA_FINAL||rec.VALOR_PRIMEIRA_BASE,recurringFinal:rec.VALOR_PARCELA_FINAL||rec.VALOR_PARCELA_BASE},stiValue);
+      pair("Plano regular","1ª parcela + "+planSync.regularInstallments+"x","S.T.I.",stiValue>0?("12x de "+money(stiValue)):"Sob consulta");
+      pair("Parcela combinada",stiValue>0?money(planSync.combinedValue):"A definir","Sincronização",planSync.regularInstallments===12?"12 parcelas combinadas":"11 parcelas combinadas + 1 S.T.I.");
+      pair("Regra do S.T.I.",planSync.note,"Resumo",planSync.label);
     });
   }
 
@@ -657,10 +673,10 @@ async function renderAtendimento(){
     }
     var stiQuoteHtml="";
     if(stiProduct){
-      var stiValue=gfPresentedValue(stiProduct),stiChecked=state.attendanceItems.has(stiProduct.ID_PRODUTO),monthlyWithSti=gfRound2(plan.recurringFinal+stiValue);
-      stiQuoteHtml="<section class='sti-quote-card "+(stiChecked?"selected":"")+"' id='stiQuoteCard'><div class='sti-quote-head'><div><small>S.T.I. • SISTEMA DE TEMPO INTEGRAL</small><h3>Orçamento do tempo integral</h3><span>Adicional ao turno regular • 12 parcelas</span></div><label class='sti-toggle'><input type='checkbox' id='stiInclude' "+(stiChecked?"checked":"")+"><span>Incluir na proposta</span></label></div>"+
-        "<div class='sti-quote-grid'><div><small>Mensalidade regular</small><b id='stiRegularValue'>"+money(plan.recurringFinal)+"</b></div><div><small>Investimento S.T.I.</small><b id='stiAddonValue'>12x de "+money(stiValue)+"</b></div><div class='total'><small>Valor mensal com S.T.I.</small><b id='stiMonthlyTotal'>"+money(monthlyWithSti)+"</b></div></div>"+
-        "<div class='sti-quote-note'>O S.T.I. é apresentado separadamente da anuidade. Ao incluir, ele aparece no PDF como adicional mensal.</div></section>";
+      var stiValue=gfPresentedValue(stiProduct),stiChecked=state.attendanceItems.has(stiProduct.ID_PRODUTO),stiSync=gfStiPlanSync(plan,stiValue);
+      stiQuoteHtml="<section class='sti-quote-card "+(stiChecked?"selected":"")+"' id='stiQuoteCard'><div class='sti-quote-head'><div><small>S.T.I. • SISTEMA DE TEMPO INTEGRAL</small><h3>Orçamento do tempo integral</h3><span>Adicional fixo em 12 parcelas • sincronizado ao plano regular</span></div><label class='sti-toggle'><input type='checkbox' id='stiInclude' "+(stiChecked?"checked":"")+"><span>Incluir na proposta</span></label></div>"+
+        "<div class='sti-quote-grid'><div><small>Plano regular</small><b id='stiRegularValue'>1ª + "+plan.n+"x</b></div><div><small>S.T.I.</small><b id='stiAddonValue'>12x de "+money(stiValue)+"</b></div><div class='total'><small>Parcela combinada</small><b id='stiMonthlyTotal'>"+money(stiSync.combinedValue)+"</b></div></div>"+
+        "<div class='sti-sync-summary'><b id='stiSyncLabel'>"+esc(stiSync.label)+"</b><span id='stiSyncNote'>"+esc(stiSync.note)+"</span></div></section>";
     }
     var html="<div class='section-head'><div><h2>Proposta automática • "+esc(s)+" • "+y+"</h2><span class='muted'>Anuidade exibida como referência. O investimento inicial e os adicionais são calculados separadamente.</span></div><button class='btn btn-soft' id='flyerShortcut'>Panfleto da série</button></div>"+planHtml+stiQuoteHtml+"<div class='catalog-groups'>";
     Object.keys(groups).forEach(function(cat){
@@ -690,10 +706,12 @@ async function renderAtendimento(){
       var selectedExtras=others.filter(function(p){return state.attendanceItems.has(p.ID_PRODUTO)}),extrasInicial=gfInitialExtrasFromProducts(selectedExtras),investimentoInicial=gfRound2(calc.firstFinal+extrasInicial);
       $("#attTotal").textContent=money(investimentoInicial);
       if(stiProduct){
-        var stiValue=gfPresentedValue(stiProduct);
-        if($("#stiRegularValue"))$("#stiRegularValue").textContent=money(calc.recurringFinal);
+        var stiValue=gfPresentedValue(stiProduct),stiSync=gfStiPlanSync(calc,stiValue);
+        if($("#stiRegularValue"))$("#stiRegularValue").textContent="1ª + "+calc.n+"x";
         if($("#stiAddonValue"))$("#stiAddonValue").textContent=stiValue>0?("12x de "+money(stiValue)):"Sob consulta";
-        if($("#stiMonthlyTotal"))$("#stiMonthlyTotal").textContent=stiValue>0?money(gfRound2(calc.recurringFinal+stiValue)):"A definir";
+        if($("#stiMonthlyTotal"))$("#stiMonthlyTotal").textContent=stiValue>0?money(stiSync.combinedValue):"A definir";
+        if($("#stiSyncLabel"))$("#stiSyncLabel").textContent=stiSync.label;
+        if($("#stiSyncNote"))$("#stiSyncNote").textContent=stiSync.note;
         if($("#stiQuoteCard"))$("#stiQuoteCard").classList.toggle("selected",state.attendanceItems.has(stiProduct.ID_PRODUTO));
       }
       gfSaveAttendanceDraft();
