@@ -1,7 +1,7 @@
 window.FUTURO_BRAND = Object.freeze({
   school: "Colégio Futuro",
   app: "Gestão Futuro",
-  logo: "/assets/app-icon-futuro.svg?v=20260930-logo-branca",
+  logo: "/assets/brand-mark-white.svg?v=20261001-logo-topo-transparente",
   logoWide: "/assets/logo-futuro-white.svg?v=20260930-logo-branca",
   icon: "/assets/app-icon-futuro.svg?v=20260930-logo-branca",
   hero: "/assets/hero-futuro.webp",
