@@ -75,7 +75,7 @@ async function gfRestoreWorkspace(){
 
 function applyRoleInterface(){
   const role=activeInterfaceRole(),allowed=new Set(allowedViewsFor(role));
-  $$("#nav button").forEach(btn=>{
+  $$$("#nav button").forEach(btn=>{
     const show=allowed.has(btn.dataset.view);
     btn.hidden=!show;
     btn.setAttribute("aria-hidden",show?"false":"true");
@@ -680,7 +680,7 @@ async function navigate(view){
   const seq=++state.navSeq;
   state.view=view;
   if(!document.body.classList.contains("home-active"))try{localStorage.setItem(GF_WORKSPACE_KEY,JSON.stringify({view:view,scrollY:0,modo:currentRunMode(),savedAt:Date.now()}))}catch(e){}
-  $("#nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===view));
+  $$("#nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===view));
   $("#pageTitle").textContent=titles[view]||"Gestão Futuro";
   setNotice("");
   const target=$("#view");
