@@ -1,6 +1,7 @@
 const $ = (s, root=document) => root.querySelector(s);
 const $$ = (s, root=document) => [...root.querySelectorAll(s)];
 const API = "/api/gf";
+const GF_WORKSPACE_KEY="gestao_futuro_workspace_v1";
 
 const state = {
   view: "dashboard",
@@ -41,6 +42,37 @@ const activeInterfaceRole = () => state.role==="admin" && state.adminToken ? "ad
 const allowedViewsFor = role => INTERFACE_VIEWS[role] || INTERFACE_VIEWS.public;
 const tokenFor = role => role === "admin" ? state.adminToken : (state.role==="staff" ? state.staffToken : state.adminToken);
 function isViewAllowed(view){return allowedViewsFor(activeInterfaceRole()).includes(view)}
+function gfRememberWorkspace(view=state.view){
+  try{
+    if(view==="atendimento"&&typeof gfSaveAttendanceDraft==="function")gfSaveAttendanceDraft();
+    localStorage.setItem(GF_WORKSPACE_KEY,JSON.stringify({view:view||"dashboard",scrollY:Number(window.scrollY||0),modo:currentRunMode(),savedAt:Date.now()}));
+  }catch(e){}
+}
+function gfReadWorkspace(){
+  try{
+    const x=JSON.parse(localStorage.getItem(GF_WORKSPACE_KEY)||"null");
+    if(!x||typeof x!=="object")return null;
+    if(x.modo&&x.modo!==currentRunMode())return null;
+    return x;
+  }catch(e){return null}
+}
+function gfPrepareAttendanceResumeFromDraft(){
+  if(typeof gfLoadAttendanceDraft!=="function")return false;
+  const d=gfLoadAttendanceDraft();if(!d)return false;
+  state.currentAttendanceId=d.ID_ATENDIMENTO||"";
+  state.resumeAttendance=d;
+  state.resumeItems=(d.ITENS||[]).map(function(id){return {ID_PRODUTO:id,SELECIONADO:"Sim"}});
+  state.attendanceItems=new Set(d.ITENS||[]);
+  state.attendanceStage=d.ETAPA||"Contato";
+  return true;
+}
+async function gfRestoreWorkspace(){
+  const w=gfReadWorkspace(),candidate=w&&w.view&&isViewAllowed(w.view)?w.view:"dashboard";
+  if(candidate==="atendimento")gfPrepareAttendanceResumeFromDraft();
+  await navigate(candidate);
+  if(w&&Number.isFinite(Number(w.scrollY)))requestAnimationFrame(()=>window.scrollTo({top:Number(w.scrollY)||0,behavior:"auto"}));
+}
+
 function applyRoleInterface(){
   const role=activeInterfaceRole(),allowed=new Set(allowedViewsFor(role));
   $$("#nav button").forEach(btn=>{
@@ -511,7 +543,7 @@ function switchInterfaceModal(targetRole){
       showToast((isPublic?"Acesso liberado: ":"Interface alterada para ")+(toAdmin?"Gestão":"Secretaria")+" ✓","ok");
       if(toAdmin&&typeof pollApprovals==="function")pollApprovals();
       ensureEntryNotifications().catch(()=>{});
-      await navigate("dashboard");
+      if(typeof gfRestoreWorkspace==="function")await gfRestoreWorkspace();else await navigate("dashboard");
       if(typeof resetHomeIdle==="function")resetHomeIdle();
     }catch(e){
       showToast(e.message||"Senha inválida.","error");
@@ -553,7 +585,7 @@ function authModal(targetRole="staff") {
       state.adminToken="";sessionStorage.removeItem("gf_admin_token");
       state.staffToken=res.token; state.role="staff";
       sessionStorage.setItem("gf_staff_token",res.token); sessionStorage.setItem("gf_role","staff");
-      state.bootstrap=null;setRunMode("PRODUCAO");applyRoleInterface();refreshSessionButton(); closeModal(); if(typeof hideHomeScreen==="function")hideHomeScreen(); ensureEntryNotifications().catch(()=>{}); await navigate("dashboard"); if(typeof resetHomeIdle==="function")resetHomeIdle();
+      state.bootstrap=null;setRunMode("PRODUCAO");applyRoleInterface();refreshSessionButton(); closeModal(); if(typeof hideHomeScreen==="function")hideHomeScreen(); ensureEntryNotifications().catch(()=>{}); if(typeof gfRestoreWorkspace==="function")await gfRestoreWorkspace();else await navigate("dashboard"); if(typeof resetHomeIdle==="function")resetHomeIdle();
     }catch(e){ alert(e.message); btn.disabled=false; btn.textContent="Entrar na Secretaria"; }
   };
   $("#adminLogin").onclick=async()=>{
@@ -567,7 +599,7 @@ function authModal(targetRole="staff") {
       state.staffToken="";sessionStorage.removeItem("gf_staff_token");
       state.adminToken=res.token; state.role="admin";
       sessionStorage.setItem("gf_admin_token",res.token); sessionStorage.setItem("gf_role","admin");
-      state.bootstrap=null;setRunMode("PRODUCAO");applyRoleInterface();refreshSessionButton(); closeModal(); if(typeof hideHomeScreen==="function")hideHomeScreen(); if(typeof pollApprovals==="function") pollApprovals(); ensureEntryNotifications().catch(()=>{}); await navigate("dashboard"); if(typeof resetHomeIdle==="function")resetHomeIdle();
+      state.bootstrap=null;setRunMode("PRODUCAO");applyRoleInterface();refreshSessionButton(); closeModal(); if(typeof hideHomeScreen==="function")hideHomeScreen(); if(typeof pollApprovals==="function") pollApprovals(); ensureEntryNotifications().catch(()=>{}); if(typeof gfRestoreWorkspace==="function")await gfRestoreWorkspace();else await navigate("dashboard"); if(typeof resetHomeIdle==="function")resetHomeIdle();
     }catch(e){ alert(e.message); btn.disabled=false; btn.textContent="Entrar na Gestão"; }
   };
   const lo=$("#logoutBtn"); if(lo) lo.onclick=logoutAll;
@@ -647,7 +679,8 @@ async function navigate(view){
   if(!isViewAllowed(view)) view="dashboard";
   const seq=++state.navSeq;
   state.view=view;
-  $$("#nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===view));
+  try{localStorage.setItem(GF_WORKSPACE_KEY,JSON.stringify({view:view,scrollY:0,modo:currentRunMode(),savedAt:Date.now()}))}catch(e){}
+  $("#nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===view));
   $("#pageTitle").textContent=titles[view]||"Gestão Futuro";
   setNotice("");
   const target=$("#view");
