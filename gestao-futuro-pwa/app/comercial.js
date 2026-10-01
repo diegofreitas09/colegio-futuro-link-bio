@@ -135,6 +135,72 @@ function gfClearAttendanceDraft(){try{localStorage.removeItem(GF_ATT_DRAFT_KEY)}
 function gfSavedAttendanceKey(id){return "gestao_futuro_atendimento_salvo_"+String(id||"")}
 function gfCacheSavedAttendance(id,rec,itens){try{localStorage.setItem(gfSavedAttendanceKey(id),JSON.stringify({atendimento:rec,itens:itens||[],cachedAt:new Date().toISOString()}))}catch(e){}}
 function gfReadCachedAttendance(id){try{return JSON.parse(localStorage.getItem(gfSavedAttendanceKey(id))||"null")}catch(e){return null}}
+const GF_ADDRESS_MARKER_RE=/\n?\[\[GF_ENDERECO:([^\]]+)\]\]/g;
+function gfCepDigits(v){return String(v||"").replace(/\D/g,"").slice(0,8)}
+function gfCepMask(v){var d=gfCepDigits(v);return d.length>5?d.slice(0,5)+"-"+d.slice(5):d}
+function gfAddressObject(data){
+  return {CEP:gfCepMask(data&&data.CEP),LOGRADOURO:String(data&&data.LOGRADOURO||"").trim(),BAIRRO:String(data&&data.BAIRRO||"").trim(),CIDADE:String(data&&data.CIDADE||"").trim(),UF:String(data&&data.UF||"").trim().toUpperCase().slice(0,2),NUMERO:String(data&&data.NUMERO||"").trim(),COMPLEMENTO:String(data&&data.COMPLEMENTO||"").trim()};
+}
+function gfAddressHasValue(a){return !!(a&&Object.values(a).some(function(v){return String(v||"").trim()}))}
+function gfAddressLine(data){
+  var a=gfAddressObject(data),parts=[];
+  if(a.LOGRADOURO)parts.push(a.LOGRADOURO+(a.NUMERO?", "+a.NUMERO:""));
+  else if(a.NUMERO)parts.push("Nº "+a.NUMERO);
+  if(a.COMPLEMENTO)parts.push(a.COMPLEMENTO);
+  if(a.BAIRRO)parts.push(a.BAIRRO);
+  var city=[a.CIDADE,a.UF].filter(Boolean).join(" - ");if(city)parts.push(city);
+  return parts.join(" • ");
+}
+function gfHydrateAddressCompat(rec){
+  if(!rec||typeof rec!=="object")return rec;
+  var out=Object.assign({},rec),obs=String(out.OBSERVACAO||""),m,last=null;
+  GF_ADDRESS_MARKER_RE.lastIndex=0;
+  while((m=GF_ADDRESS_MARKER_RE.exec(obs))){try{last=JSON.parse(decodeURIComponent(m[1]))}catch(e){}}
+  GF_ADDRESS_MARKER_RE.lastIndex=0;out.OBSERVACAO=obs.replace(GF_ADDRESS_MARKER_RE,"").trim();
+  if(last&&typeof last==="object")Object.keys(gfAddressObject(last)).forEach(function(k){if(!out[k])out[k]=last[k]||""});
+  return out;
+}
+function gfPayloadWithAddressCompat(data){
+  var out=Object.assign({},data),a=gfAddressObject(out),obs=String(out.OBSERVACAO||"");
+  GF_ADDRESS_MARKER_RE.lastIndex=0;obs=obs.replace(GF_ADDRESS_MARKER_RE,"").trim();
+  if(!(state.backendCaps&&state.backendCaps.addressFields===true)&&gfAddressHasValue(a))obs+=(obs?"\n":"")+"[[GF_ENDERECO:"+encodeURIComponent(JSON.stringify(a))+"]]";
+  out.OBSERVACAO=obs;return out;
+}
+async function gfLookupCep(cep){
+  var d=gfCepDigits(cep);if(d.length!==8)throw new Error("Informe os 8 números do CEP.");
+  var ctl=new AbortController(),timer=setTimeout(function(){ctl.abort()},6500);
+  try{
+    var r=await fetch("https://viacep.com.br/ws/"+d+"/json/",{cache:"no-store",signal:ctl.signal});
+    if(r.ok){var v=await r.json();if(v&&!v.erro)return {CEP:gfCepMask(d),LOGRADOURO:v.logradouro||"",BAIRRO:v.bairro||"",CIDADE:v.localidade||"",UF:v.uf||""};}
+  }catch(e){}finally{clearTimeout(timer)}
+  var ctl2=new AbortController(),timer2=setTimeout(function(){ctl2.abort()},6500);
+  try{
+    var r2=await fetch("https://brasilapi.com.br/api/cep/v1/"+d,{cache:"no-store",signal:ctl2.signal});
+    if(!r2.ok)throw new Error("CEP não localizado.");
+    var b=await r2.json();return {CEP:gfCepMask(d),LOGRADOURO:b.street||"",BAIRRO:b.neighborhood||"",CIDADE:b.city||"",UF:b.state||""};
+  }catch(e){throw new Error("Não foi possível localizar esse CEP. Você pode preencher o endereço manualmente.")}finally{clearTimeout(timer2)}
+}
+function gfBindAttendanceCep(){
+  var cep=$("#attCep");if(!cep)return;
+  var status=$("#attCepStatus"),timer=null,last="";
+  function setStatus(msg,kind){if(!status)return;status.textContent=msg||"";status.className="cep-status "+(kind||"")}
+  async function lookup(){
+    var d=gfCepDigits(cep.value);if(d.length!==8){setStatus(d.length?"Complete os 8 números do CEP.":"","");return}
+    if(d===last&&$("#attCity")?.value)return;
+    last=d;setStatus("Buscando endereço…","loading");
+    try{
+      var a=await gfLookupCep(d);cep.value=a.CEP;
+      if($("#attStreet")&&!$("#attStreet").value)$("#attStreet").value=a.LOGRADOURO;
+      if($("#attDistrict")&&!$("#attDistrict").value)$("#attDistrict").value=a.BAIRRO;
+      if($("#attCity"))$("#attCity").value=a.CIDADE;if($("#attUf"))$("#attUf").value=a.UF;
+      setStatus(a.LOGRADOURO?"Endereço localizado ✓":"CEP localizado. Complete o logradouro.","ok");
+      gfSaveAttendanceDraft();setTimeout(function(){$("#attNumber")?.focus()},100);
+    }catch(e){setStatus(e.message,"error")}
+  }
+  cep.addEventListener("input",function(){this.value=gfCepMask(this.value);clearTimeout(timer);if(gfCepDigits(this.value).length===8)timer=setTimeout(lookup,320)});
+  cep.addEventListener("blur",lookup);
+}
+
 const GF_ATT_LOCAL_LIST_KEY="gestao_futuro_atendimentos_locais_v1";
 function gfLocalAttendances(){try{const rows=JSON.parse(localStorage.getItem(GF_ATT_LOCAL_LIST_KEY)||"[]");return Array.isArray(rows)?rows:[]}catch(e){return []}}
 function gfWriteLocalAttendances(list){try{localStorage.setItem(GF_ATT_LOCAL_LIST_KEY,JSON.stringify(list||[]))}catch(e){throw new Error("Não foi possível salvar neste dispositivo. Libere espaço e tente novamente antes de fechar o atendimento.")}}
