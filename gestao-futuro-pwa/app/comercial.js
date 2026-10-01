@@ -406,6 +406,7 @@ async function gfDownloadAttendancePdf(rec,itens){
   pair("Ano letivo",rec.ANO_LETIVO,"Série",rec.SERIE_PRETENDIDA);
   pair("Tipo",rec.TIPO_ALUNO,"Turno / modalidade",(rec.TURNO||"")+" • "+(rec.MODALIDADE||""));
   pair("Telefone",rec.TELEFONE,"E-mail",rec.EMAIL);
+  if(gfAddressHasValue(gfAddressObject(rec)))pair("Endereço",gfAddressLine(rec)||"—","CEP",gfCepMask(rec.CEP)||"—");
   pair("Etapa",rec.ETAPA,"Status",rec.STATUS);
 
   section("Plano financeiro");
@@ -507,10 +508,10 @@ function gfCurrentAttendanceSnapshot(products){
 async function gfResumeAttendance(id,fallback){
   var rec=fallback||null,items=[];var local=gfReadCachedAttendance(id);if(local){rec=local.atendimento||rec;items=local.itens||items;}
   const pending=gfLocalAttendances().find(x=>x.id===id);
-  if(pending){rec=pending.atendimento;items=pending.itens||[];}
+  if(pending){rec=gfHydrateAddressCompat(pending.atendimento);items=pending.itens||[];}
   if(!pending)try{
     var d=await api("getAtendimento",{token:tokenFor("staff"),id:id});
-    rec=d&&d.atendimento||rec;items=d&&d.itens||[];
+    rec=gfHydrateAddressCompat(d&&d.atendimento||rec);items=d&&d.itens||[];
   }catch(e){}
   if(!rec)return alert("Não foi possível localizar esse atendimento.");
   state.currentAttendanceId=id;
@@ -563,7 +564,7 @@ function gfOpenDeleteAttendance(row){
 async function renderAtendimento(){
   var loaded=await Promise.all([loadBootstrap(),loadCatalogProducts(true)]),b=loaded[0],products=loaded[1]||[],students=b.alunos||[],at=[];
   try{at=await api("listarAtendimentos",{token:tokenFor("staff")})||[]}catch(e){}
-  var resume=state.resumeAttendance||null;
+  var resume=gfHydrateAddressCompat(state.resumeAttendance||null);
   var years=[...new Set(products.map(gfYear).filter(Boolean))].sort(function(a,b){return b-a}),year=Number(resume?.ANO_LETIVO||state.attendanceYear||years[0]||2027);
   state.attendanceItems=state.attendanceItems||new Set();
   state.attendanceStage=resume?.ETAPA||state.attendanceStage||"Contato";
@@ -602,10 +603,11 @@ async function renderAtendimento(){
   "<input type='hidden' name='SERIE_SUGERIDA' id='attSuggestedSeries' value='"+esc(resume?.SERIE_SUGERIDA||"")+"'>"+
   "<input type='hidden' name='SERIE_CONFIRMADA' id='attConfirmedSeriesHidden' value='"+esc(resume?.SERIE_CONFIRMADA||resume?.SERIE_PRETENDIDA||"")+"'>"+
   "<input type='hidden' name='REMATRICULA_STATUS' id='attRematriculaStatus' value='"+esc(resume?.REMATRICULA_STATUS||"")+"'>"+
-  "<div class='field span-2 student-lookup-field'><label>Pesquisar aluno já cadastrado</label><input id='attStudentSearch' list='attStudentDatalist' autocomplete='off' placeholder='Digite as primeiras letras do nome…'><datalist id='attStudentDatalist'>"+studentLookupOpts+"</datalist><small class='muted'>Nome • série atual • progressão 2027</small><select id='attStudent' class='hidden'><option value=''>Novo / não localizado</option>"+studentOpts+"</select></div><div class='field'><label>Tipo</label><select name='TIPO_ALUNO' id='attType'><option>Novato</option><option>Veterano</option></select></div><div class='field span-2'><label>Nome do aluno *</label><input name='NOME_ALUNO' id='attName' required></div><div class='field'><label>Responsável *</label><input name='RESPONSAVEL' required></div><div class='field'><label>Telefone</label><input name='TELEFONE'></div><div class='field'><label>E-mail</label><input name='EMAIL' type='email'></div><div class='field'><label>Ano letivo *</label><select name='ANO_LETIVO' id='attYear'>"+yearOpts+"</select></div><div class='field'><label>Série confirmada / pretendida *</label><select name='SERIE_PRETENDIDA' id='attSerie' required><option value=''>Selecione</option>"+gfOptions(resume?.SERIE_PRETENDIDA||"")+"</select></div><div class='field span-3 hidden' id='attRematriculaCard'><div class='rematricula-flow-card'><div><small>SÉRIE ATUAL • 2026</small><b id='attCurrentSeriesView'>—</b></div><div><small>SÉRIE SUGERIDA • 2027</small><b id='attSuggestedSeriesView'>—</b></div><div><small>SÉRIE CONFIRMADA</small><b id='attConfirmedSeriesView'>—</b></div><div class='field progression-choice'><label>Situação para 2027</label><select name='SITUACAO_PROGRESSAO' id='attProgressionSituation'><option>Aprovado / progredir</option><option>Retido / repetir série</option><option>Definido manualmente</option></select></div><p class='muted'>A sugestão é automática, mas a série confirmada é definida pela escola e pode ser corrigida depois sem alterar o histórico de 2026.</p></div></div><div class='field'><label>Turno</label><select name='TURNO'><option>Manhã</option><option>Tarde</option><option>Integral</option></select></div><div class='field'><label>Modalidade</label><input name='MODALIDADE' value='Regular'></div><div class='field'><label>Origem</label><select name='ORIGEM'><option></option><option>Instagram</option><option>Google</option><option>Indicação</option><option>WhatsApp</option><option>Aluno da casa</option><option>Outros</option></select></div><div class='field span-2'><label>Observações</label><textarea name='OBSERVACAO'></textarea></div></form></div>"+
+  "<div class='field span-2 student-lookup-field'><label>Pesquisar aluno já cadastrado</label><input id='attStudentSearch' list='attStudentDatalist' autocomplete='off' placeholder='Digite as primeiras letras do nome…'><datalist id='attStudentDatalist'>"+studentLookupOpts+"</datalist><small class='muted'>Nome • série atual • progressão 2027</small><select id='attStudent' class='hidden'><option value=''>Novo / não localizado</option>"+studentOpts+"</select></div><div class='field'><label>Tipo</label><select name='TIPO_ALUNO' id='attType'><option>Novato</option><option>Veterano</option></select></div><div class='field span-2'><label>Nome do aluno *</label><input name='NOME_ALUNO' id='attName' required></div><div class='field'><label>Responsável *</label><input name='RESPONSAVEL' required></div><div class='field'><label>Telefone</label><input name='TELEFONE'></div><div class='field'><label>E-mail</label><input name='EMAIL' type='email'></div><div class='field'><label>CEP</label><input name='CEP' id='attCep' inputmode='numeric' autocomplete='postal-code' maxlength='9' placeholder='00000-000' value='"+esc(gfCepMask(resume?.CEP||""))+"'><small id='attCepStatus' class='cep-status'></small></div><div class='field span-2'><label>Logradouro</label><input name='LOGRADOURO' id='attStreet' autocomplete='address-line1' value='"+esc(resume?.LOGRADOURO||"")+"'></div><div class='field'><label>Bairro</label><input name='BAIRRO' id='attDistrict' value='"+esc(resume?.BAIRRO||"")+"'></div><div class='field'><label>Cidade</label><input name='CIDADE' id='attCity' value='"+esc(resume?.CIDADE||"")+"'></div><div class='field'><label>UF</label><input name='UF' id='attUf' maxlength='2' value='"+esc(resume?.UF||"")+"'></div><div class='field'><label>Número</label><input name='NUMERO' id='attNumber' autocomplete='address-line2' value='"+esc(resume?.NUMERO||"")+"'></div><div class='field span-2'><label>Complemento / apto</label><input name='COMPLEMENTO' id='attComplement' placeholder='Apartamento, bloco, casa...' value='"+esc(resume?.COMPLEMENTO||"")+"'></div><div class='field'><label>Ano letivo *</label><select name='ANO_LETIVO' id='attYear'>"+yearOpts+"</select></div><div class='field'><label>Série confirmada / pretendida *</label><select name='SERIE_PRETENDIDA' id='attSerie' required><option value=''>Selecione</option>"+gfOptions(resume?.SERIE_PRETENDIDA||"")+"</select></div><div class='field span-3 hidden' id='attRematriculaCard'><div class='rematricula-flow-card'><div><small>SÉRIE ATUAL • 2026</small><b id='attCurrentSeriesView'>—</b></div><div><small>SÉRIE SUGERIDA • 2027</small><b id='attSuggestedSeriesView'>—</b></div><div><small>SÉRIE CONFIRMADA</small><b id='attConfirmedSeriesView'>—</b></div><div class='field progression-choice'><label>Situação para 2027</label><select name='SITUACAO_PROGRESSAO' id='attProgressionSituation'><option>Aprovado / progredir</option><option>Retido / repetir série</option><option>Definido manualmente</option></select></div><p class='muted'>A sugestão é automática, mas a série confirmada é definida pela escola e pode ser corrigida depois sem alterar o histórico de 2026.</p></div></div><div class='field'><label>Turno</label><select name='TURNO'><option>Manhã</option><option>Tarde</option><option>Integral</option></select></div><div class='field'><label>Modalidade</label><input name='MODALIDADE' value='Regular'></div><div class='field'><label>Origem</label><select name='ORIGEM'><option></option><option>Instagram</option><option>Google</option><option>Indicação</option><option>WhatsApp</option><option>Aluno da casa</option><option>Outros</option></select></div><div class='field span-2'><label>Observações</label><textarea name='OBSERVACAO'></textarea></div></form></div>"+
   "<div class='card stage-card'><div class='section-head compact'><h2>Etapa</h2><span id='stagePct' class='pill'>"+GF_PCT[state.attendanceStage]+"%</span></div><div class='stage-flow' id='stageFlow'>"+gfStageButtons()+"</div><div class='progress-line'><i id='stageBar' style='width:"+GF_PCT[state.attendanceStage]+"%'></i></div></div><div id='catalogArea' class='empty card'>Escolha a série.</div><div class='crm-actions'><div><span class='muted'>Investimento inicial</span><strong id='attTotal'>R$ 0,00</strong></div><div class='pdf-actions'><button class='btn btn-soft' id='downloadAttendancePdf' "+((!state.currentAttendanceId||(String(state.currentAttendanceId).startsWith("LOCAL-")&&currentRunMode()!=="TESTE"))?"disabled":"")+">Baixar PDF</button><button class='btn btn-primary' id='saveAttendance'>"+(state.currentAttendanceId?"Atualizar atendimento":"Salvar atendimento")+"</button></div></div><div class='section-head'><h2>Atendimentos salvos</h2><div class='toolbar'><span class='muted'>Clique em “Continuar” para retomar depois.</span><button class='btn btn-report btn-sm' id='attendanceReport'>📄 Relatório</button></div></div><div class='table-wrap'><table><thead><tr><th>Aluno</th><th>Ano</th><th>Série</th><th>Etapa</th><th>Status</th><th>Total</th><th></th></tr></thead><tbody>"+(recent||"<tr><td colspan='7' class='empty'>Nenhum atendimento salvo ainda.</td></tr>")+"</tbody></table></div>";
 
   $("#changeModeInline").onclick=openModeModal;
+  gfBindAttendanceCep();
   if($("#attendanceReport"))$("#attendanceReport").onclick=()=>openAttendanceReport(combined.map(function(x){return x.a||{}}));
   function setHidden(name,value){var el=$("#attForm").elements[name];if(el)el.value=value==null?"":value}
   function attendanceStudent(){return students.find(function(x){return String(x.ID_ALUNO)===String($("#attStudent")?.value||"")})||null}
@@ -761,7 +763,7 @@ async function renderAtendimento(){
     btn.disabled=true;var old=btn.textContent;btn.textContent="Gerando…";
     try{
       var id=btn.dataset.pdfAtt,d=await api("getAtendimento",{token:tokenFor("staff"),id:id});
-      await gfDownloadAttendancePdf(d.atendimento||{},d.itens||[]);
+      await gfDownloadAttendancePdf(gfHydrateAddressCompat(d.atendimento||{}),d.itens||[]);
       showToast("PDF do atendimento gerado.","ok");
     }catch(e){alert(e.message)}
     btn.disabled=false;btn.textContent=old;
@@ -775,7 +777,8 @@ async function renderAtendimento(){
     btn.disabled=true;btn.textContent="Sincronizando…";
     try{
       var data=Object.assign({},row.atendimento);data.CLIENT_REQUEST_ID=data.CLIENT_REQUEST_ID||row.id;if(String(data.ID_ATENDIMENTO||"").startsWith("LOCAL-"))data.ID_ATENDIMENTO="";
-      var r=await api("salvarAtendimento",{token:tokenFor("staff"),data:data,itens:row.itens||[]});
+      var serverData=gfPayloadWithAddressCompat(data);
+      var r=await api("salvarAtendimento",{token:tokenFor("staff"),data:serverData,itens:row.itens||[]});
       if(!r?.id)throw new Error("O servidor não confirmou o ID do atendimento.");
       if(state.currentAttendanceId===row.id){state.currentAttendanceId=r.id;state.resumeAttendance={...data,ID_ATENDIMENTO:r.id};}
       data.ID_ATENDIMENTO=r.id;gfRemoveLocalAttendance(row.id);gfCacheSavedAttendance(r.id,data,row.itens||[]);
@@ -805,7 +808,7 @@ async function renderAtendimento(){
     try{gfUpsertLocalAttendance(Object.assign({},data),selected,"Pendente");gfClearAttendanceDraft();}
     catch(e){setNotice(e.message,"error");btn.disabled=false;btn.textContent="Salvar atendimento";return;}
     try{
-      var sendData=Object.assign({},data);if(String(sendData.ID_ATENDIMENTO).startsWith("LOCAL-"))sendData.ID_ATENDIMENTO="";
+      var sendData=Object.assign({},data);if(String(sendData.ID_ATENDIMENTO).startsWith("LOCAL-"))sendData.ID_ATENDIMENTO="";sendData=gfPayloadWithAddressCompat(sendData);
       var r=await api("salvarAtendimento",{token:tokenFor("staff"),data:sendData,itens:selected});
       if(!r?.id)throw new Error("O servidor não confirmou o ID do atendimento.");
       gfRemoveLocalAttendance(localId);
