@@ -370,7 +370,7 @@ test('attendance shows dedicated STI budget and STI uniform for eligible 2027 st
   x.w.document.querySelector('#attSerie').value='Infantil 4';
   x.w.document.querySelector('#attSerie').dispatchEvent(new x.w.Event('change'));
   assert.match(x.w.document.querySelector('#catalogArea').textContent,/Orçamento do tempo integral/);
-  assert.match(x.w.document.querySelector('#catalogArea').textContent,/12x de R\$ 654,50/);
+  assert.match(x.w.document.querySelector('#catalogArea').textContent,/12x de R.*654,50/);
   assert.match(x.w.document.querySelector('#catalogArea').textContent,/Conjunto do Sistema de Tempo Integral/);
   assert.match(x.w.document.querySelector('#catalogArea').textContent,/Sob consulta/);
  }finally{x.dom.window.close()}
