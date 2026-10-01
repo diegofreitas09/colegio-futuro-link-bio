@@ -75,7 +75,7 @@ async function gfRestoreWorkspace(){
 
 function applyRoleInterface(){
   const role=activeInterfaceRole(),allowed=new Set(allowedViewsFor(role));
-  $$$("#nav button").forEach(btn=>{
+  $("#nav button").forEach(btn=>{
     const show=allowed.has(btn.dataset.view);
     btn.hidden=!show;
     btn.setAttribute("aria-hidden",show?"false":"true");
