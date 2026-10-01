@@ -779,3 +779,22 @@ body.home-active .shell{filter:blur(2px) saturate(.8);pointer-events:none;user-s
 .brand-logo.official{background:transparent!important;border:0!important;box-shadow:none!important;padding:0!important;border-radius:0!important;overflow:visible!important}
 .brand-logo.official img{width:100%!important;height:100%!important;object-fit:contain!important;padding:0!important;filter:drop-shadow(0 5px 10px rgba(0,0,0,.16))!important}
 @media(max-width:760px){.brand-logo.official{width:58px!important;height:58px!important}}
+
+/* Orçamento S.T.I. no Atendimento */
+.sti-quote-card{margin:0 0 14px;padding:14px;border:1px solid #9ec2eb;border-radius:17px;background:linear-gradient(135deg,#0e4f98,#0b3e78);color:#fff;box-shadow:0 14px 30px rgba(13,63,119,.14)}
+.sti-quote-card.selected{border-color:#7bd09d;box-shadow:0 0 0 3px rgba(67,179,111,.12),0 14px 30px rgba(13,63,119,.14)}
+.sti-quote-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.sti-quote-head small{display:block;font-size:9px;font-weight:900;letter-spacing:.08em;color:#bed8f6}
+.sti-quote-head h3{margin:3px 0 2px;font-size:18px;color:#fff}
+.sti-quote-head span{font-size:11px;color:#d8e8fa}
+.sti-toggle{display:flex;align-items:center;gap:7px;padding:8px 10px;border-radius:999px;background:rgba(255,255,255,.12);font-size:10px;font-weight:900;cursor:pointer;white-space:nowrap}
+.sti-toggle input{accent-color:#53c57f}
+.sti-quote-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px}
+.sti-quote-grid>div{padding:10px;border-radius:11px;background:rgba(255,255,255,.10)}
+.sti-quote-grid>div.total{background:#fff;color:#123b76}
+.sti-quote-grid small{display:block;font-size:8px;font-weight:900;text-transform:uppercase;letter-spacing:.04em;color:#cfe2f8}
+.sti-quote-grid .total small{color:#66788f}
+.sti-quote-grid b{display:block;margin-top:4px;font-size:14px;color:#fff}
+.sti-quote-grid .total b{color:#123b76;font-size:16px}
+.sti-quote-note{margin-top:9px;padding-top:8px;border-top:1px solid rgba(255,255,255,.18);font-size:9px;color:#d7e6f7}
+@media(max-width:760px){.sti-quote-head{flex-direction:column}.sti-toggle{width:100%;justify-content:center}.sti-quote-grid{grid-template-columns:1fr}.sti-quote-grid>div{display:flex;justify-content:space-between;align-items:center;gap:10px}.sti-quote-grid b{margin-top:0;text-align:right}}
