@@ -61,3 +61,11 @@ test('offline service worker handles versioned scripts and never caches HTTP err
  events.fetch(event);assert.equal((await result).status,500);assert.equal(puts.length,0);
  c.fetch=async()=>{throw new Error('offline')};events.fetch(event);assert.equal(await (await result).text(),'cached-js');assert.equal(matchOptions.ignoreSearch,true);
 });
+
+
+test('navigation uses multi-selector helper and header brand is transparent',()=>{
+ const core=source('app/core.js'),brand=source('app/brand.js');
+ assert.doesNotMatch(core,/(^|[^$])\$\("#nav button"\)\.forEach/);
+ assert.match(core,/\$\$\("#nav button"\)\.forEach/);
+ assert.match(brand,/brand-mark-white\.svg/);
+});
