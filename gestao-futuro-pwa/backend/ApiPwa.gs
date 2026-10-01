@@ -4,8 +4,8 @@
  * Este arquivo deve substituir o conteúdo atual de ApiPwa.gs no MESMO projeto Apps Script.
  * O Código.gs existente permanece como base de Secretaria/Financeiro.
  */
-const PWA_API_VERSION="2026.09.30.3";
-const PWA_CAPABILITIES=Object.freeze({testMode:true,clearTest:true,modeTagging:true,modeFilteredFinance:true,modeIsolationGuard:true,cashSaveIdempotency:true,cashDeleteIndividual:true,studentMigration:true,studentProgression:true,studentConfirmedSeries:true,rematriculaFlow:true,rematriculaCorrection:true,documentAdd:true,documentDriveUpload:true,multiDocumentUpload:true,stiBudget:true,initialInvestmentTotal:true,attendanceDelete:true});
+const PWA_API_VERSION="2026.09.30.4";
+const PWA_CAPABILITIES=Object.freeze({testMode:true,clearTest:true,modeTagging:true,modeFilteredFinance:true,modeIsolationGuard:true,cashSaveIdempotency:true,cashDeleteIndividual:true,studentMigration:true,studentProgression:true,studentConfirmedSeries:true,rematriculaFlow:true,rematriculaCorrection:true,documentAdd:true,documentDriveUpload:true,multiDocumentUpload:true,stiBudget:true,initialInvestmentTotal:true,addressFields:true,sessionSliding:true,attendanceDelete:true});
 const PWA_GATEWAY_PROP="FUTURO_PWA_GATEWAY_KEY";
 const PWA_STAFF_HASH_PROP="FUTURO_STAFF_PASSWORD_SHA256";
 const PWA_DEBUG_PROP="FUTURO_PWA_DEBUG";
@@ -66,8 +66,9 @@ function loginSecretaria(password){
 }
 function pwaRole_(token){
   if(!token)throw new Error("Sessão ausente.");
-  var role=CacheService.getScriptCache().get("gf:"+token);
+  var cache=CacheService.getScriptCache(),key="gf:"+token,role=cache.get(key);
   if(role!=="secretaria"&&role!=="admin")throw new Error("Sessão expirada ou inválida.");
+  cache.put(key,role,PWA_SESSION_TTL);
   return role;
 }
 function pwaStaff_(token){
@@ -610,6 +611,13 @@ function salvarAtendimentoPwa_(token,data,itens,modo,sessao){
       SITUACAO_PROGRESSAO:data.SITUACAO_PROGRESSAO||"",
       SERIE_CONFIRMADA:data.SERIE_CONFIRMADA||data.SERIE_PRETENDIDA||"",
       REMATRICULA_STATUS:data.REMATRICULA_STATUS||"",
+      CEP:String(data.CEP||"").trim(),
+      LOGRADOURO:String(data.LOGRADOURO||"").trim(),
+      BAIRRO:String(data.BAIRRO||"").trim(),
+      CIDADE:String(data.CIDADE||"").trim(),
+      UF:String(data.UF||"").trim().toUpperCase().slice(0,2),
+      NUMERO:String(data.NUMERO||"").trim(),
+      COMPLEMENTO:String(data.COMPLEMENTO||"").trim(),
       MODO_REGISTRO:pwaMode_(modo),SESSAO_TESTE:pwaMode_(modo)==="TESTE"?String(sessao||""):""
     };
     if(old)updateById_(GF_TABS.ATENDIMENTOS,"ID_ATENDIMENTO",id,rec);else append_(GF_TABS.ATENDIMENTOS,rec);
