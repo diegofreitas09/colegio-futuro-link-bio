@@ -63,9 +63,11 @@ test('offline service worker handles versioned scripts and never caches HTTP err
 });
 
 
-test('navigation uses multi-selector helper and header brand is transparent',()=>{
+test('navigation uses only the valid multi-selector helper and header brand is transparent',()=>{
  const core=source('app/core.js'),brand=source('app/brand.js');
+ assert.doesNotMatch(core,/\$\$\$/);
  assert.doesNotMatch(core,/(^|[^$])\$\("#nav button"\)\.forEach/);
- assert.match(core,/\$\$\("#nav button"\)\.forEach/);
+ const navMatches=[...core.matchAll(/\$\$\("#nav button"\)\.forEach/g)];
+ assert.equal(navMatches.length,2);
  assert.match(brand,/brand-mark-white\.svg/);
 });
