@@ -322,3 +322,56 @@ test('matriculas page renders even without rematricula action buttons',async()=>
   assert.equal(x.w.document.querySelectorAll('[data-remat-pending]').length,0);
  }finally{x.dom.window.close()}
 });
+
+
+test('initial investment excludes annual plan and recurring STI',()=>{
+ const x=setup();try{
+  const rec={VALOR_PRIMEIRA_FINAL:419.30,VALOR_ANUIDADE:6500,TOTAL_PLANO:6500};
+  const itens=[
+   {ID_PRODUTO:'MAT-2027',PRODUTO:'Material Didático',CATEGORIA:'Material Didático',VALOR_APRESENTADO:1500,QTD:1},
+   {ID_PRODUTO:'STI-INF-2027',PRODUTO:'Sistema de Tempo Integral',CATEGORIA:'Adicional',OBSERVACAO:'S.T.I. • 12 parcelas',VALOR_APRESENTADO:654.50,QTD:1},
+   {ID_PRODUTO:'FAR-INF-2027',PRODUTO:'Camiseta regata',CATEGORIA:'Fardamento',VALOR_APRESENTADO:66,QTD:1}
+  ];
+  x.w.__rec=rec;x.w.__items=itens;
+  assert.equal(x.run('gfInitialInvestment(window.__rec,window.__items)'),1985.30);
+  assert.equal(x.run('gfIsRecurringStiProduct(window.__items[1])'),true);
+  assert.equal(x.run('gfInitialExtrasFromItems(window.__items)'),1566);
+ }finally{x.dom.window.close()}
+});
+
+test('STI uniform is not treated as recurring STI and uses launch uniform asset',()=>{
+ const x=setup();try{
+  const p={ID_PRODUTO:'FAR-STI-KIT-2027',CATEGORIA:'Fardamento',SUBCATEGORIA:'S.T.I.',PRODUTO:'Conjunto do Sistema de Tempo Integral','SEGMENTO_SÉRIE':'Infantil 2 ao 5 • 1º ao 5º Ano',VALOR_BASE:''};
+  x.w.__p=p;
+  assert.equal(x.run('gfIsStiUniformProduct(window.__p)'),true);
+  assert.equal(x.run('gfIsRecurringStiProduct(window.__p)'),false);
+  assert.equal(x.run('gfUniformAssetKeyForProduct(window.__p,"Infantil 4")'),'lancamentos');
+  assert.equal(x.run('gfUniformAssetKeyForProduct(window.__p,"3º Ano")'),'lancamentos');
+ }finally{x.dom.window.close()}
+});
+
+test('attendance shows dedicated STI budget and STI uniform for eligible 2027 student',async()=>{
+ const x=setup();try{
+  const products=[
+   {ID_PRODUTO:'ANU-INF-2027',ANO_LETIVO:2027,PRODUTO:'Anuidade 2027 - Educação Infantil',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Anuidade',ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Sim',VALOR_BASE:6270.40,QTD_PARCELAS:1,'SEGMENTO_SÉRIE':'Infantil 2 ao 5'},
+   {ID_PRODUTO:'MEN-INF-12-2027',ANO_LETIVO:2027,PRODUTO:'Mensalidade regular - Infantil',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Plano 12 parcelas',ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Sim',VALOR_BASE:482.12,VALOR_PARCELA:482.12,QTD_PARCELAS:12,'SEGMENTO_SÉRIE':'Infantil 2 ao 5'},
+   {ID_PRODUTO:'STI-INF-2027',ANO_LETIVO:2027,PRODUTO:'Sistema de Tempo Integral',CATEGORIA:'Adicional',SUBCATEGORIA:'S.T.I.',ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Sim',VALOR_BASE:654.50,VALOR_PARCELA:654.50,QTD_PARCELAS:12,'SEGMENTO_SÉRIE':'Infantil 2 ao 5'},
+   {ID_PRODUTO:'FAR-STI-KIT-2027',ANO_LETIVO:2027,PRODUTO:'Conjunto do Sistema de Tempo Integral',CATEGORIA:'Fardamento',SUBCATEGORIA:'S.T.I.',ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Sim',VALOR_BASE:'','SEGMENTO_SÉRIE':'Infantil 2 ao 5 • 1º ao 5º Ano'}
+  ];
+  x.w.fetch=async(url,opts)=>{
+   const b=opts?JSON.parse(opts.body):{};
+   if(b.action==='bootstrapSecretaria')return Response.json({ok:true,data:{alunos:[],matriculas:[],responsaveis:[],produtos:products}});
+   if(b.action==='listarProdutosPublicos')return Response.json({ok:true,data:products});
+   if(b.action==='listarAtendimentos')return Response.json({ok:true,data:[]});
+   return Response.json({ok:true,data:[]});
+  };
+  x.run('state.attendanceYear=2027');
+  await x.run('renderAtendimento()');
+  x.w.document.querySelector('#attSerie').value='Infantil 4';
+  x.w.document.querySelector('#attSerie').dispatchEvent(new x.w.Event('change'));
+  assert.match(x.w.document.querySelector('#catalogArea').textContent,/Orçamento do tempo integral/);
+  assert.match(x.w.document.querySelector('#catalogArea').textContent,/12x de R\$ 654,50/);
+  assert.match(x.w.document.querySelector('#catalogArea').textContent,/Conjunto do Sistema de Tempo Integral/);
+  assert.match(x.w.document.querySelector('#catalogArea').textContent,/Sob consulta/);
+ }finally{x.dom.window.close()}
+});
