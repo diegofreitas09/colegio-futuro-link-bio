@@ -37,6 +37,23 @@ function gfApplies(p,serie){
 function gfCatalog(ps,y,s){return (ps||[]).filter(function(p){var pub=gfNorm(p.PUBLICADO_ATENDIMENTO);return p.ATIVO==="Sim"&&gfYear(p)===Number(y)&&pub==="sim"&&gfApplies(p,s)}).sort(function(a,b){var oa=Number(a.ORDEM_EXIBICAO||100),ob=Number(b.ORDEM_EXIBICAO||100);return oa-ob||String(a.CATEGORIA||"").localeCompare(String(b.CATEGORIA||""),"pt-BR")||String(a.PRODUTO||"").localeCompare(String(b.PRODUTO||""),"pt-BR",{numeric:true})})}
 function gfGroups(list){var m={};list.forEach(function(p){var k=p.CATEGORIA||"Outros";(m[k]||(m[k]=[])).push(p)});return m}
 function gfRound2(v){return Math.round((Number(v||0)+Number.EPSILON)*100)/100}
+function gfIsStiProduct(p){
+  var txt=gfNorm([p&&p.ID_PRODUTO,p&&p.CATEGORIA,p&&p.SUBCATEGORIA,p&&p.PRODUTO,p&&p.OBSERVACAO,p&&p["DESCRIÇÃO"]].filter(Boolean).join(" "));
+  return /(^|[^a-z])s\.?t\.?i\.?([^a-z]|$)|sistema de tempo integral/.test(txt);
+}
+function gfIsStiUniformProduct(p){return gfIsStiProduct(p)&&gfIsUniformProduct(p)}
+function gfIsRecurringStiProduct(p){return gfIsStiProduct(p)&&!gfIsUniformProduct(p)}
+function gfPresentedValue(p){return parseMoney(p&&((p.VALOR_PARCELA!==""&&p.VALOR_PARCELA!=null)?p.VALOR_PARCELA:p.VALOR_BASE))}
+function gfInitialExtrasFromProducts(list){
+  return (list||[]).filter(function(p){return !gfIsRecurringStiProduct(p)}).reduce(function(sum,p){return sum+parseMoney(p.VALOR_BASE)},0);
+}
+function gfInitialExtrasFromItems(list){
+  return (list||[]).filter(function(it){return !gfIsRecurringStiProduct(it)}).reduce(function(sum,it){return sum+parseMoney(it.VALOR_APRESENTADO||it.VALOR_TABELA||0)*Math.max(1,Number(it.QTD)||1)},0);
+}
+function gfInitialInvestment(rec,itens){
+  var first=parseMoney(rec&&((rec.VALOR_PRIMEIRA_FINAL!==""&&rec.VALOR_PRIMEIRA_FINAL!=null)?rec.VALOR_PRIMEIRA_FINAL:rec.VALOR_PRIMEIRA_BASE));
+  return gfRound2(first+gfInitialExtrasFromItems(itens));
+}
 function gfAnnualProduct(list){return (list||[]).find(function(p){return p.CATEGORIA==="Mensalidade"&&(gfNorm(p.SUBCATEGORIA).includes("anuidade")||gfNorm(p.PRODUTO).includes("anuidade")||Number(p.QTD_PARCELAS)===1)})||null}
 function gfRecurringProduct(list,n){return (list||[]).find(function(p){return p.CATEGORIA==="Mensalidade"&&Number(p.QTD_PARCELAS)===Number(n)})||null}
 function gfPlanCalc(list,n,discFirst,discRecurring){
@@ -197,6 +214,7 @@ function gfIsUniformProduct(p){
 }
 function gfUniformAssetKeyForProduct(p,serie){
   var seg=gfUniformSegment(serie),txt=[p&&p.CATEGORIA,p&&p.SUBCATEGORIA,p&&p.PRODUTO,p&&p.OBSERVACAO,p&&p["DESCRIÇÃO"]].filter(Boolean).join(" ").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+  if(gfIsStiUniformProduct(p))return "lancamentos";
   var sports=/esport|educacao fisica|educação física|ed\. fisica|ed\. física/.test(txt);
   if(seg==="infantil")return "infantil";
   if(seg==="iniciais")return sports?"esportes-iniciais":"iniciais";
@@ -222,6 +240,8 @@ async function gfDownloadAttendancePdf(rec,itens){
   // O fardamento já aparece com imagem e valores no bloco próprio.
   // Evita repetir as mesmas peças na lista geral e economiza espaço no A4.
   var displayItems=allItems.filter(function(it){return !uniformRenderedItems.includes(it)});
+  var stiItems=displayItems.filter(gfIsRecurringStiProduct);
+  var regularDisplayItems=displayItems.filter(function(it){return !gfIsRecurringStiProduct(it)});
   for(var ui=0;ui<uniformGroups.length;ui++){
     var ug=uniformGroups[ui];
     uniformImages[ug.key]=await gfPdfImagePng(ug.asset.src);
@@ -271,7 +291,9 @@ async function gfDownloadAttendancePdf(rec,itens){
     var title=doc.splitTextToSize(gfPdfText(it.PRODUTO||it.ID_PRODUTO),120);doc.text(title.slice(0,1),M+3,y+1.2);
     doc.setFont("helvetica","normal");doc.setTextColor(111,120,132);doc.setFontSize(6.3);
     var desc=doc.splitTextToSize(gfPdfText(it.OBSERVACAO||it["DESCRIÇÃO"]||it.CATEGORIA||""),118);if(desc[0])doc.text(desc.slice(0,1),M+3,y+5);
-    doc.setFont("helvetica","bold");doc.setTextColor(20,43,77);doc.setFontSize(8);doc.text(money(it.VALOR_APRESENTADO||it.VALOR_TABELA||0),W-M-3,y+1.6,{align:"right"});
+    var itemValue=Number(it.VALOR_APRESENTADO||it.VALOR_TABELA||0),priceText=itemValue>0?money(itemValue):"Sob consulta";
+    if(gfIsRecurringStiProduct(it)&&itemValue>0)priceText="12x de "+money(itemValue);
+    doc.setFont("helvetica","bold");doc.setTextColor(20,43,77);doc.setFontSize(gfIsRecurringStiProduct(it)?7.2:8);doc.text(priceText,W-M-3,y+1.6,{align:"right"});
     y+=12;
   }
   function uniformBlock(g){
@@ -292,12 +314,12 @@ async function gfDownloadAttendancePdf(rec,itens){
       var val=Number(it.VALOR_APRESENTADO||it.VALOR_TABELA||0);subtotal+=val;
       doc.setFont("helvetica","normal");doc.setTextColor(55,67,84);doc.setFontSize(7.2);
       var n=doc.splitTextToSize(gfPdfText(it.PRODUTO||it.ID_PRODUTO),78);doc.text(n.slice(0,1),tx,yy);
-      doc.setFont("helvetica","bold");doc.setTextColor(20,43,77);doc.text(money(val),W-M-4,yy,{align:"right"});
+      doc.setFont("helvetica","bold");doc.setTextColor(20,43,77);doc.text(val>0?money(val):"Sob consulta",W-M-4,yy,{align:"right"});
       yy+=5.2;
     });
     doc.setDrawColor(220,228,238);doc.line(tx,yy-1.4,W-M-4,yy-1.4);
     doc.setFont("helvetica","bold");doc.setFontSize(7.5);doc.setTextColor(18,59,118);doc.text("Subtotal do fardamento",tx,yy+3);
-    doc.text(money(subtotal),W-M-4,yy+3,{align:"right"});
+    doc.text(subtotal>0?money(subtotal):"Valores sob consulta",W-M-4,yy+3,{align:"right"});
     y+=boxH+8;
   }
   function addFooters(){
@@ -326,10 +348,19 @@ async function gfDownloadAttendancePdf(rec,itens){
   pair("Desconto 1ª parcela",(Number(rec["DESCONTO_PRIMEIRA_%"]||0)).toLocaleString("pt-BR",{maximumFractionDigits:2})+"%","Desconto parcelas",(Number(rec["DESCONTO_PARCELAS_%"]||0)).toLocaleString("pt-BR",{maximumFractionDigits:2})+"%");
   pair("Total do plano",money(rec.TOTAL_PLANO),"Economia",money(rec.ECONOMIA_PLANO));
 
-  if(displayItems.length){
+  if(stiItems.length){
+    section("Orçamento S.T.I. • Sistema de Tempo Integral");
+    stiItems.forEach(function(sti){
+      var stiValue=Number(sti.VALOR_APRESENTADO||sti.VALOR_TABELA||0),regularValue=parseMoney(rec.VALOR_PARCELA_FINAL||rec.VALOR_PARCELA_BASE||0);
+      pair("Mensalidade regular",money(regularValue),"Investimento S.T.I.",stiValue>0?("12x de "+money(stiValue)):"Sob consulta");
+      pair("Valor mensal com S.T.I.",stiValue>0?money(regularValue+stiValue):"A definir","Cobrança S.T.I.","12 parcelas");
+    });
+  }
+
+  if(regularDisplayItems.length){
     section("Produtos e serviços selecionados");
-    displayItems.forEach(item);
-  }else if(!uniformGroups.length){
+    regularDisplayItems.forEach(item);
+  }else if(!uniformGroups.length&&!stiItems.length){
     section("Produtos e serviços selecionados");
     ensure(8);doc.setFont("helvetica","normal");doc.setTextColor(105,115,130);doc.setFontSize(8);doc.text("Nenhum produto ou serviço adicional selecionado.",M,y);y+=7;
   }
@@ -340,9 +371,14 @@ async function gfDownloadAttendancePdf(rec,itens){
   }
 
   section("Resumo");
-  ensure(16);doc.setFillColor(236,244,255);doc.roundedRect(M,y-2,W-M*2,14,2,2,"F");
-  doc.setTextColor(18,59,118);doc.setFont("helvetica","bold");doc.setFontSize(7.4);doc.text("TOTAL APRESENTADO",M+4,y+3.8);
-  doc.setFontSize(14);doc.text(money(rec.TOTAL_PROPOSTA||0),W-M-4,y+5,{align:"right"});y+=17;
+  var initialInvestment=gfInitialInvestment(rec,allItems);
+  ensure(22);doc.setFillColor(236,244,255);doc.roundedRect(M,y-2,W-M*2,20,2,2,"F");
+  doc.setTextColor(18,59,118);doc.setFont("helvetica","bold");doc.setFontSize(7.4);doc.text("INVESTIMENTO INICIAL",M+4,y+3.8);
+  doc.setFontSize(14);doc.text(money(initialInvestment),W-M-4,y+5,{align:"right"});
+  doc.setFont("helvetica","normal");doc.setFontSize(6.5);doc.setTextColor(92,108,128);
+  doc.text("1ª parcela + produtos/serviços de pagamento único. A anuidade é informativa e não é somada novamente.",M+4,y+11.2);
+  if(stiItems.length)doc.text("O S.T.I. é apresentado separadamente como adicional mensal em 12 parcelas.",M+4,y+15.2);
+  y+=23;
 
   if(rec.OBSERVACAO){
     section("Observações");doc.setFont("helvetica","normal");doc.setTextColor(60,70,85);doc.setFontSize(7.8);
@@ -394,10 +430,12 @@ function gfCurrentAttendanceSnapshot(products){
   rec.ECONOMIA_PLANO=plan.economy;
 
   var selected=others.filter(function(p){return state.attendanceItems&&state.attendanceItems.has(p.ID_PRODUTO)}).map(function(p){
-    return {ID_PRODUTO:p.ID_PRODUTO,PRODUTO:p.PRODUTO,CATEGORIA:p.CATEGORIA,SERIE:rec.SERIE_PRETENDIDA,QTD:1,VALOR_TABELA:parseMoney(p.VALOR_BASE),DESCONTO:0,VALOR_APRESENTADO:parseMoney(p.VALOR_BASE),SELECIONADO:"Sim",OBSERVACAO:p["DESCRIÇÃO"]||p["OBSERVAÇÃO"]||""};
+    var val=gfPresentedValue(p),obs=p["DESCRIÇÃO"]||p["OBSERVAÇÃO"]||"";
+    if(gfIsRecurringStiProduct(p))obs=("S.T.I. • 12 parcelas"+(obs?" • "+obs:""));
+    return {ID_PRODUTO:p.ID_PRODUTO,PRODUTO:p.PRODUTO,CATEGORIA:p.CATEGORIA,SERIE:rec.SERIE_PRETENDIDA,QTD:1,VALOR_TABELA:val,DESCONTO:0,VALOR_APRESENTADO:val,SELECIONADO:"Sim",OBSERVACAO:obs};
   });
-  var extras=selected.reduce(function(sum,p){return sum+parseMoney(p.VALOR_APRESENTADO||p.VALOR_TABELA)},0);
-  rec.TOTAL_PROPOSTA=gfRound2(plan.total+extras);
+  var extrasInicial=gfInitialExtrasFromItems(selected);
+  rec.TOTAL_PROPOSTA=gfRound2(plan.firstFinal+extrasInicial);
   return {rec:rec,selected:selected,plan:plan};
 }
 async function gfResumeAttendance(id,fallback){
