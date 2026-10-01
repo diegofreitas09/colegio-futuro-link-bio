@@ -679,7 +679,7 @@ async function navigate(view){
   if(!isViewAllowed(view)) view="dashboard";
   const seq=++state.navSeq;
   state.view=view;
-  try{localStorage.setItem(GF_WORKSPACE_KEY,JSON.stringify({view:view,scrollY:0,modo:currentRunMode(),savedAt:Date.now()}))}catch(e){}
+  if(!document.body.classList.contains("home-active"))try{localStorage.setItem(GF_WORKSPACE_KEY,JSON.stringify({view:view,scrollY:0,modo:currentRunMode(),savedAt:Date.now()}))}catch(e){}
   $("#nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===view));
   $("#pageTitle").textContent=titles[view]||"Gestão Futuro";
   setNotice("");
