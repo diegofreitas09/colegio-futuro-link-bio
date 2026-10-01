@@ -1,7 +1,8 @@
-const HOME_IDLE_MS = 5 * 60 * 1000;
+const HOME_IDLE_MS = 30 * 60 * 1000;
 let homeIdleTimer = null;
 
 function showHomeScreen(reason="home"){
+  if(reason==="idle"&&typeof gfRememberWorkspace==="function")gfRememberWorkspace(state.view);
   const s=$("#appSplash");
   if(!s)return;
   s.classList.remove("done");
@@ -31,7 +32,7 @@ async function enterHomeRole(role){
     if(!state.runMode)setRunMode("PRODUCAO");
     hideHomeScreen();
     ensureEntryNotifications().catch(()=>{});
-    await navigate("dashboard");
+    if(typeof gfRestoreWorkspace==="function")await gfRestoreWorkspace();else await navigate("dashboard");
     resetHomeIdle();
     return;
   }
@@ -45,6 +46,13 @@ document.addEventListener("pointerdown",()=>{
 document.addEventListener("keydown",resetHomeIdle,{passive:true});
 document.addEventListener("touchstart",resetHomeIdle,{passive:true});
 document.addEventListener("mousemove",resetHomeIdle,{passive:true});
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="hidden"){
+    if(typeof gfRememberWorkspace==="function")gfRememberWorkspace(state.view);
+    return;
+  }
+  resetHomeIdle();
+});
 
 const brandLogo=$("#schoolLogo"); if(brandLogo&&window.FUTURO_BRAND?.logo) brandLogo.src=window.FUTURO_BRAND.logo;
 
