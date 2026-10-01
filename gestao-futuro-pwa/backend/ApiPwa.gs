@@ -4,8 +4,8 @@
  * Este arquivo deve substituir o conteúdo atual de ApiPwa.gs no MESMO projeto Apps Script.
  * O Código.gs existente permanece como base de Secretaria/Financeiro.
  */
-const PWA_API_VERSION="2026.09.30.2";
-const PWA_CAPABILITIES=Object.freeze({testMode:true,clearTest:true,modeTagging:true,modeFilteredFinance:true,modeIsolationGuard:true,cashSaveIdempotency:true,cashDeleteIndividual:true,studentMigration:true,studentProgression:true,studentConfirmedSeries:true,rematriculaFlow:true,rematriculaCorrection:true,documentAdd:true,documentDriveUpload:true,multiDocumentUpload:true,attendanceDelete:true});
+const PWA_API_VERSION="2026.09.30.3";
+const PWA_CAPABILITIES=Object.freeze({testMode:true,clearTest:true,modeTagging:true,modeFilteredFinance:true,modeIsolationGuard:true,cashSaveIdempotency:true,cashDeleteIndividual:true,studentMigration:true,studentProgression:true,studentConfirmedSeries:true,rematriculaFlow:true,rematriculaCorrection:true,documentAdd:true,documentDriveUpload:true,multiDocumentUpload:true,stiBudget:true,initialInvestmentTotal:true,attendanceDelete:true});
 const PWA_GATEWAY_PROP="FUTURO_PWA_GATEWAY_KEY";
 const PWA_STAFF_HASH_PROP="FUTURO_STAFF_PASSWORD_SHA256";
 const PWA_DEBUG_PROP="FUTURO_PWA_DEBUG";
@@ -83,6 +83,11 @@ function pwaOperationCache_(scope,key,value){key=String(key||"").trim();if(!key)
 function pwaUser_(fallback){return Session.getActiveUser().getEmail()||fallback||"PWA"}
 function pwaNum_(v){var n=Number(String(v==null?"":v).replace(",","."));return Number.isFinite(n)?n:0}
 function gfRoundMoneyPwa_(v){return Math.round((Number(v||0)+Number.EPSILON)*100)/100}
+function pwaIsRecurringStiItem_(x){
+  var t=String([x&&x.ID_PRODUTO,x&&x.CATEGORIA,x&&x.PRODUTO,x&&x.OBSERVACAO].filter(Boolean).join(" ")).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+  var sti=/(^|[^a-z])s\.?t\.?i\.?([^a-z]|$)|sistema de tempo integral/.test(t),uniform=/fard|uniform|camisa|camiseta|bermuda|short|calca|casaco/.test(t);
+  return sti&&!uniform;
+}
 function pwaMoneyChecked_(v,label){
   if(v===null||v===undefined||v==="")return 0;
   var s=String(v).trim().replace(/\s/g,"");
@@ -555,8 +560,8 @@ function salvarAtendimentoPwa_(token,data,itens,modo,sessao){
     var prior=pwaOperationCache_("atendimento",data.CLIENT_REQUEST_ID);if(prior)return prior;
     var id=String(data.ID_ATENDIMENTO||"").trim(),old=id?findById_(GF_TABS.ATENDIMENTOS,"ID_ATENDIMENTO",id):null,now=new Date();
     if(old)pwaAssertRowMode_(old,modo,"Atendimento");
-    var plan=pwaPlanChecked_(data),extrasTotal=itens.filter(function(x){return x.CATEGORIA!=="Mensalidade"}).reduce(function(s,x){return s+pwaMoneyChecked_(x.VALOR_APRESENTADO||x.VALOR_TABELA,"Valor do item")*Math.max(1,Number(x.QTD)||1)},0);
-    var planTotal=plan?plan.total:pwaMoneyChecked_(data.TOTAL_PLANO,"Total do plano"),total=gfRoundMoneyPwa_(planTotal+extrasTotal);
+    var plan=pwaPlanChecked_(data),extrasTotal=itens.filter(function(x){return x.CATEGORIA!=="Mensalidade"&&!pwaIsRecurringStiItem_(x)}).reduce(function(s,x){return s+pwaMoneyChecked_(x.VALOR_APRESENTADO||x.VALOR_TABELA,"Valor do item")*Math.max(1,Number(x.QTD)||1)},0);
+    var planTotal=plan?plan.total:pwaMoneyChecked_(data.TOTAL_PLANO,"Total do plano"),initialFirst=plan?plan.firstFinal:pwaMoneyChecked_(data.VALOR_PRIMEIRA_FINAL||data.VALOR_PRIMEIRA_BASE,"Primeira parcela"),total=gfRoundMoneyPwa_(initialFirst+extrasTotal);
     if(!id)id=nextId_("ATE-",GF_TABS.ATENDIMENTOS,"ID_ATENDIMENTO");
     var rec={
       ID_ATENDIMENTO:id,
