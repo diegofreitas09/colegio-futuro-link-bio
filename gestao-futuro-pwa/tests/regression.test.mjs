@@ -71,3 +71,9 @@ test('navigation uses only the valid multi-selector helper and header brand is t
  assert.equal(navMatches.length,2);
  assert.match(brand,/brand-mark-white\.svg/);
 });
+
+
+test('CSP allows secure CEP providers',()=>{
+ const toml=source('netlify.toml');
+ assert.match(toml,/connect-src 'self' https:\/\/viacep\.com\.br https:\/\/brasilapi\.com\.br;/);
+});
