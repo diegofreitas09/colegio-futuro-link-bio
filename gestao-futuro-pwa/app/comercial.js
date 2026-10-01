@@ -346,7 +346,7 @@ async function gfDownloadAttendancePdf(rec,itens){
   pair("Anuidade oficial",money(rec.VALOR_ANUIDADE),"Forma",rec.PLANO_PARCELAS?("1ª parcela + "+rec.PLANO_PARCELAS+"x"):"—");
   pair("1ª parcela",money(rec.VALOR_PRIMEIRA_FINAL||rec.VALOR_PRIMEIRA_BASE),"Parcelas seguintes",rec.PLANO_PARCELAS?(rec.PLANO_PARCELAS+"x de "+money(rec.VALOR_PARCELA_FINAL||rec.VALOR_PARCELA_BASE)):"—");
   pair("Desconto 1ª parcela",(Number(rec["DESCONTO_PRIMEIRA_%"]||0)).toLocaleString("pt-BR",{maximumFractionDigits:2})+"%","Desconto parcelas",(Number(rec["DESCONTO_PARCELAS_%"]||0)).toLocaleString("pt-BR",{maximumFractionDigits:2})+"%");
-  pair("Total do plano",money(rec.TOTAL_PLANO),"Economia",money(rec.ECONOMIA_PLANO));
+  pair("Anuidade negociada",money(rec.TOTAL_PLANO),"Economia",money(rec.ECONOMIA_PLANO));
 
   if(stiItems.length){
     section("Orçamento S.T.I. • Sistema de Tempo Integral");
