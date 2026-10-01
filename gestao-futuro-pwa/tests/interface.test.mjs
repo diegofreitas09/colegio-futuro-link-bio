@@ -415,3 +415,25 @@ test('idle privacy screen waits 30 minutes and restores workspace',()=>{
  assert.match(start,/gfRememberWorkspace\(state\.view\)/);
  assert.match(start,/gfRestoreWorkspace/);
 });
+
+
+test('STI stays in 12 installments and synchronizes with regular plan',()=>{
+ const x=setup();try{
+  x.w.__p12={n:12,firstFinal:599,recurringFinal:541.15};
+  x.w.__p11={n:11,firstFinal:599,recurringFinal:594.49};
+  let s=x.run('gfStiPlanSync(window.__p12,654.50)');
+  assert.equal(s.stiInstallments,12);
+  assert.equal(s.alignedInstallments,12);
+  assert.equal(s.stiOnlyInstallments,0);
+  assert.equal(s.combinedValue,1195.65);
+  assert.match(s.label,/1ª parcela regular de R.*599,00/);
+  assert.match(s.label,/12x de R.*1\.195,65/);
+  s=x.run('gfStiPlanSync(window.__p11,654.50)');
+  assert.equal(s.stiInstallments,12);
+  assert.equal(s.alignedInstallments,11);
+  assert.equal(s.stiOnlyInstallments,1);
+  assert.equal(s.combinedValue,1248.99);
+  assert.match(s.label,/11x de R.*1\.248,99/);
+  assert.match(s.label,/1x final de R.*654,50 somente S\.T\.I\./);
+ }finally{x.dom.window.close()}
+});
