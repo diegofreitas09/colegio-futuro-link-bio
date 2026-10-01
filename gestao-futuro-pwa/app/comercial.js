@@ -90,7 +90,7 @@ function gfStiPlanSync(plan,stiValue){
     regularValue:regular,
     stiValue:sti,
     combinedValue:gfRound2(regular+sti),
-    label:n===12?("1ª parcela regular + 12x de "+money(regular+sti)):("1ª parcela regular + "+n+"x de "+money(regular+sti)+(stiOnly?(" + "+stiOnly+"x final de "+money(sti)+" somente S.T.I."):"")),
+    label:n===12?("1ª parcela regular de "+money(parseMoney(plan&&plan.firstFinal||0))+" + 12x de "+money(regular+sti)):("1ª parcela regular de "+money(parseMoney(plan&&plan.firstFinal||0))+" + "+n+"x de "+money(regular+sti)+(stiOnly?(" + "+stiOnly+"x final de "+money(sti)+" somente S.T.I."):"")),
     note:n===12?"O S.T.I. acompanha as 12 parcelas regulares e não entra na 1ª parcela.":"O S.T.I. continua em 12 parcelas: acompanha as parcelas regulares e completa o restante sozinho."
   };
 }
@@ -435,7 +435,7 @@ async function gfDownloadAttendancePdf(rec,itens){
     stiItems.forEach(function(sti){
       var stiValue=Number(sti.VALOR_APRESENTADO||sti.VALOR_TABELA||0),planSync=gfStiPlanSync({n:Number(rec.PLANO_PARCELAS||12),firstFinal:rec.VALOR_PRIMEIRA_FINAL||rec.VALOR_PRIMEIRA_BASE,recurringFinal:rec.VALOR_PARCELA_FINAL||rec.VALOR_PARCELA_BASE},stiValue);
       pair("Plano regular","1ª parcela + "+planSync.regularInstallments+"x","S.T.I.",stiValue>0?("12x de "+money(stiValue)):"Sob consulta");
-      pair("Parcela combinada",stiValue>0?money(planSync.combinedValue):"A definir","Sincronização",planSync.regularInstallments===12?"12 parcelas combinadas":"11 parcelas combinadas + 1 S.T.I.");
+      pair("Parcela combinada",stiValue>0?money(planSync.combinedValue):"A definir","Sincronização",planSync.regularInstallments===12?"12 parcelas combinadas":(planSync.alignedInstallments+" parcelas combinadas + "+planSync.stiOnlyInstallments+" S.T.I."));
       pair("Regra do S.T.I.",planSync.note,"Resumo",planSync.label);
     });
   }
