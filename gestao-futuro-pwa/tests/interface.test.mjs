@@ -375,3 +375,43 @@ test('attendance shows dedicated STI budget and STI uniform for eligible 2027 st
   assert.match(x.w.document.querySelector('#catalogArea').textContent,/Sob consulta/);
  }finally{x.dom.window.close()}
 });
+
+
+test('CEP lookup fills address data and compatibility payload preserves it',async()=>{
+ const x=setup();try{
+  x.w.fetch=async(url)=>{
+   if(String(url).includes('viacep.com.br'))return Response.json({cep:'60130-000',logradouro:'Avenida Beira Mar',bairro:'Meireles',localidade:'Fortaleza',uf:'CE'});
+   return Response.json({ok:true,data:[]});
+  };
+  const a=await x.run('gfLookupCep("60130000")');
+  assert.equal(a.LOGRADOURO,'Avenida Beira Mar');
+  assert.equal(a.BAIRRO,'Meireles');
+  assert.equal(a.CIDADE,'Fortaleza');
+  assert.equal(a.UF,'CE');
+  x.w.__addr={OBSERVACAO:'Família interessada',CEP:'60130-000',LOGRADOURO:'Avenida Beira Mar',BAIRRO:'Meireles',CIDADE:'Fortaleza',UF:'CE',NUMERO:'100',COMPLEMENTO:'Apto 501'};
+  const payload=x.run('gfPayloadWithAddressCompat(window.__addr)');
+  assert.match(payload.OBSERVACAO,/GF_ENDERECO/);
+  x.w.__payload=payload;
+  const restored=x.run('gfHydrateAddressCompat(window.__payload)');
+  assert.equal(restored.NUMERO,'100');
+  assert.equal(restored.COMPLEMENTO,'Apto 501');
+  assert.equal(restored.OBSERVACAO,'Família interessada');
+ }finally{x.dom.window.close()}
+});
+
+test('workspace recovery restores the draft instead of restarting attendance',()=>{
+ const x=setup();try{
+  x.w.localStorage.setItem('gestao_futuro_atendimento_rascunho_v1',JSON.stringify({MODO_REGISTRO:'PRODUCAO',ID_ATENDIMENTO:'',NOME_ALUNO:'Aluno em atendimento',RESPONSAVEL:'Responsável',SERIE_PRETENDIDA:'4º Ano',ETAPA:'Proposta',CEP:'60130-000',NUMERO:'123',ITENS:['MAT-1']}));
+  assert.equal(x.run('gfPrepareAttendanceResumeFromDraft()'),true);
+  assert.equal(x.run('state.resumeAttendance.NOME_ALUNO'),'Aluno em atendimento');
+  assert.equal(x.run('state.attendanceStage'),'Proposta');
+  assert.equal(x.run('state.attendanceItems.has("MAT-1")'),true);
+ }finally{x.dom.window.close()}
+});
+
+test('idle privacy screen waits 30 minutes and restores workspace',()=>{
+ const start=read('app/start.js');
+ assert.match(start,/HOME_IDLE_MS = 30 \* 60 \* 1000/);
+ assert.match(start,/gfRememberWorkspace\(state\.view\)/);
+ assert.match(start,/gfRestoreWorkspace/);
+});
