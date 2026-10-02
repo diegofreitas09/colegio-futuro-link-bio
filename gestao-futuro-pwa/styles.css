@@ -808,3 +808,24 @@ body.home-active .shell{filter:blur(2px) saturate(.8);pointer-events:none;user-s
 .sti-sync-summary{margin-top:10px;padding:10px 12px;border-radius:11px;background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.18)}
 .sti-sync-summary b{display:block;font-size:12px;line-height:1.35;color:#fff}
 .sti-sync-summary span{display:block;margin-top:4px;font-size:9px;line-height:1.45;color:#d9e9fb}
+
+/* Checklist oficial de documentos 2026 */
+.official-docs-card{margin:14px 0 18px;padding:16px;border:1px solid #c9d9ec;border-radius:18px;background:linear-gradient(180deg,#f7fbff,#fff);box-shadow:0 10px 26px rgba(24,69,120,.08)}
+.official-docs-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+.official-docs-head small{display:block;font-size:9px;font-weight:900;letter-spacing:.09em;color:#2d67a6}
+.official-docs-head h3{margin:3px 0 4px;font-size:19px;color:#123b76}
+.official-docs-head p{margin:0;color:#6b788a;font-size:11px}
+.official-docs-count{padding:7px 10px;border-radius:999px;background:#e8f1fb;color:#174c88;font-size:10px;font-weight:900;white-space:nowrap}
+.official-docs-alert{margin-top:12px;padding:10px 12px;border-radius:12px;background:#fff6dd;border:1px solid #f0d685;color:#795700;font-size:10px;line-height:1.45}
+.official-docs-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px}
+.official-doc-group{padding:11px;border:1px solid #e0e8f1;border-radius:13px;background:#fff}
+.official-doc-group h4{margin:0 0 8px;font-size:12px;color:#123b76}
+.official-doc-row{display:grid;grid-template-columns:18px 1fr auto;gap:7px;align-items:start;padding:7px 0;border-top:1px dashed #e8edf3}
+.official-doc-row:first-of-type{border-top:0}
+.official-doc-check{font-size:15px;color:#2a66a4;line-height:1}
+.official-doc-row b{display:block;font-size:10px;color:#20334d;line-height:1.3}
+.official-doc-row small{display:block;margin-top:2px;font-size:8.5px;color:#7a8798;line-height:1.35}
+.official-doc-row em{font-style:normal;font-size:8px;font-weight:900;color:#316898;background:#edf5fd;padding:3px 5px;border-radius:6px}
+.official-docs-actions{display:flex;align-items:center;gap:12px;margin-top:12px}
+.official-docs-actions span{font-size:9px;color:#718096}
+@media(max-width:900px){.official-docs-grid{grid-template-columns:1fr}.official-docs-head,.official-docs-actions{flex-direction:column}.official-docs-actions .btn{width:100%}}
