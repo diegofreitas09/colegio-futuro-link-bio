@@ -161,43 +161,166 @@ function prodMetricsHtml(rows,year){
     "<div><small>REAJUSTE MÉDIO</small><b>"+(avgAdj===null?"—":((avgAdj>0?"+":"")+avgAdj.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})+"%"))+"</b><span>sobre o valor de origem</span></div>"+
   "</div>";
 }
+
+const GF_GESTAO_SERIES=["Infantil 2","Infantil 3","Infantil 4","Infantil 5","1º Ano","2º Ano","3º Ano","4º Ano","5º Ano","6º Ano","7º Ano","8º Ano","9º Ano","1º EM","2º EM","3º EM"];
+function prodNorm(s){return String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase()}
+function prodInferYear(p){return Number(p&&p.ANO_LETIVO)||Number((String(p&&p.ID_PRODUTO||"")+" "+String(p&&p.PRODUTO||"")).match(/20\d{2}/)?.[0])||0}
+function prodSeriesNumber(serie){
+  const s=prodNorm(serie),m=s.match(/\b([1-9])\s*(?:º|o)?\s*ano\b/);return m?Number(m[1]):0;
+}
+function prodAppliesToSeries(p,serie){
+  const s=prodNorm(serie),a=prodNorm(p&&p["SEGMENTO_SÉRIE"]||""),txt=prodNorm([p&&p.PRODUTO,p&&p["DESCRIÇÃO"],p&&p.SUBCATEGORIA].filter(Boolean).join(" ")),n=prodSeriesNumber(serie);
+  if(!s)return true;
+  if(!a||a.includes("todos"))return true;
+  if(s.includes("infantil")){
+    const target=(s.match(/infantil\s*([2-5])/)||[])[1];
+    const specific=(txt.match(/infantil\s*([2-5])/)||[])[1];
+    if(specific)return specific===target;
+    return a.includes("infantil");
+  }
+  if(s.includes(" ano")){
+    const specific=(txt.match(/\b([1-9])\s*(?:º|o)?\s*ano\b/)||[])[1];
+    if(specific&&!/\b[1-9]\s*(?:º|o)?\s*(?:ao|a)\s*[1-9]/.test(txt))return Number(specific)===n;
+    if(n>=1&&n<=5)return a.includes("1º ao 5º")||a.includes("1o ao 5o")||a.includes("anos iniciais")||a.includes(prodNorm(serie));
+    if(n>=6&&n<=9)return a.includes("6º ao 9º")||a.includes("6o ao 9o")||a.includes("anos finais")||a.includes(prodNorm(serie));
+  }
+  if(s.includes(" em")){
+    const target=(s.match(/\b([1-3])\s*(?:º|o)?\s*em\b/)||[])[1];
+    const specific=(txt.match(/\b([1-3])\s*(?:º|o)?\s*(?:em|ensino medio)\b/)||[])[1];
+    if(specific)return specific===target;
+    return a.includes("medio")||a.includes("ensino medio")||a.includes(s);
+  }
+  return a.includes(s);
+}
+function prodSeriesWizardRows(list,year,serie){
+  return (list||[]).filter(p=>prodInferYear(p)===Number(year)&&String(p.ATIVO||"Sim")!=="Não"&&prodAppliesToSeries(p,serie))
+    .sort((a,b)=>Number(a.ORDEM_EXIBICAO||100)-Number(b.ORDEM_EXIBICAO||100)||String(a.CATEGORIA||"").localeCompare(String(b.CATEGORIA||""),"pt-BR")||String(a.PRODUTO||"").localeCompare(String(b.PRODUTO||""),"pt-BR",{numeric:true}));
+}
+function prodPreviewValue(v,pct){return Math.round((Number(v||0)*(1+Number(pct||0)/100)+Number.EPSILON)*100)/100}
+function prodWizardMoneyBlock(p,pct){
+  const base=Number(p.VALOR_BASE||0),parcel=Number(p.VALOR_PARCELA||0),after=Number(p["VALOR_PÓS_VENCIMENTO"]||0);
+  const current="<b>"+money(base)+"</b>"+(parcel&&Math.abs(parcel-base)>.009?"<small>Parcela: "+money(parcel)+"</small>":"")+(after?"<small>Pós-venc.: "+money(after)+"</small>":"");
+  const next="<b>"+money(prodPreviewValue(base,pct))+"</b>"+(parcel&&Math.abs(parcel-base)>.009?"<small>Parcela: "+money(prodPreviewValue(parcel,pct))+"</small>":"")+(after?"<small>Pós-venc.: "+money(prodPreviewValue(after,pct))+"</small>":"");
+  return {current,next};
+}
+
 async function renderProdutos(){
   const list=await api("listarProdutosGestao",{token:state.adminToken});
-  const inferYear=p=>Number(p.ANO_LETIVO)||Number((String(p.ID_PRODUTO||"")+" "+String(p.PRODUTO||"")).match(/20\d{2}/)?.[0])||0;
+  const inferYear=prodInferYear;
   const years=[...new Set(list.map(inferYear).filter(Boolean))].sort((a,b)=>b-a);
-  const defaultYear=state.productYear&&years.includes(Number(state.productYear))?Number(state.productYear):(years[0]||new Date().getFullYear());
-  state.productYear=defaultYear;
+  const current=state.productYear&&years.includes(Number(state.productYear))?Number(state.productYear):(years[0]||new Date().getFullYear());
+  const targetDefault=current;
+  const sourceDefault=years.includes(targetDefault-1)?targetDefault-1:(years.find(y=>y<targetDefault)||years[0]||targetDefault-1);
+  const futureYear=Math.max(...years,targetDefault)+1;
+  const targetYears=[...new Set([futureYear,...years])].sort((a,b)=>b-a);
+  state.productYear=targetDefault;
 
-  $("#view").innerHTML=`<div class="section-head"><h2>Catálogo oficial</h2><div class="toolbar">
-    <select id="prodYear" class="search" style="max-width:160px">${years.map(y=>`<option value="${y}" ${y===defaultYear?"selected":""}>${y}</option>`).join("")}</select>
-    <input class="search" id="prodSearch" placeholder="Buscar produto, série…">
-    <button class="btn btn-soft" id="newProductService">+ Produto/serviço</button>
-    <button class="btn btn-gold" id="individualAdjustment">Reajuste individual</button>
-    <button class="btn btn-primary" id="newSchoolYear">Reajuste em lote</button>
-  </div></div>
-  <div class="card" style="margin-bottom:14px"><strong>Ano letivo: <span id="yearLabel">${defaultYear}</span></strong><br><span class="muted">Cada ano mantém seu próprio catálogo e seus próprios valores. O histórico dos anos anteriores não é apagado.</span></div>
-  <div id="prodMetrics"></div>
-  <div id="prodTable"></div>`;
+  $("#view").innerHTML=`
+    <div class="section-head"><div><h2>Valores e reajustes</h2><span class="muted">Escolha a série, compare o ano anterior e publique os novos valores em um único fluxo.</span></div><div class="toolbar">
+      <button class="btn btn-soft" id="newProductService">+ Produto/serviço</button>
+      <button class="btn btn-gold" id="individualAdjustment">Ajuste avançado</button>
+    </div></div>
 
-  const draw=()=>{
-    const q=$("#prodSearch").value.toLowerCase();
-    const year=Number($("#prodYear").value);
-    state.productYear=year;
-    $("#yearLabel").textContent=year;
+    <section class="series-adjust-wizard">
+      <div class="series-adjust-head">
+        <div><small>ASSISTENTE DE REAJUSTE POR SÉRIE</small><h3>Do valor anterior ao novo ano-base</h3><p>Todos os produtos aplicáveis à série aparecem juntos. Ao publicar, Atendimento, Secretaria, Panfletos e Matrícula passam a usar o novo catálogo.</p></div>
+        <div class="series-sync-icons"><span>✓ Atendimento</span><span>✓ Secretaria</span><span>✓ Panfletos</span><span>✓ Matrícula</span></div>
+      </div>
+      <div class="series-adjust-controls">
+        <div class="field"><label>Série</label><select id="seriesAdjSeries" class="search">${GF_GESTAO_SERIES.map(s=>`<option>${esc(s)}</option>`).join("")}</select></div>
+        <div class="field"><label>Ano anterior • origem</label><select id="seriesAdjSource" class="search">${years.map(y=>`<option value="${y}" ${y===sourceDefault?"selected":""}>${y}</option>`).join("")}</select></div>
+        <div class="field"><label>Novo ano-base</label><select id="seriesAdjTarget" class="search">${targetYears.map(y=>`<option value="${y}" ${y===targetDefault?"selected":""}>${y}</option>`).join("")}</select></div>
+        <div class="field"><label>Reajuste geral (%)</label><div class="series-adj-inline"><input id="seriesAdjGlobal" type="number" step="0.01" value="0"><button class="btn btn-soft" id="applyGlobalAdj" type="button">Aplicar a todos</button></div></div>
+      </div>
+      <div class="series-adjust-note" id="seriesAdjustNote"></div>
+      <div id="seriesAdjustTable"></div>
+      <div class="series-adjust-footer">
+        <div><b id="seriesAdjCount">0 produtos</b><span id="seriesAdjStatus">Preencha os percentuais e confira os novos valores antes de publicar.</span></div>
+        <button class="btn btn-primary" id="publishSeriesAdjustment">Publicar novos valores e sincronizar</button>
+      </div>
+    </section>
+
+    <div class="section-head catalog-after-wizard"><div><h3>Catálogo publicado</h3><span class="muted">Consulta e edição individual dos valores já existentes.</span></div><div class="toolbar">
+      <select id="prodYear" class="search" style="max-width:160px">${years.map(y=>`<option value="${y}" ${y===current?"selected":""}>${y}</option>`).join("")}</select>
+      <input class="search" id="prodSearch" placeholder="Buscar produto, série…">
+      <button class="btn btn-soft" id="newSchoolYear">Reajuste geral por categoria</button>
+    </div></div>
+    <div class="card" style="margin-bottom:14px"><strong>Ano letivo: <span id="yearLabel">${current}</span></strong><br><span class="muted">O histórico permanece preservado. O ano publicado torna-se a referência para os módulos operacionais.</span></div>
+    <div id="prodMetrics"></div>
+    <div id="prodTable"></div>`;
+
+  const drawCatalog=()=>{
+    const q=$("#prodSearch").value.toLowerCase(),year=Number($("#prodYear").value);
+    state.productYear=year;$("#yearLabel").textContent=year;
     const yearRows=list.filter(p=>inferYear(p)===year);
     const arr=yearRows.filter(p=>[p.PRODUTO,p.CATEGORIA,p["SEGMENTO_SÉRIE"]].join(" ").toLowerCase().includes(q));
     $("#prodMetrics").innerHTML=prodMetricsHtml(yearRows,year);
     $("#prodTable").innerHTML=`<div class="table-wrap"><table><thead><tr><th>ID</th><th>Ano</th><th>Produto</th><th>Série</th><th>Valor base</th><th>Pós-vencimento</th><th>Parcelas</th><th>Reajuste</th><th>Publicado</th><th>Ativo</th><th></th></tr></thead><tbody>${arr.map(p=>`<tr><td>${esc(p.ID_PRODUTO)}</td><td><strong>${esc(inferYear(p)||"")}</strong></td><td><strong>${esc(p.PRODUTO)}</strong><br><span class="muted">${esc(p.CATEGORIA||"")}</span></td><td>${esc(p["SEGMENTO_SÉRIE"]||"")}</td><td class="money">${money(p.VALOR_BASE)}</td><td class="money">${money(p["VALOR_PÓS_VENCIMENTO"])}</td><td>${esc(p.QTD_PARCELAS||"")}</td><td>${prodAdjustmentBadge(p)}</td><td>${pill(p.PUBLICADO_ATENDIMENTO||"Sim")}</td><td>${pill(p.ATIVO||"")}</td><td><button class="icon-btn" data-prod="${esc(p.ID_PRODUTO)}">Editar</button></td></tr>`).join("")||`<tr><td colspan="11" class="empty">Nenhum produto cadastrado para ${year}.</td></tr>`}</tbody></table></div>`;
     $$('[data-prod]').forEach(x=>x.onclick=()=>openProductForm(list.find(p=>p.ID_PRODUTO===x.dataset.prod)));
   };
-  $("#prodSearch").oninput=draw;
-  $("#prodYear").onchange=draw;
+
+  let wizardRows=[];
+  const refreshPreview=()=>{
+    $$("[data-series-pct]").forEach(inp=>{
+      const p=wizardRows.find(x=>String(x.ID_PRODUTO)===String(inp.dataset.seriesPct));if(!p)return;
+      const pct=Number(inp.value||0),m=prodWizardMoneyBlock(p,pct),cell=$('[data-series-new="'+CSS.escape(String(p.ID_PRODUTO))+'"]');
+      if(cell)cell.innerHTML=m.next;
+    });
+  };
+  const drawWizard=()=>{
+    const serie=$("#seriesAdjSeries").value,source=Number($("#seriesAdjSource").value),target=Number($("#seriesAdjTarget").value);
+    wizardRows=prodSeriesWizardRows(list,source,serie);
+    $("#seriesAdjCount").textContent=wizardRows.length+" produto(s)";
+    $("#seriesAdjustNote").innerHTML=source===target
+      ? "<b>Atenção:</b> o ano de origem e o novo ano-base precisam ser diferentes."
+      : "Comparando <b>"+esc(serie)+"</b>: valores oficiais de <b>"+source+"</b> → novo catálogo <b>"+target+"</b>.";
+    $("#publishSeriesAdjustment").disabled=!wizardRows.length||source===target;
+    $("#seriesAdjustTable").innerHTML=`<div class="table-wrap series-adjust-table"><table><thead><tr><th>Produto oferecido</th><th>Valor do ano anterior</th><th>Reajuste %</th><th>Novo valor • ${target}</th><th>Integração</th></tr></thead><tbody>
+      ${wizardRows.map(p=>{
+        const m=prodWizardMoneyBlock(p,0);
+        return `<tr><td><strong>${esc(p.PRODUTO||"")}</strong><small>${esc(p.CATEGORIA||"")} • ${esc(p["SEGMENTO_SÉRIE"]||"")}</small></td><td class="series-value-block">${m.current}</td><td><input class="series-pct-input" data-series-pct="${esc(p.ID_PRODUTO)}" type="number" step="0.01" value="0" aria-label="Reajuste de ${esc(p.PRODUTO||"produto")}"></td><td class="series-value-block series-new-value" data-series-new="${esc(p.ID_PRODUTO)}">${m.next}</td><td><span class="series-integrated-pill">Publicar</span></td></tr>`;
+      }).join("")||'<tr><td colspan="5" class="empty">Nenhum produto do ano anterior se aplica a esta série.</td></tr>'}
+    </tbody></table></div>`;
+    $$("[data-series-pct]").forEach(inp=>inp.oninput=refreshPreview);
+  };
+
+  $("#applyGlobalAdj").onclick=()=>{
+    const v=Number($("#seriesAdjGlobal").value||0);
+    $$("[data-series-pct]").forEach(inp=>inp.value=String(v));
+    refreshPreview();
+  };
+  $("#seriesAdjSeries").onchange=drawWizard;
+  $("#seriesAdjSource").onchange=drawWizard;
+  $("#seriesAdjTarget").onchange=drawWizard;
+  $("#publishSeriesAdjustment").onclick=async()=>{
+    const source=Number($("#seriesAdjSource").value),target=Number($("#seriesAdjTarget").value),serie=$("#seriesAdjSeries").value;
+    if(source===target||!wizardRows.length)return;
+    const adjustments=wizardRows.map(p=>({p,pct:Number($('[data-series-pct="'+CSS.escape(String(p.ID_PRODUTO))+'"]')?.value||0)}));
+    const btn=$("#publishSeriesAdjustment");btn.disabled=true;
+    try{
+      let done=0;
+      for(const row of adjustments){
+        btn.textContent="Publicando "+(++done)+" de "+adjustments.length+"…";
+        await api("aplicarReajusteIndividual",{token:state.adminToken,data:{
+          anoOrigem:source,anoDestino:target,idProduto:row.p.ID_PRODUTO,modo:"percentual",valor:row.pct,publicar:"Sim",
+          observacao:"Reajuste por série • "+serie+" • "+source+"→"+target
+        }});
+      }
+      state.productYear=target;clearApiCache();
+      setNotice("Novo ano-base "+target+" publicado para "+serie+". Atendimento, Secretaria, Panfletos e Matrícula passam a consumir os valores sincronizados.","ok");
+      await renderProdutos();
+    }catch(e){
+      showToast(e.message||"Não foi possível concluir o reajuste da série.","error");
+      btn.disabled=false;btn.textContent="Publicar novos valores e sincronizar";
+    }
+  };
+
+  $("#prodSearch").oninput=drawCatalog;$("#prodYear").onchange=drawCatalog;
   $("#newSchoolYear").onclick=()=>openSchoolYearForm(years);
   $("#individualAdjustment").onclick=()=>openIndividualAdjustment(list,years);
   $("#newProductService").onclick=()=>openNewProductService();
-  draw();
+  drawWizard();drawCatalog();
 }
-
 function openSchoolYearForm(years){
   const origem=Number(state.productYear||years[0]||2026),destino=origem+1;
   modal(`<div class="modal-head"><h3>Reajuste em lote</h3><button class="icon-btn" data-close>✕</button></div>
