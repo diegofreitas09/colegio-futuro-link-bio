@@ -355,8 +355,29 @@ function gfDocFolderLabel(serie){
   if(n>=6&&n<=9)return "Pasta escolar verde (Anos Finais)";
   return "Pasta escolar conforme orientação da Secretaria";
 }
-function gfDocs2026ForStudent(aluno,mat){
+function gfDocs2026ForStudent(aluno,mat,sourceRows){
   const serie=(mat&&mat["SÉRIE"])||aluno&&aluno["SÉRIE"]||"",n=gfDocGradeNumber(serie),tipo=String(mat&&mat.TIPO_MATRICULA||aluno&&aluno.TIPO_ALUNO||"Novato").toLowerCase(),isNovato=tipo!=="veterano";
+  if(Array.isArray(sourceRows)&&sourceRows.length){
+    const norm=s=>String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+    return sourceRows.filter(r=>{
+      if(String(r.ATIVO||"Sim")==="Não"||String(r.PUBLICADO_SECRETARIA||"Sim")==="Não")return false;
+      const t=norm(r.TIPO_MATRICULA||"Todos");
+      if(t!=="todos"&&t!==tipo)return false;
+      const appl=norm(r.SERIE_APLICAVEL||"Todos");
+      if(appl.includes("1º ao 9º")||appl.includes("1o ao 9o"))return n>=1&&n<=9;
+      if(appl.includes("2º ao 9º")||appl.includes("2o ao 9o"))return n>=2&&n<=9;
+      if(appl==="todos")return true;
+      return !serie||norm(serie).includes(appl)||appl.includes(norm(serie));
+    }).map(r=>({
+      id:r.ID_REGRA,
+      grupo:r.PUBLICO||"Aluno",
+      documento:String(r.DOCUMENTO||"").toLowerCase()==="pasta escolar"?gfDocFolderLabel(serie):r.DOCUMENTO,
+      obrigatorio:r.OBRIGATORIO||"Sim",
+      condicao:r.CONDICAO||"",
+      prazo:r.PRAZO||"",
+      novato:norm(r.TIPO_MATRICULA)==="novato"
+    }));
+  }
   return GF_DOCS_2026_RULES.filter(r=>{
     if(r.novato&&!isNovato)return false;
     if(r.series==="1-9"&&!(n>=1&&n<=9))return false;
@@ -387,7 +408,9 @@ async function renderDocumentos(){
     try{
       const docs=await api("listarDocumentosAluno",{token:tokenFor("staff"),idAluno:id});
       const mats=(b.matriculas||[]).filter(m=>String(m.ID_ALUNO)===String(id)).sort((a,z)=>Number(z.ANO_LETIVO||0)-Number(a.ANO_LETIVO||0));
-      const mat=mats[0]||null,officialRules=gfDocs2026ForStudent(aluno,mat);
+      const mat=mats[0]||null;
+      let centralRules=[];try{centralRules=await api("listarChecklistDocumentos",{token:tokenFor("staff"),ano:2026})}catch(e){}
+      const officialRules=gfDocs2026ForStudent(aluno,mat,centralRules);
       const generatedIds=new Set(docs.map(d=>String(d.ID_REGRA||"")));
       const pendingOfficial=officialRules.filter(r=>!generatedIds.has(r.id));
       const isNovato=String(mat&&mat.TIPO_MATRICULA||aluno.TIPO_ALUNO||"Novato").toLowerCase()!=="veterano";
