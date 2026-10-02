@@ -925,3 +925,30 @@ body.home-active .shell{filter:blur(2px) saturate(.8);pointer-events:none;user-s
  .series-adj-inline{grid-template-columns:1fr auto}
  .series-adjust-head h3{font-size:18px}
 }
+
+/* Motor de anuidade e planos 1+12 / 1+11 */
+.series-adjust-controls.plan-aware{grid-template-columns:1.05fr 1.05fr .75fr .75fr 1.4fr}
+.tuition-plan-engine{margin:12px 0;padding:13px;border:1px solid #b9d4ef;border-radius:16px;background:linear-gradient(145deg,#0f4f94,#0b3c74);color:#fff;box-shadow:0 10px 26px rgba(14,66,122,.14)}
+.tuition-plan-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}
+.tuition-plan-head small{display:block;font-size:8px;font-weight:900;letter-spacing:.1em;color:#bfd9f5}
+.tuition-plan-head h4{margin:3px 0 2px;font-size:17px;color:#fff}
+.tuition-plan-head span{font-size:9px;color:#d7e7f7}
+.plan-formula-badge{display:inline-flex!important;align-items:center;padding:7px 9px;border-radius:999px;background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.18);font-size:8px!important;font-weight:900;color:#fff!important;white-space:nowrap}
+.tuition-adjust-inputs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:11px}
+.tuition-adjust-inputs>div{padding:9px 10px;border-radius:11px;background:rgba(255,255,255,.1)}
+.tuition-adjust-inputs label{display:block;font-size:7.8px;font-weight:900;color:#cce0f6;text-transform:uppercase;letter-spacing:.04em}
+.tuition-adjust-inputs b{display:block;margin-top:4px;font-size:14px;color:#fff}
+.tuition-adjust-inputs span{display:block;margin-top:2px;font-size:7.5px;color:#cddff2}
+.tuition-adjust-inputs input{width:100%;margin-top:4px;padding:8px;border:1px solid rgba(255,255,255,.28);border-radius:8px;background:#fff;color:#123b76;font-weight:900;text-align:center}
+.tuition-result-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:8px}
+.tuition-result-grid>div{padding:10px;border-radius:11px;background:#fff;color:#123b76;border:2px solid transparent}
+.tuition-result-grid>div.selected{border-color:#ffcf52;box-shadow:0 0 0 2px rgba(255,207,82,.12)}
+.tuition-result-grid small{display:block;font-size:7px;font-weight:900;color:#6c7b8e;letter-spacing:.04em}
+.tuition-result-grid strong{display:block;margin-top:4px;font-size:15px;color:#123b76}
+.tuition-result-grid span{display:block;margin-top:3px;font-size:7.4px;line-height:1.3;color:#7a8899}
+.tuition-selected-plan{margin-top:8px;padding:9px 11px;border-radius:10px;background:rgba(255,255,255,.13);font-size:9px;line-height:1.4;color:#e6f0fb}
+.tuition-selected-plan strong{color:#fff}
+.series-products-title{display:flex;justify-content:space-between;gap:10px;align-items:end;margin:12px 0 6px}
+.series-products-title b{font-size:11px;color:#153f74}.series-products-title span{font-size:8.5px;color:#788697}
+@media(max-width:1050px){.series-adjust-controls.plan-aware{grid-template-columns:1fr 1fr}.tuition-adjust-inputs,.tuition-result-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:620px){.series-adjust-controls.plan-aware,.tuition-adjust-inputs,.tuition-result-grid{grid-template-columns:1fr}.tuition-plan-head,.series-products-title{flex-direction:column;align-items:flex-start}.plan-formula-badge{white-space:normal}}
