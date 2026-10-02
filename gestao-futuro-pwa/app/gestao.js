@@ -370,7 +370,7 @@ async function renderProdutos(){
     $("#seriesAdjCount").textContent=(wizardRows.length+4)+" item(ns) de valor";
     $("#seriesAdjustNote").innerHTML=source===target
       ? "<b>Atenção:</b> o ano de origem e o novo ano-base precisam ser diferentes."
-      : "Comparando <b>"+esc(serie)+"</b>: ${source} → <b>${target}</b>. A mensalidade não recebe um percentual solto: ela é calculada para fechar exatamente a anuidade no plano 1+12 e no plano 1+11.";
+      : "Comparando <b>"+esc(serie)+"</b>: "+source+" → <b>"+target+"</b>. A mensalidade não recebe um percentual solto: ela é calculada para fechar exatamente a anuidade no plano 1+12 e no plano 1+11.";
     renderTuitionBody();
     $("#publishSeriesAdjustment").disabled=!wizardRows.length&&(!tuitionBundle||!tuitionBundle.annual);
     if(source===target)$("#publishSeriesAdjustment").disabled=true;
