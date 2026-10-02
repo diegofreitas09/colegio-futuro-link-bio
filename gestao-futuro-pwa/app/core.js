@@ -404,7 +404,7 @@ const API_CACHE_TTL = Object.freeze({
   dashboardPublico:15000,dashboardGestao:15000,bootstrapSecretaria:30000,
   listarProdutosPublicos:300000,listarProdutosGestao:60000,listarAtendimentos:12000,
   getPanfletoSerie:60000,listarSolicitacoesDesconto:8000,listarRecebimentos:15000,
-  listarCaixa:15000,listarCategorias:120000,getFechamento:15000,listarDocumentosAluno:15000,getAtendimento:10000
+  listarCaixa:15000,listarCategorias:120000,getFechamento:15000,listarDocumentosAluno:15000,listarChecklistDocumentos:60000,getAtendimento:10000
 });
 function apiCacheKey(action,payload,meta){
   const safe={...payload}; if(safe.password)safe.password="***";
@@ -412,8 +412,8 @@ function apiCacheKey(action,payload,meta){
 }
 function clearApiCache(){state.cacheGeneration=(state.cacheGeneration||0)+1;state.apiCache.clear();state.apiInflight.clear();state.bootstrap=null;state.catalogPromise=null;state.catalogProducts=null;state.catalogLoadedAt=0;state.flyerCache={}}
 async function api(action, payload={}) {
-  const writeActions=["salvarAluno","salvarResponsavel","criarMatriculaCompleta","atualizarDocumento","adicionarDocumentoAluno","uploadDocumentoAluno","registrarPagamento","salvarMovimentoCaixa","excluirMovimentoCaixa","salvarAtendimento","excluirAtendimento","solicitarDesconto","decidirSolicitacaoDesconto","salvarPanfletoSerie","atualizarProduto","criarProdutoServico","aplicarReajusteIndividual","aplicarReajusteCatalogo","limparDadosTeste","limparAutorizacoesTeste"];
-  const productionOnly=["salvarPanfletoSerie","atualizarProduto","criarProdutoServico","aplicarReajusteIndividual","aplicarReajusteCatalogo"];
+  const writeActions=["salvarAluno","salvarResponsavel","criarMatriculaCompleta","atualizarDocumento","adicionarDocumentoAluno","uploadDocumentoAluno","registrarPagamento","salvarMovimentoCaixa","excluirMovimentoCaixa","salvarAtendimento","excluirAtendimento","solicitarDesconto","decidirSolicitacaoDesconto","salvarPanfletoSerie","salvarRegraDocumento","atualizarProduto","criarProdutoServico","aplicarReajusteIndividual","aplicarReajusteCatalogo","limparDadosTeste","limparAutorizacoesTeste"];
+  const productionOnly=["salvarPanfletoSerie","salvarRegraDocumento","atualizarProduto","criarProdutoServico","aplicarReajusteIndividual","aplicarReajusteCatalogo"];
   if(writeActions.includes(action)&&!state.runMode){openModeGate();throw new Error("Escolha Produção ou Teste/Simulação antes de salvar.")}
   if(state.runMode==="TESTE"&&productionOnly.includes(action))throw new Error("Este comando altera configurações oficiais e só pode ser usado em Produção.");
   const meta={modo:currentRunMode(),sessaoTeste:state.runMode==="TESTE"?ensureTestSession():""};
