@@ -77,3 +77,26 @@ test('CSP allows secure CEP providers',()=>{
  const toml=source('netlify.toml');
  assert.match(toml,/connect-src 'self' https:\/\/viacep\.com\.br https:\/\/brasilapi\.com\.br;/);
 });
+
+
+test('management documentation module is wired to Secretaria and Panfletos',()=>{
+ const core=source('app/core.js'),gestao=source('app/gestao.js'),secretaria=source('app/secretaria.js'),comercial=source('app/comercial.js'),html=source('index.html');
+ assert.match(core,/documentacao:"Documentação da matrícula"/);
+ assert.match(core,/admin:\["dashboard","panfletos","documentacao"/);
+ assert.match(core,/renderDocumentacaoGestao/);
+ assert.match(html,/data-view="documentacao"/);
+ assert.match(gestao,/Fonte central da Gestão para Secretaria e Panfletos/);
+ assert.match(gestao,/listarChecklistDocumentos/);
+ assert.match(secretaria,/listarChecklistDocumentos/);
+ assert.match(comercial,/listarChecklistDocumentos/);
+ assert.match(comercial,/PUBLICADO_PANFLETO/);
+ assert.match(secretaria,/PUBLICADO_SECRETARIA/);
+});
+
+test('backend exposes checklist management actions',()=>{
+ const api=source('backend/ApiPwa.gs');
+ assert.match(api,/checklistManagement:true/);
+ assert.match(api,/CHECKLIST_DOCUMENTOS:"CHECKLIST_DOCUMENTOS"/);
+ assert.match(api,/case "listarChecklistDocumentos"/);
+ assert.match(api,/case "salvarRegraDocumento"/);
+});
