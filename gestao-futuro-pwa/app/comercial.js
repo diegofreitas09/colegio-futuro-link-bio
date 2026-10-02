@@ -738,7 +738,7 @@ async function renderAtendimento(){
         setNotice("Solicitação enviada.","ok");appAlert("desconto","Solicitação de desconto enviada ✓");this.textContent="Enviada ✓";this.disabled=true;
       }catch(e){alert(e.message)}
     });
-    $("#flyerShortcut").onclick=function(){gfSaveAttendanceDraft();state.flyerYear=y;state.flyerSeries=s;navigate("panfletos")};
+    $("#flyerShortcut").onclick=function(){gfSaveAttendanceDraft();state.flyerYear=y;state.flyerSeries=s;state.flyerStudentType=$("#attType")?.value||"Novato";navigate("panfletos")};
     updatePlanAndTotal();
   }
   if(resume){
@@ -1062,10 +1062,10 @@ async function renderPanfletos(){
   let requestSeq=0;
   const activePage=()=>state.view==="panfletos"&&state.navSeq===pageSeq&&!!$("#flyerArea");
 
-  var defaultYear=Number(state.flyerYear||2027),serie=state.flyerSeries||"Infantil 2";
+  var defaultYear=Number(state.flyerYear||2027),serie=state.flyerSeries||"Infantil 2",defaultType=state.flyerStudentType||"Novato";
   const view=$("#view");
   if(!view)return;
-  view.innerHTML="<div class='section-head'><div><h2>Panfleto por série</h2><span class='muted'>Valores, mensalidades, material, fardamento e adicionais publicados vêm automaticamente da Gestão.</span></div><div class='toolbar'><span class='catalog-sync-badge' id='flyerCatalogSync'>Sincronizando Gestão…</span><select id='flyerYear' class='search'><option>"+defaultYear+"</option><option>"+(defaultYear-1)+"</option></select><select id='flyerSerie' class='search'>"+gfOptions(serie)+"</select><button class='btn btn-primary' id='generateFlyer'>Atualizar dados</button></div></div><div id='flyerArea'><div class='card flyer-loading'><b>Carregando panfleto…</b><span class='muted'>Consultando o catálogo oficial publicado pela Gestão.</span></div></div>";
+  view.innerHTML="<div class='section-head'><div><h2>Panfleto por série</h2><span class='muted'>Valores, mensalidades, material, fardamento e documentos vêm automaticamente da Gestão e da Secretaria.</span></div><div class='toolbar'><span class='catalog-sync-badge' id='flyerCatalogSync'>Sincronizando Gestão…</span><select id='flyerYear' class='search'><option>"+defaultYear+"</option><option>"+(defaultYear-1)+"</option></select><select id='flyerSerie' class='search'>"+gfOptions(serie)+"</select><select id='flyerStudentType' class='search'><option "+(defaultType==="Novato"?"selected":"")+">Novato</option><option "+(defaultType==="Veterano"?"selected":"")+">Veterano</option></select><button class='btn btn-primary' id='generateFlyer'>Atualizar dados</button></div></div><div id='flyerArea'><div class='card flyer-loading'><b>Carregando panfleto…</b><span class='muted'>Consultando o catálogo oficial publicado pela Gestão.</span></div></div>";
 
   var products=[];
   try{
@@ -1090,11 +1090,11 @@ async function renderPanfletos(){
     const yearEl=$("#flyerYear"),serieEl=$("#flyerSerie"),area=$("#flyerArea");
     if(!activePage()||!yearEl||!serieEl||!area)return;
 
-    var y=Number(yearEl.value||defaultYear),s=serieEl.value||serie;
-    state.flyerYear=y;state.flyerSeries=s;
+    var y=Number(yearEl.value||defaultYear),s=serieEl.value||serie,tipo=$("#flyerStudentType")?.value||"Novato";
+    state.flyerYear=y;state.flyerSeries=s;state.flyerStudentType=tipo;
     var localList=gfCatalog(products,y,s),cacheKey=y+"|"+s,cached=state.flyerCache&&state.flyerCache[cacheKey],cfg=cached?.config||{};
 
-    area.innerHTML=gfFlyerMarkup(y,s,cfg,localList)+"<div class='flyer-actions'><button class='btn btn-primary' id='printFlyer'>Imprimir / Salvar PDF</button>"+(state.adminToken?"<button class='btn btn-gold' id='editFlyer'>Editar conteúdo e adicionais</button>":"")+"</div>";
+    area.innerHTML=gfFlyerMarkup(y,s,cfg,localList,tipo)+"<div class='flyer-actions'><button class='btn btn-primary' id='printFlyer'>Imprimir / Salvar PDF</button>"+(state.adminToken?"<button class='btn btn-gold' id='editFlyer'>Editar conteúdo e adicionais</button>":"")+"</div>";
     gfBindFlyerActions(y,s,cfg,localList);
 
     try{
@@ -1116,7 +1116,7 @@ async function renderPanfletos(){
       cfg=d.config||cfg||{};
       var list=gfCatalog(products.length?products:localList,y,s),currentArea=$("#flyerArea");
       if(!currentArea)return;
-      currentArea.innerHTML=gfFlyerMarkup(y,s,cfg,list)+"<div class='flyer-actions'><button class='btn btn-primary' id='printFlyer'>Imprimir / Salvar PDF</button>"+(state.adminToken?"<button class='btn btn-gold' id='editFlyer'>Editar conteúdo e adicionais</button>":"")+"</div>";
+      currentArea.innerHTML=gfFlyerMarkup(y,s,cfg,list,tipo)+"<div class='flyer-actions'><button class='btn btn-primary' id='printFlyer'>Imprimir / Salvar PDF</button>"+(state.adminToken?"<button class='btn btn-gold' id='editFlyer'>Editar conteúdo e adicionais</button>":"")+"</div>";
       gfBindFlyerActions(y,s,cfg,list);
       if(results[1].status==="rejected")setNotice("Valores sincronizados com a Gestão; a personalização do panfleto está usando a última versão disponível.","error");
     }catch(e){
@@ -1125,10 +1125,11 @@ async function renderPanfletos(){
     }
   }
 
-  const generateBtn=$("#generateFlyer"),flyerYear=$("#flyerYear"),flyerSerie=$("#flyerSerie");
+  const generateBtn=$("#generateFlyer"),flyerYear=$("#flyerYear"),flyerSerie=$("#flyerSerie"),flyerStudentType=$("#flyerStudentType");
   if(generateBtn)generateBtn.onclick=generate;
   if(flyerYear)flyerYear.onchange=generate;
   if(flyerSerie)flyerSerie.onchange=generate;
+  if(flyerStudentType)flyerStudentType.onchange=generate;
   await generate();
 }
 function editFlyerContent(y,s,cfg){
