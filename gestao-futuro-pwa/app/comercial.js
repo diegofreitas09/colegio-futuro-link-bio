@@ -54,14 +54,15 @@ function gfInitialInvestment(rec,itens){
   var first=parseMoney(rec&&((rec.VALOR_PRIMEIRA_FINAL!==""&&rec.VALOR_PRIMEIRA_FINAL!=null)?rec.VALOR_PRIMEIRA_FINAL:rec.VALOR_PRIMEIRA_BASE));
   return gfRound2(first+gfInitialExtrasFromItems(itens));
 }
-function gfAnnualProduct(list){return (list||[]).find(function(p){return p.CATEGORIA==="Mensalidade"&&(gfNorm(p.SUBCATEGORIA).includes("anuidade")||gfNorm(p.PRODUTO).includes("anuidade")||Number(p.QTD_PARCELAS)===1)})||null}
+function gfAnnualProduct(list){return (list||[]).find(function(p){return p.CATEGORIA==="Mensalidade"&&(gfNorm(p.SUBCATEGORIA).includes("anuidade")||gfNorm(p.PRODUTO).includes("anuidade"))})||null}
+function gfFirstProduct(list){return (list||[]).find(function(p){var t=gfNorm([p&&p.SUBCATEGORIA,p&&p.PRODUTO].filter(Boolean).join(" "));return p&&p.CATEGORIA==="Mensalidade"&&(t.includes("1ª parcela")||t.includes("1a parcela")||t.includes("primeira parcela"))})||null}
 function gfRecurringProduct(list,n){return (list||[]).find(function(p){return p.CATEGORIA==="Mensalidade"&&Number(p.QTD_PARCELAS)===Number(n)})||null}
 function gfPlanCalc(list,n,discFirst,discRecurring){
   n=Math.max(1,Math.trunc(Number(n||12)));discFirst=Math.max(0,Math.min(100,Number(discFirst||0)));discRecurring=Math.max(0,Math.min(100,Number(discRecurring||0)));
-  var annual=gfAnnualProduct(list),monthly=gfRecurringProduct(list,n),annualCents=Math.round(parseMoney(annual&&annual.VALOR_BASE)*100),annualValue=annualCents/100;
+  var annual=gfAnnualProduct(list),firstProduct=gfFirstProduct(list),monthly=gfRecurringProduct(list,n),annualCents=Math.round(parseMoney(annual&&annual.VALOR_BASE)*100),annualValue=annualCents/100;
   var recurringCents=Math.round(parseMoney(monthly&&(monthly.VALOR_PARCELA||monthly.VALOR_BASE))*100);
-  var ref=0,y=gfYear(annual||monthly),seg=gfNorm((annual||monthly||{})["SEGMENTO_SÉRIE"]||"");
-  if(typeof GF_FIRST_REFERENCE!=="undefined"&&GF_FIRST_REFERENCE[y]){
+  var ref=parseMoney(firstProduct&&(firstProduct.VALOR_BASE||firstProduct.VALOR_PARCELA)),y=gfYear(annual||monthly||firstProduct),seg=gfNorm((annual||monthly||firstProduct||{})["SEGMENTO_SÉRIE"]||"");
+  if(!ref&&typeof GF_FIRST_REFERENCE!=="undefined"&&GF_FIRST_REFERENCE[y]){
     var key=seg.includes("infantil")?"infantil":(seg.includes("1º ao 5º")||seg.includes("1o ao 5o")||seg.includes("iniciais"))?"iniciais":(seg.includes("6º ao 9º")||seg.includes("6o ao 9o")||seg.includes("finais"))?"finais":"";
     ref=Number(key&&GF_FIRST_REFERENCE[y][key]||0);
   }
@@ -76,7 +77,7 @@ function gfPlanCalc(list,n,discFirst,discRecurring){
   var firstBase=firstCents/100,recurringBase=recurringCents/100,tableTotalCents=firstCents+(recurringCents*n);
   var firstFinalCents=Math.round(firstCents*(100-discFirst)/100),recurringFinalCents=Math.round(recurringCents*(100-discRecurring)/100);
   var firstFinal=firstFinalCents/100,recurringFinal=recurringFinalCents/100,totalCents=firstFinalCents+(recurringFinalCents*n),total=totalCents/100,economy=Math.max(0,(tableTotalCents-totalCents)/100);
-  return {n:n,annual:annual,annualValue:annualValue,monthly:monthly,firstBase:firstBase,recurringBase:recurringBase,discFirst:discFirst,discRecurring:discRecurring,firstFinal:firstFinal,recurringFinal:recurringFinal,total:total,economy:economy,tableTotal:tableTotalCents/100};
+  return {n:n,annual:annual,firstProduct:firstProduct,annualValue:annualValue,monthly:monthly,firstBase:firstBase,recurringBase:recurringBase,discFirst:discFirst,discRecurring:discRecurring,firstFinal:firstFinal,recurringFinal:recurringFinal,total:total,economy:economy,tableTotal:tableTotalCents/100};
 }
 function gfPlanSummary(plan){return "1ª parcela "+money(plan.firstFinal)+" + "+plan.n+"x de "+money(plan.recurringFinal)}
 function gfStiPlanSync(plan,stiValue){
