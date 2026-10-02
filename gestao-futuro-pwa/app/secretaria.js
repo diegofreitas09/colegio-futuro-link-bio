@@ -326,6 +326,52 @@ async function gfDocPrepareFile(file){
   return {name:outName,mime:mime,size:blob.size,base64:base64};
 }
 
+
+const GF_DOCS_2026_RULES=Object.freeze([
+  {id:"DOC-NOV-001",grupo:"Matrícula",documento:"Requerimento de matrícula 2026 preenchido e assinado",obrigatorio:"Sim",condicao:"Sempre",prazo:"Na matrícula"},
+  {id:"DOC-NOV-002",grupo:"Matrícula",documento:"Contrato de Prestação de Serviços Educacionais 2026 assinado",obrigatorio:"Sim",condicao:"Sempre",prazo:"Na matrícula"},
+  {id:"DOC-NOV-003",grupo:"Aluno",documento:"Pasta escolar",obrigatorio:"Sim",condicao:"Somente novatos • cor conforme segmento",prazo:"Na matrícula",novato:true},
+  {id:"DOC-NOV-004",grupo:"Aluno",documento:"Cópia da Certidão de Nascimento ou Identidade",obrigatorio:"Sim",condicao:"Sempre",prazo:"Na matrícula",novato:true},
+  {id:"DOC-NOV-005",grupo:"Aluno",documento:"Cópia do CPF e RG do pai e da mãe do aluno",obrigatorio:"Sim",condicao:"Sempre",prazo:"Na matrícula",novato:true},
+  {id:"DOC-NOV-006",grupo:"Aluno",documento:"Dados do NIS",obrigatorio:"Condicional",condicao:"Se receber Bolsa Família",prazo:"Na matrícula",novato:true},
+  {id:"DOC-NOV-007",grupo:"Aluno",documento:"Cópia do comprovante de endereço atual com CEP",obrigatorio:"Sim",condicao:"Emitido até 90 dias antes da matrícula",prazo:"Na matrícula",novato:true},
+  {id:"DOC-NOV-008",grupo:"Aluno",documento:"2 fotos 3x4 coloridas e recentes",obrigatorio:"Sim",condicao:"Sempre",prazo:"Na matrícula",novato:true},
+  {id:"DOC-NOV-009",grupo:"Aluno",documento:"Cartão de Vacinação",obrigatorio:"Sim",condicao:"Obrigatório na matrícula e rematrícula • Lei nº 16.929/2019 (CE)",prazo:"Na matrícula/rematrícula"},
+  {id:"DOC-NOV-010",grupo:"Aluno",documento:"Atestado médico para prática de Educação Física",obrigatorio:"Sim",condicao:"Alunos do 1º ao 9º Ano",prazo:"Data informada no guia: 17/01/2025 • revisar",novato:true,series:"1-9"},
+  {id:"DOC-NOV-011",grupo:"Aluno",documento:"Histórico Escolar original ou declaração provisória da escola de origem",obrigatorio:"Sim",condicao:"A partir do 2º Ano do Ensino Fundamental",prazo:"Histórico até 19/01/2026",novato:true,series:"2-9"},
+  {id:"DOC-NOV-012",grupo:"Responsável financeiro",documento:"Cópia do RG e CPF do responsável financeiro",obrigatorio:"Sim",condicao:"Sempre",prazo:"Na matrícula"},
+  {id:"DOC-NOV-013",grupo:"Responsável financeiro",documento:"Cópia do comprovante de residência do responsável financeiro",obrigatorio:"Sim",condicao:"Emitido até 90 dias antes da matrícula",prazo:"Na matrícula"},
+  {id:"DOC-NOV-014",grupo:"Responsável financeiro",documento:"Contrato de prestação de serviços educacionais devidamente assinado",obrigatorio:"Sim",condicao:"Com valor da anuidade e formas de pagamento",prazo:"Na matrícula"},
+  {id:"DOC-NOV-015",grupo:"Responsável financeiro",documento:"Comprovante de pagamento da 1ª parcela da anuidade de 2026",obrigatorio:"Sim",condicao:"Sempre",prazo:"Na efetivação"}
+]);
+function gfDocGradeNumber(serie){
+  const s=String(serie||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase(),m=s.match(/\b([1-9])\s*(?:º|o)?\s*ano\b/);
+  return m?Number(m[1]):0;
+}
+function gfDocFolderLabel(serie){
+  const s=String(serie||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase(),n=gfDocGradeNumber(serie);
+  if(s.includes("infantil"))return "Pasta escolar rosa (Educação Infantil)";
+  if(n>=1&&n<=5)return "Pasta escolar amarela (Anos Iniciais)";
+  if(n>=6&&n<=9)return "Pasta escolar verde (Anos Finais)";
+  return "Pasta escolar conforme orientação da Secretaria";
+}
+function gfDocs2026ForStudent(aluno,mat){
+  const serie=(mat&&mat["SÉRIE"])||aluno&&aluno["SÉRIE"]||"",n=gfDocGradeNumber(serie),tipo=String(mat&&mat.TIPO_MATRICULA||aluno&&aluno.TIPO_ALUNO||"Novato").toLowerCase(),isNovato=tipo!=="veterano";
+  return GF_DOCS_2026_RULES.filter(r=>{
+    if(r.novato&&!isNovato)return false;
+    if(r.series==="1-9"&&!(n>=1&&n<=9))return false;
+    if(r.series==="2-9"&&!(n>=2&&n<=9))return false;
+    return true;
+  }).map(r=>r.id==="DOC-NOV-003"?{...r,documento:gfDocFolderLabel(serie)}:{...r});
+}
+function gfDocChecklistSummaryHtml(rules){
+  const groups=["Matrícula","Aluno","Responsável financeiro"];
+  return groups.map(g=>{
+    const rows=rules.filter(r=>r.grupo===g);if(!rows.length)return "";
+    return '<section class="official-doc-group"><h4>'+esc(g)+'</h4>'+rows.map(r=>'<div class="official-doc-row"><span class="official-doc-check">□</span><div><b>'+esc(r.documento)+'</b><small>'+esc(r.condicao)+(r.prazo?' • '+esc(r.prazo):'')+'</small></div><em>'+esc(r.obrigatorio)+'</em></div>').join("")+'</section>';
+  }).join("");
+}
+
 async function renderDocumentos(){
   const b=await loadBootstrap();const alunos=b.alunos||[];
   $("#view").innerHTML=`<div class="section-head"><h2>Documentos do aluno</h2></div>
