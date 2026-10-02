@@ -815,11 +815,12 @@ function dashTuitionFromCatalog(products,year){
     const p12=rows.find(p=>bySeries(p)&&Number(p.QTD_PARCELAS)===12&&!dashNorm(p.SUBCATEGORIA).includes("1ª parcela"));
     const p11=rows.find(p=>bySeries(p)&&Number(p.QTD_PARCELAS)===11);
     const anu=Number(annual?.VALOR_BASE||0),anuPost=Number(annual?.["VALOR_PÓS_VENCIMENTO"]||0),firstValue=Number(first?.VALOR_BASE||0);
-    const fallbackFirst=firstValue||Number(GF_FIRST_REFERENCE[Number(year)]?.[s.key]||0);
-    const calc12={first:fallbackFirst,recurring:anu&&fallbackFirst?dashRound2((anu-fallbackFirst)/12):dashPlanFromAnnual(anu,12).recurring};
-    const calc11={first:fallbackFirst,recurring:anu&&fallbackFirst?dashRound2((anu-fallbackFirst)/11):dashPlanFromAnnual(anu,11).recurring};
-    const calc12Post={first:fallbackFirst,recurring:anuPost&&fallbackFirst?dashRound2((anuPost-fallbackFirst)/12):dashPlanFromAnnual(anuPost,12).recurring};
-    const calc11Post={first:fallbackFirst,recurring:anuPost&&fallbackFirst?dashRound2((anuPost-fallbackFirst)/11):dashPlanFromAnnual(anuPost,11).recurring};
+    const auto12=dashPlanFromAnnual(anu,12),auto11=dashPlanFromAnnual(anu,11),auto12Post=dashPlanFromAnnual(anuPost,12),auto11Post=dashPlanFromAnnual(anuPost,11);
+    const calc12={first:firstValue||auto12.first,recurring:anu&&firstValue?dashRound2((anu-firstValue)/12):auto12.recurring};
+    const calc11={first:firstValue||auto11.first,recurring:anu&&firstValue?dashRound2((anu-firstValue)/11):auto11.recurring};
+    const calc12Post={first:firstValue||auto12Post.first,recurring:anuPost&&firstValue?dashRound2((anuPost-firstValue)/12):auto12Post.recurring};
+    const calc11Post={first:firstValue||auto11Post.first,recurring:anuPost&&firstValue?dashRound2((anuPost-firstValue)/11):auto11Post.recurring};
+    const fallbackFirst=firstValue||calc12.first;
     const v12=Number(p12?.VALOR_PARCELA||p12?.VALOR_BASE||0)||calc12.recurring,v12Post=Number(p12?.["VALOR_PÓS_VENCIMENTO"]||0)||calc12Post.recurring;
     const v11=Number(p11?.VALOR_PARCELA||p11?.VALOR_BASE||0)||calc11.recurring,v11Post=Number(p11?.["VALOR_PÓS_VENCIMENTO"]||0)||calc11Post.recurring;
     return {...s,year:Number(year),annual:anu,annualPost:anuPost,first:fallbackFirst,plan12:v12,plan12Post:v12Post,plan11:v11,plan11Post:v11Post,
