@@ -545,3 +545,47 @@ test('series adjustment wizard publishes the new base year to all operational mo
  assert.match(src,/Atendimento, Secretaria, Panfletos e Matrícula/);
  assert.match(src,/aplicarReajusteIndividual/);
 });
+
+
+test('tuition plan calculator closes annuality for 1+12 and 1+11',()=>{
+ const x=setup();try{
+  x.w.__bundle={
+    annual:{VALOR_BASE:5805.93},
+    first:{VALOR_BASE:449},
+    p12:{VALOR_BASE:446.41,VALOR_PARCELA:446.41},
+    p11:{VALOR_BASE:487.90,VALOR_PARCELA:487.90}
+  };
+  const calc=x.run('prodTuitionPlanCalc(window.__bundle,8,8)');
+  assert.equal(calc.annual,6270.40);
+  assert.equal(calc.first,484.92);
+  assert.equal(calc.p12,482.12);
+  assert.equal(calc.p11,525.95);
+  assert.equal(calc.check12,6270.40);
+  assert.equal(calc.check11,6270.40);
+ }finally{x.dom.window.close()}
+});
+
+test('plan calculation uses official first installment product when available',()=>{
+ const x=setup();try{
+  x.w.__products=[
+   {ID_PRODUTO:'ANU-INF-2027',ANO_LETIVO:2027,CATEGORIA:'Mensalidade',SUBCATEGORIA:'Anuidade',PRODUTO:'Anuidade 2027 - Educação Infantil',VALOR_BASE:6270.40,'SEGMENTO_SÉRIE':'Infantil 2 ao 5'},
+   {ID_PRODUTO:'PRI-INF-2027',ANO_LETIVO:2027,CATEGORIA:'Mensalidade',SUBCATEGORIA:'1ª Parcela',PRODUTO:'1ª Parcela regular - Educação Infantil',VALOR_BASE:484.92,VALOR_PARCELA:484.92,QTD_PARCELAS:1,'SEGMENTO_SÉRIE':'Infantil 2 ao 5'},
+   {ID_PRODUTO:'MEN-INF-12-2027',ANO_LETIVO:2027,CATEGORIA:'Mensalidade',SUBCATEGORIA:'Plano 12 parcelas',PRODUTO:'Mensalidade regular - Infantil',VALOR_BASE:482.12,VALOR_PARCELA:482.12,QTD_PARCELAS:12,'SEGMENTO_SÉRIE':'Infantil 2 ao 5'},
+   {ID_PRODUTO:'MEN-INF-11-2027',ANO_LETIVO:2027,CATEGORIA:'Mensalidade',SUBCATEGORIA:'Plano 11 parcelas',PRODUTO:'Mensalidade regular - Infantil',VALOR_BASE:525.95,VALOR_PARCELA:525.95,QTD_PARCELAS:11,'SEGMENTO_SÉRIE':'Infantil 2 ao 5'}
+  ];
+  const p=x.run('gfPlanCalc(window.__products,12,0,0)');
+  assert.equal(p.firstBase,484.92);
+  assert.equal(p.recurringBase,482.12);
+  assert.equal(p.annualValue,6270.40);
+ }finally{x.dom.window.close()}
+});
+
+test('values wizard exposes both payment plans and exact annuality formula',()=>{
+ const src=read('app/gestao.js');
+ assert.match(src,/Plano A • 1ª \+ 12x/);
+ assert.match(src,/Plano B • 1ª \+ 11x/);
+ assert.match(src,/Anuidade = 1ª parcela \+ 12x/);
+ assert.match(src,/Anuidade = 1ª parcela \+ 11x/);
+ assert.match(src,/prodTuitionPlanCalc/);
+ assert.match(src,/modo:"valor",valor:row\.value/);
+});
