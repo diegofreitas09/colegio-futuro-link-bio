@@ -203,6 +203,44 @@ function prodWizardMoneyBlock(p,pct){
   const next="<b>"+money(prodPreviewValue(base,pct))+"</b>"+(parcel&&Math.abs(parcel-base)>.009?"<small>Parcela: "+money(prodPreviewValue(parcel,pct))+"</small>":"")+(after?"<small>Pós-venc.: "+money(prodPreviewValue(after,pct))+"</small>":"");
   return {current,next};
 }
+function prodIsAnnualTuition(p){
+  return p&&p.CATEGORIA==="Mensalidade"&&(prodNorm(p.SUBCATEGORIA).includes("anuidade")||prodNorm(p.PRODUTO).includes("anuidade"));
+}
+function prodIsFirstTuition(p){
+  const t=prodNorm([p&&p.SUBCATEGORIA,p&&p.PRODUTO].filter(Boolean).join(" "));
+  return p&&p.CATEGORIA==="Mensalidade"&&(t.includes("1ª parcela")||t.includes("1a parcela")||t.includes("primeira parcela"));
+}
+function prodIsRegularTuitionPlan(p,n){
+  if(!p||p.CATEGORIA!=="Mensalidade"||Number(p.QTD_PARCELAS)!==Number(n))return false;
+  return !prodIsAnnualTuition(p)&&!prodIsFirstTuition(p);
+}
+function prodTuitionBundle(list,year,serie){
+  const rows=prodSeriesWizardRows(list,year,serie);
+  const annual=rows.find(prodIsAnnualTuition)||null;
+  const first=rows.find(prodIsFirstTuition)||null;
+  const p12=rows.find(p=>prodIsRegularTuitionPlan(p,12))||null;
+  const p11=rows.find(p=>prodIsRegularTuitionPlan(p,11))||null;
+  return {annual,first,p12,p11};
+}
+function prodTuitionPlanCalc(bundle,annualPct,firstPct){
+  const annualBase=Number(bundle&&bundle.annual&&bundle.annual.VALOR_BASE||0);
+  let firstBase=Number(bundle&&bundle.first&&bundle.first.VALOR_BASE||0);
+  if(!firstBase&&annualBase&&bundle&&bundle.p12)firstBase=Math.max(0,annualBase-(Number(bundle.p12.VALOR_PARCELA||bundle.p12.VALOR_BASE||0)*12));
+  const annual=prodPreviewValue(annualBase,annualPct);
+  const first=prodPreviewValue(firstBase,firstPct);
+  const remaining=Math.max(0,annual-first);
+  return {
+    annualBase,firstBase,annual,first,
+    p12:Math.round((remaining/12+Number.EPSILON)*100)/100,
+    p11:Math.round((remaining/11+Number.EPSILON)*100)/100,
+    check12:Math.round((first+(remaining/12)*12+Number.EPSILON)*100)/100,
+    check11:Math.round((first+(remaining/11)*11+Number.EPSILON)*100)/100
+  };
+}
+function prodIsTuitionCore(p){
+  return prodIsAnnualTuition(p)||prodIsFirstTuition(p)||prodIsRegularTuitionPlan(p,11)||prodIsRegularTuitionPlan(p,12);
+}
+
 
 async function renderProdutos(){
   const list=await api("listarProdutosGestao",{token:state.adminToken});
@@ -216,26 +254,36 @@ async function renderProdutos(){
   state.productYear=targetDefault;
 
   $("#view").innerHTML=`
-    <div class="section-head"><div><h2>Valores e reajustes</h2><span class="muted">Escolha a série, compare o ano anterior e publique os novos valores em um único fluxo.</span></div><div class="toolbar">
+    <div class="section-head"><div><h2>Valores e reajustes</h2><span class="muted">Escolha a série, o plano e o ano-base. A anuidade fecha exatamente com a 1ª parcela + o número de parcelas do plano.</span></div><div class="toolbar">
       <button class="btn btn-soft" id="newProductService">+ Produto/serviço</button>
       <button class="btn btn-gold" id="individualAdjustment">Ajuste avançado</button>
     </div></div>
 
     <section class="series-adjust-wizard">
       <div class="series-adjust-head">
-        <div><small>ASSISTENTE DE REAJUSTE POR SÉRIE</small><h3>Do valor anterior ao novo ano-base</h3><p>Todos os produtos aplicáveis à série aparecem juntos. Ao publicar, Atendimento, Secretaria, Panfletos e Matrícula passam a usar o novo catálogo.</p></div>
+        <div><small>ASSISTENTE DE REAJUSTE POR SÉRIE</small><h3>Do valor anterior ao novo ano-base</h3><p>O plano escolhido controla o cálculo: <b>Anuidade = 1ª parcela + 12x</b> ou <b>Anuidade = 1ª parcela + 11x</b>. Os dois planos são recalculados e publicados juntos para a família poder escolher depois.</p></div>
         <div class="series-sync-icons"><span>✓ Atendimento</span><span>✓ Secretaria</span><span>✓ Panfletos</span><span>✓ Matrícula</span></div>
       </div>
-      <div class="series-adjust-controls">
+      <div class="series-adjust-controls plan-aware">
         <div class="field"><label>Série</label><select id="seriesAdjSeries" class="search">${GF_GESTAO_SERIES.map(s=>`<option>${esc(s)}</option>`).join("")}</select></div>
+        <div class="field"><label>Plano para conferência</label><select id="seriesAdjPlan" class="search"><option value="12">Plano A • 1ª + 12x</option><option value="11">Plano B • 1ª + 11x</option></select></div>
         <div class="field"><label>Ano anterior • origem</label><select id="seriesAdjSource" class="search">${years.map(y=>`<option value="${y}" ${y===sourceDefault?"selected":""}>${y}</option>`).join("")}</select></div>
         <div class="field"><label>Novo ano-base</label><select id="seriesAdjTarget" class="search">${targetYears.map(y=>`<option value="${y}" ${y===targetDefault?"selected":""}>${y}</option>`).join("")}</select></div>
-        <div class="field"><label>Reajuste geral (%)</label><div class="series-adj-inline"><input id="seriesAdjGlobal" type="number" step="0.01" value="0"><button class="btn btn-soft" id="applyGlobalAdj" type="button">Aplicar a todos</button></div></div>
+        <div class="field span-2"><label>Reajuste geral (%)</label><div class="series-adj-inline"><input id="seriesAdjGlobal" type="number" step="0.01" value="0"><button class="btn btn-soft" id="applyGlobalAdj" type="button">Aplicar a todos</button></div></div>
       </div>
+
+      <section class="tuition-plan-engine" id="tuitionPlanEngine">
+        <div class="tuition-plan-head">
+          <div><small>MENSALIDADE REGULAR</small><h4>Anuidade e planos vinculados</h4><span>Altere a anuidade e a 1ª parcela; as parcelas 12x e 11x são recalculadas automaticamente.</span></div>
+          <span class="plan-formula-badge" id="planFormulaBadge">1ª + 12x = anuidade</span>
+        </div>
+        <div id="tuitionPlanBody"></div>
+      </section>
+
       <div class="series-adjust-note" id="seriesAdjustNote"></div>
       <div id="seriesAdjustTable"></div>
       <div class="series-adjust-footer">
-        <div><b id="seriesAdjCount">0 produtos</b><span id="seriesAdjStatus">Preencha os percentuais e confira os novos valores antes de publicar.</span></div>
+        <div><b id="seriesAdjCount">0 produtos</b><span id="seriesAdjStatus">Confira os valores. A publicação atualiza o catálogo do novo ano-base e sincroniza os módulos.</span></div>
         <button class="btn btn-primary" id="publishSeriesAdjustment">Publicar novos valores e sincronizar</button>
       </div>
     </section>
@@ -259,55 +307,125 @@ async function renderProdutos(){
     $$('[data-prod]').forEach(x=>x.onclick=()=>openProductForm(list.find(p=>p.ID_PRODUTO===x.dataset.prod)));
   };
 
-  let wizardRows=[];
+  let wizardRows=[],tuitionBundle=null;
+  const tuitionCalc=()=>prodTuitionPlanCalc(tuitionBundle,Number($("#tuitionAnnualPct")?.value||0),Number($("#tuitionFirstPct")?.value||0));
+
+  const renderTuitionBody=()=>{
+    const source=Number($("#seriesAdjSource").value),target=Number($("#seriesAdjTarget").value),planN=Number($("#seriesAdjPlan").value||12);
+    tuitionBundle=prodTuitionBundle(list,source,$("#seriesAdjSeries").value);
+    const missing=!tuitionBundle.annual||!tuitionBundle.first||!tuitionBundle.p12||!tuitionBundle.p11;
+    if(missing){
+      $("#tuitionPlanBody").innerHTML="<div class='notice'>Este ano de origem ainda não possui o conjunto completo: Anuidade + 1ª Parcela + Plano 12x + Plano 11x. Para publicar com cálculo fechado, complete esses quatro itens no catálogo.</div>";
+      $("#publishSeriesAdjustment").disabled=true;
+      return;
+    }
+    const annualPct=Number($("#tuitionPlanBody").dataset.annualPct||0),firstPct=Number($("#tuitionPlanBody").dataset.firstPct||0);
+    $("#tuitionPlanBody").innerHTML=`
+      <div class="tuition-adjust-inputs">
+        <div><label>Anuidade ${source}</label><b>${money(tuitionBundle.annual.VALOR_BASE)}</b><span>valor total do plano</span></div>
+        <div><label>Reajuste da anuidade (%)</label><input id="tuitionAnnualPct" type="number" step="0.01" value="${annualPct}"></div>
+        <div><label>1ª parcela ${source}</label><b>${money(tuitionBundle.first.VALOR_BASE)}</b><span>paga no ato</span></div>
+        <div><label>Reajuste da 1ª parcela (%)</label><input id="tuitionFirstPct" type="number" step="0.01" value="${firstPct}"></div>
+      </div>
+      <div class="tuition-result-grid">
+        <div><small>NOVA ANUIDADE • ${target}</small><strong id="tuitionAnnualNew">—</strong><span>Anuidade reajustada</span></div>
+        <div><small>NOVA 1ª PARCELA</small><strong id="tuitionFirstNew">—</strong><span>À vista ou até 3x no cartão</span></div>
+        <div class="${planN===12?"selected":""}"><small>PLANO A • 1ª + 12x</small><strong id="tuitionPlan12New">—</strong><span id="tuitionPlan12Check">—</span></div>
+        <div class="${planN===11?"selected":""}"><small>PLANO B • 1ª + 11x</small><strong id="tuitionPlan11New">—</strong><span id="tuitionPlan11Check">—</span></div>
+      </div>
+      <div class="tuition-selected-plan" id="tuitionSelectedPlan"></div>`;
+    const onPct=()=>{
+      $("#tuitionPlanBody").dataset.annualPct=$("#tuitionAnnualPct").value;
+      $("#tuitionPlanBody").dataset.firstPct=$("#tuitionFirstPct").value;
+      refreshPreview();
+    };
+    $("#tuitionAnnualPct").oninput=onPct;$("#tuitionFirstPct").oninput=onPct;
+  };
+
   const refreshPreview=()=>{
+    if(tuitionBundle&&$("#tuitionAnnualPct")){
+      const calc=tuitionCalc(),planN=Number($("#seriesAdjPlan").value||12);
+      $("#tuitionAnnualNew").textContent=money(calc.annual);
+      $("#tuitionFirstNew").textContent=money(calc.first);
+      $("#tuitionPlan12New").textContent="12x de "+money(calc.p12);
+      $("#tuitionPlan11New").textContent="11x de "+money(calc.p11);
+      $("#tuitionPlan12Check").textContent=money(calc.first)+" + 12x = "+money(calc.annual);
+      $("#tuitionPlan11Check").textContent=money(calc.first)+" + 11x = "+money(calc.annual);
+      $("#planFormulaBadge").textContent=planN===12?"Plano A • 1ª + 12x = anuidade":"Plano B • 1ª + 11x = anuidade";
+      $("#tuitionSelectedPlan").innerHTML=planN===12
+        ? "<b>Plano A selecionado para conferência:</b> 1ª parcela de "+money(calc.first)+" + 12x de "+money(calc.p12)+" = <strong>"+money(calc.annual)+"</strong>"
+        : "<b>Plano B selecionado para conferência:</b> 1ª parcela de "+money(calc.first)+" + 11x de "+money(calc.p11)+" = <strong>"+money(calc.annual)+"</strong>";
+    }
     $$("[data-series-pct]").forEach(inp=>{
       const p=wizardRows.find(x=>String(x.ID_PRODUTO)===String(inp.dataset.seriesPct));if(!p)return;
       const pct=Number(inp.value||0),m=prodWizardMoneyBlock(p,pct),cell=$('[data-series-new="'+CSS.escape(String(p.ID_PRODUTO))+'"]');
       if(cell)cell.innerHTML=m.next;
     });
   };
+
   const drawWizard=()=>{
     const serie=$("#seriesAdjSeries").value,source=Number($("#seriesAdjSource").value),target=Number($("#seriesAdjTarget").value);
-    wizardRows=prodSeriesWizardRows(list,source,serie);
-    $("#seriesAdjCount").textContent=wizardRows.length+" produto(s)";
+    tuitionBundle=prodTuitionBundle(list,source,serie);
+    wizardRows=prodSeriesWizardRows(list,source,serie).filter(p=>!prodIsTuitionCore(p));
+    $("#seriesAdjCount").textContent=(wizardRows.length+4)+" item(ns) de valor";
     $("#seriesAdjustNote").innerHTML=source===target
       ? "<b>Atenção:</b> o ano de origem e o novo ano-base precisam ser diferentes."
-      : "Comparando <b>"+esc(serie)+"</b>: valores oficiais de <b>"+source+"</b> → novo catálogo <b>"+target+"</b>.";
-    $("#publishSeriesAdjustment").disabled=!wizardRows.length||source===target;
-    $("#seriesAdjustTable").innerHTML=`<div class="table-wrap series-adjust-table"><table><thead><tr><th>Produto oferecido</th><th>Valor do ano anterior</th><th>Reajuste %</th><th>Novo valor • ${target}</th><th>Integração</th></tr></thead><tbody>
+      : "Comparando <b>"+esc(serie)+"</b>: ${source} → <b>${target}</b>. A mensalidade não recebe um percentual solto: ela é calculada para fechar exatamente a anuidade no plano 1+12 e no plano 1+11.";
+    renderTuitionBody();
+    $("#publishSeriesAdjustment").disabled=!wizardRows.length&&(!tuitionBundle||!tuitionBundle.annual);
+    if(source===target)$("#publishSeriesAdjustment").disabled=true;
+    $("#seriesAdjustTable").innerHTML=`<div class="series-products-title"><b>Outros produtos da série</b><span>Material, fardamento, S.T.I. e demais itens continuam com reajuste individual ou geral.</span></div><div class="table-wrap series-adjust-table"><table><thead><tr><th>Produto oferecido</th><th>Valor do ano anterior</th><th>Reajuste %</th><th>Novo valor • ${target}</th><th>Integração</th></tr></thead><tbody>
       ${wizardRows.map(p=>{
         const m=prodWizardMoneyBlock(p,0);
         return `<tr><td><strong>${esc(p.PRODUTO||"")}</strong><small>${esc(p.CATEGORIA||"")} • ${esc(p["SEGMENTO_SÉRIE"]||"")}</small></td><td class="series-value-block">${m.current}</td><td><input class="series-pct-input" data-series-pct="${esc(p.ID_PRODUTO)}" type="number" step="0.01" value="0" aria-label="Reajuste de ${esc(p.PRODUTO||"produto")}"></td><td class="series-value-block series-new-value" data-series-new="${esc(p.ID_PRODUTO)}">${m.next}</td><td><span class="series-integrated-pill">Publicar</span></td></tr>`;
-      }).join("")||'<tr><td colspan="5" class="empty">Nenhum produto do ano anterior se aplica a esta série.</td></tr>'}
+      }).join("")||'<tr><td colspan="5" class="empty">Nenhum produto adicional cadastrado para esta série.</td></tr>'}
     </tbody></table></div>`;
     $$("[data-series-pct]").forEach(inp=>inp.oninput=refreshPreview);
+    refreshPreview();
   };
 
   $("#applyGlobalAdj").onclick=()=>{
     const v=Number($("#seriesAdjGlobal").value||0);
+    if($("#tuitionAnnualPct")){$("#tuitionAnnualPct").value=String(v);$("#tuitionPlanBody").dataset.annualPct=String(v)}
+    if($("#tuitionFirstPct")){$("#tuitionFirstPct").value=String(v);$("#tuitionPlanBody").dataset.firstPct=String(v)}
     $$("[data-series-pct]").forEach(inp=>inp.value=String(v));
     refreshPreview();
   };
   $("#seriesAdjSeries").onchange=drawWizard;
   $("#seriesAdjSource").onchange=drawWizard;
   $("#seriesAdjTarget").onchange=drawWizard;
+  $("#seriesAdjPlan").onchange=()=>{renderTuitionBody();refreshPreview()};
+
   $("#publishSeriesAdjustment").onclick=async()=>{
     const source=Number($("#seriesAdjSource").value),target=Number($("#seriesAdjTarget").value),serie=$("#seriesAdjSeries").value;
-    if(source===target||!wizardRows.length)return;
-    const adjustments=wizardRows.map(p=>({p,pct:Number($('[data-series-pct="'+CSS.escape(String(p.ID_PRODUTO))+'"]')?.value||0)}));
-    const btn=$("#publishSeriesAdjustment");btn.disabled=true;
+    if(source===target||!tuitionBundle||!tuitionBundle.annual||!tuitionBundle.first||!tuitionBundle.p12||!tuitionBundle.p11)return;
+    const calc=tuitionCalc();
+    const tuitionUpdates=[
+      {p:tuitionBundle.annual,value:calc.annual,label:"Anuidade"},
+      {p:tuitionBundle.first,value:calc.first,label:"1ª Parcela"},
+      {p:tuitionBundle.p12,value:calc.p12,label:"Plano 1+12"},
+      {p:tuitionBundle.p11,value:calc.p11,label:"Plano 1+11"}
+    ];
+    const extras=wizardRows.map(p=>({p,pct:Number($('[data-series-pct="'+CSS.escape(String(p.ID_PRODUTO))+'"]')?.value||0)}));
+    const total=tuitionUpdates.length+extras.length,btn=$("#publishSeriesAdjustment");btn.disabled=true;
     try{
       let done=0;
-      for(const row of adjustments){
-        btn.textContent="Publicando "+(++done)+" de "+adjustments.length+"…";
+      for(const row of tuitionUpdates){
+        btn.textContent="Publicando "+(++done)+" de "+total+"…";
+        await api("aplicarReajusteIndividual",{token:state.adminToken,data:{
+          anoOrigem:source,anoDestino:target,idProduto:row.p.ID_PRODUTO,modo:"valor",valor:row.value,publicar:"Sim",
+          observacao:"Plano escolar • "+serie+" • "+row.label+" • "+source+"→"+target
+        }});
+      }
+      for(const row of extras){
+        btn.textContent="Publicando "+(++done)+" de "+total+"…";
         await api("aplicarReajusteIndividual",{token:state.adminToken,data:{
           anoOrigem:source,anoDestino:target,idProduto:row.p.ID_PRODUTO,modo:"percentual",valor:row.pct,publicar:"Sim",
           observacao:"Reajuste por série • "+serie+" • "+source+"→"+target
         }});
       }
       state.productYear=target;clearApiCache();
-      setNotice("Novo ano-base "+target+" publicado para "+serie+". Atendimento, Secretaria, Panfletos e Matrícula passam a consumir os valores sincronizados.","ok");
+      setNotice("Ano-base "+target+" publicado para "+serie+". Anuidade, 1ª parcela, Plano 1+12 e Plano 1+11 foram fechados matematicamente e sincronizados com Atendimento, Secretaria, Panfletos e Matrícula.","ok");
       await renderProdutos();
     }catch(e){
       showToast(e.message||"Não foi possível concluir o reajuste da série.","error");
