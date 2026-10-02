@@ -4,8 +4,8 @@
  * Este arquivo deve substituir o conteúdo atual de ApiPwa.gs no MESMO projeto Apps Script.
  * O Código.gs existente permanece como base de Secretaria/Financeiro.
  */
-const PWA_API_VERSION="2026.09.30.4";
-const PWA_CAPABILITIES=Object.freeze({testMode:true,clearTest:true,modeTagging:true,modeFilteredFinance:true,modeIsolationGuard:true,cashSaveIdempotency:true,cashDeleteIndividual:true,studentMigration:true,studentProgression:true,studentConfirmedSeries:true,rematriculaFlow:true,rematriculaCorrection:true,documentAdd:true,documentDriveUpload:true,multiDocumentUpload:true,stiBudget:true,initialInvestmentTotal:true,addressFields:true,sessionSliding:true,attendanceDelete:true});
+const PWA_API_VERSION="2026.10.01.1";
+const PWA_CAPABILITIES=Object.freeze({testMode:true,clearTest:true,modeTagging:true,modeFilteredFinance:true,modeIsolationGuard:true,cashSaveIdempotency:true,cashDeleteIndividual:true,studentMigration:true,studentProgression:true,studentConfirmedSeries:true,rematriculaFlow:true,rematriculaCorrection:true,documentAdd:true,documentDriveUpload:true,multiDocumentUpload:true,stiBudget:true,initialInvestmentTotal:true,addressFields:true,sessionSliding:true,checklistManagement:true,attendanceDelete:true});
 const PWA_GATEWAY_PROP="FUTURO_PWA_GATEWAY_KEY";
 const PWA_STAFF_HASH_PROP="FUTURO_STAFF_PASSWORD_SHA256";
 const PWA_DEBUG_PROP="FUTURO_PWA_DEBUG";
@@ -20,7 +20,8 @@ const GF_TABS=Object.freeze({
   SOLICITACOES:"SOLICITACOES_DESCONTO",
   PANFLETOS:"PANFLETOS_SERIE",
   REAJUSTES:"HISTORICO_REAJUSTES",
-  IMPORTACOES:"IMPORTACOES_ALUNOS"
+  IMPORTACOES:"IMPORTACOES_ALUNOS",
+  CHECKLIST_DOCUMENTOS:"CHECKLIST_DOCUMENTOS"
 });
 
 function pwaJson_(obj){return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON)}
@@ -242,6 +243,46 @@ function pwaAtualizarDocumento_(token,id,patch,modo,sessao){
   })
 }
 function pwaListarDocumentosAluno_(token,idAluno,modo){pwaStaff_(token);return pwaFilterMode_(listarDocumentosAluno(idAluno)||[],modo)}
+
+function pwaListarChecklistDocumentos_(token,ano){
+  pwaStaff_(token);
+  var y=Number(ano||2026);
+  return rows_(GF_TABS.CHECKLIST_DOCUMENTOS).filter(function(r){
+    var active=String(r.ATIVO||"Sim")!=="Não",ry=Number(r.ANO_LETIVO||2026);
+    return active&&ry===y;
+  });
+}
+function pwaSalvarRegraDocumento_(token,id,data){
+  pwaAdmin_(token);data=data||{};
+  if(!String(data.DOCUMENTO||"").trim())throw new Error("Informe o documento/requisito.");
+  return pwaWithLock_(function(){
+    var old=id?findById_(GF_TABS.CHECKLIST_DOCUMENTOS,"ID_REGRA",id):null,now=new Date();
+    var rec={
+      ID_REGRA:old&&old.ID_REGRA||nextId_("DOC-REG-",GF_TABS.CHECKLIST_DOCUMENTOS,"ID_REGRA"),
+      TIPO_MATRICULA:data.TIPO_MATRICULA||"Todos",
+      PUBLICO:data.PUBLICO||"Aluno",
+      SERIE_APLICAVEL:data.SERIE_APLICAVEL||"Todos",
+      DOCUMENTO:String(data.DOCUMENTO||"").trim(),
+      OBRIGATORIO:data.OBRIGATORIO||"Sim",
+      CONDICAO:data.CONDICAO||"",
+      PRAZO:data.PRAZO||"",
+      STATUS_PADRAO:data.STATUS_PADRAO||old&&old.STATUS_PADRAO||"Pendente",
+      ORIGEM:data.ORIGEM||old&&old.ORIGEM||"Gestão Futuro",
+      OBSERVACAO:data.OBSERVACAO||old&&old.OBSERVACAO||"",
+      ATIVO:data.ATIVO||"Sim",
+      PUBLICADO_SECRETARIA:data.PUBLICADO_SECRETARIA||"Sim",
+      PUBLICADO_PANFLETO:data.PUBLICADO_PANFLETO||"Sim",
+      ATUALIZADO_EM:now,
+      ATUALIZADO_POR:pwaUser_("Gestão"),
+      ANO_LETIVO:Number(data.ANO_LETIVO||old&&old.ANO_LETIVO||2026)
+    };
+    if(old)updateById_(GF_TABS.CHECKLIST_DOCUMENTOS,"ID_REGRA",old.ID_REGRA,rec);else append_(GF_TABS.CHECKLIST_DOCUMENTOS,rec);
+    audit_("Gestão",old?"EDITAR_REGRA_DOCUMENTO":"CRIAR_REGRA_DOCUMENTO","Checklist",rec.ID_REGRA,old?JSON.stringify(old):"",JSON.stringify(rec));
+    SpreadsheetApp.flush();
+    return {ok:true,id:rec.ID_REGRA};
+  });
+}
+
 function pwaAdicionarDocumentoAluno_(token,data,modo,sessao){
   pwaStaff_(token);data=data||{};
   if(!data.ID_ALUNO)throw new Error("Aluno não informado.");
@@ -853,6 +894,8 @@ function doPost(e){
       case "corrigirRematricula":data=corrigirRematriculaPwa_(body.token,body.data,body.modo);break;
       case "atualizarDocumento":data=pwaAtualizarDocumento_(body.token,body.id||(body.data&&body.data.ID_DOCUMENTO),body.data||{},body.modo,body.sessaoTeste);break;
       case "listarDocumentosAluno":data=pwaListarDocumentosAluno_(body.token,body.idAluno,body.modo);break;
+      case "listarChecklistDocumentos":data=pwaListarChecklistDocumentos_(body.token,body.ano);break;
+      case "salvarRegraDocumento":pwaRequireProduction_(body.modo,"Edição de documentação");data=pwaSalvarRegraDocumento_(body.token,body.id,body.data||{});break;
       case "adicionarDocumentoAluno":data=pwaAdicionarDocumentoAluno_(body.token,body.data||{},body.modo,body.sessaoTeste);break;
       case "uploadDocumentoAluno":data=pwaUploadDocumentoAluno_(body.token,body.data||{},body.modo,body.sessaoTeste);break;
       case "listarRecebimentosAluno":data=pwaListarRecebimentosAluno_(body.token,body.idAluno,body.modo);break;
