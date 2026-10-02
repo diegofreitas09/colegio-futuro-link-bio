@@ -240,6 +240,18 @@ function prodTuitionPlanCalc(bundle,annualPct,firstPct){
 function prodIsTuitionCore(p){
   return prodIsAnnualTuition(p)||prodIsFirstTuition(p)||prodIsRegularTuitionPlan(p,11)||prodIsRegularTuitionPlan(p,12);
 }
+function prodTargetMatch(list,source,targetYear){
+  if(!source)return null;
+  const sid=String(source.ID_PRODUTO||""),sourceYear=prodInferYear(source),destId=sourceYear&&sid.includes(String(sourceYear))?sid.replace(String(sourceYear),String(targetYear)):"";
+  return (list||[]).find(p=>prodInferYear(p)===Number(targetYear)&&(
+    (destId&&String(p.ID_PRODUTO||"")===destId)||
+    (p.CATEGORIA===source.CATEGORIA&&p["SEGMENTO_SÉRIE"]===source["SEGMENTO_SÉRIE"]&&Number(p.QTD_PARCELAS||0)===Number(source.QTD_PARCELAS||0)&&prodNorm(p.SUBCATEGORIA)===prodNorm(source.SUBCATEGORIA))
+  ))||null;
+}
+function prodExistingAdjustment(source,target){
+  const a=Number(source&&source.VALOR_BASE||0),b=Number(target&&target.VALOR_BASE||0);
+  return a&&b?Math.round((((b/a)-1)*100+Number.EPSILON)*100)/100:0;
+}
 
 
 async function renderProdutos(){
@@ -367,6 +379,9 @@ async function renderProdutos(){
     const serie=$("#seriesAdjSeries").value,source=Number($("#seriesAdjSource").value),target=Number($("#seriesAdjTarget").value);
     tuitionBundle=prodTuitionBundle(list,source,serie);
     wizardRows=prodSeriesWizardRows(list,source,serie).filter(p=>!prodIsTuitionCore(p));
+    const targetAnnual=prodTargetMatch(list,tuitionBundle.annual,target),targetFirst=prodTargetMatch(list,tuitionBundle.first,target);
+    $("#tuitionPlanBody").dataset.annualPct=String(prodExistingAdjustment(tuitionBundle.annual,targetAnnual));
+    $("#tuitionPlanBody").dataset.firstPct=String(prodExistingAdjustment(tuitionBundle.first,targetFirst));
     $("#seriesAdjCount").textContent=(wizardRows.length+4)+" item(ns) de valor";
     $("#seriesAdjustNote").innerHTML=source===target
       ? "<b>Atenção:</b> o ano de origem e o novo ano-base precisam ser diferentes."
@@ -376,8 +391,8 @@ async function renderProdutos(){
     if(source===target)$("#publishSeriesAdjustment").disabled=true;
     $("#seriesAdjustTable").innerHTML=`<div class="series-products-title"><b>Outros produtos da série</b><span>Material, fardamento, S.T.I. e demais itens continuam com reajuste individual ou geral.</span></div><div class="table-wrap series-adjust-table"><table><thead><tr><th>Produto oferecido</th><th>Valor do ano anterior</th><th>Reajuste %</th><th>Novo valor • ${target}</th><th>Integração</th></tr></thead><tbody>
       ${wizardRows.map(p=>{
-        const m=prodWizardMoneyBlock(p,0);
-        return `<tr><td><strong>${esc(p.PRODUTO||"")}</strong><small>${esc(p.CATEGORIA||"")} • ${esc(p["SEGMENTO_SÉRIE"]||"")}</small></td><td class="series-value-block">${m.current}</td><td><input class="series-pct-input" data-series-pct="${esc(p.ID_PRODUTO)}" type="number" step="0.01" value="0" aria-label="Reajuste de ${esc(p.PRODUTO||"produto")}"></td><td class="series-value-block series-new-value" data-series-new="${esc(p.ID_PRODUTO)}">${m.next}</td><td><span class="series-integrated-pill">Publicar</span></td></tr>`;
+        const targetProduct=prodTargetMatch(list,p,target),initialPct=prodExistingAdjustment(p,targetProduct),m=prodWizardMoneyBlock(p,initialPct);
+        return `<tr><td><strong>${esc(p.PRODUTO||"")}</strong><small>${esc(p.CATEGORIA||"")} • ${esc(p["SEGMENTO_SÉRIE"]||"")}</small></td><td class="series-value-block">${m.current}</td><td><input class="series-pct-input" data-series-pct="${esc(p.ID_PRODUTO)}" type="number" step="0.01" value="${initialPct}" aria-label="Reajuste de ${esc(p.PRODUTO||"produto")}"></td><td class="series-value-block series-new-value" data-series-new="${esc(p.ID_PRODUTO)}">${m.next}</td><td><span class="series-integrated-pill">${targetProduct?"Já publicado":"Publicar"}</span></td></tr>`;
       }).join("")||'<tr><td colspan="5" class="empty">Nenhum produto adicional cadastrado para esta série.</td></tr>'}
     </tbody></table></div>`;
     $$("[data-series-pct]").forEach(inp=>inp.oninput=refreshPreview);
