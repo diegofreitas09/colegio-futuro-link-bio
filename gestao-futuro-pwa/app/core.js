@@ -1138,6 +1138,7 @@ async function renderDashboard(){
   const shortcutHtml=role==="admin"
     ? `<div class="section-head"><h2>Gestão e financeiro</h2><span class="muted">Área restrita à direção/gestão.</span></div><div class="grid role-shortcuts">
         <button class="card btn-soft" data-go="autorizacoes"><strong>Autorizações</strong><br><span class="muted">Pedidos de desconto aguardando decisão</span></button>
+        <button class="card btn-soft" data-go="documentacao"><strong>Documentação da matrícula</strong><br><span class="muted">Controlar exigências de novatos/veteranos, Secretaria e Panfletos</span></button>
         <button class="card btn-soft" data-go="produtos"><strong>Valores e reajustes</strong><br><span class="muted">Editar catálogo, serviços e reajustes</span></button>
         <button class="card btn-soft" data-go="recebimentos"><strong>Recebimentos</strong><br><span class="muted">Receitas e pagamentos registrados</span></button>
         <button class="card btn-soft" data-go="caixa"><strong>Fluxo de caixa</strong><br><span class="muted">Entradas, saídas e movimentações</span></button>
