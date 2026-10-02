@@ -386,6 +386,11 @@ async function renderDocumentos(){
     $("#docsArea").innerHTML=`<div class="empty">Carregando documentos…</div>`;
     try{
       const docs=await api("listarDocumentosAluno",{token:tokenFor("staff"),idAluno:id});
+      const mats=(b.matriculas||[]).filter(m=>String(m.ID_ALUNO)===String(id)).sort((a,z)=>Number(z.ANO_LETIVO||0)-Number(a.ANO_LETIVO||0));
+      const mat=mats[0]||null,officialRules=gfDocs2026ForStudent(aluno,mat);
+      const generatedIds=new Set(docs.map(d=>String(d.ID_REGRA||"")));
+      const pendingOfficial=officialRules.filter(r=>!generatedIds.has(r.id));
+      const isNovato=String(mat&&mat.TIPO_MATRICULA||aluno.TIPO_ALUNO||"Novato").toLowerCase()!=="veterano";
       $("#docsArea").innerHTML=`
         <section class="student-doc-profile">
           <div><small>ALUNO</small><strong>${esc(aluno.NOME_COMPLETO||"")}</strong><span>${esc(aluno.MATRICULA_ORIGEM?"Matrícula "+aluno.MATRICULA_ORIGEM:"")}</span></div>
@@ -393,10 +398,38 @@ async function renderDocumentos(){
           <div><small>PRÓXIMA SÉRIE</small><strong>${esc(aluno.PROXIMA_SERIE_2027||gfNextSeries(aluno["SÉRIE"])||"—")}</strong></div>
           <div><small>DOCUMENTOS</small><strong>${docs.length}</strong><span>${docs.filter(d=>d.STATUS==="Entregue").length} entregue(s)</span></div>
         </section>
+        <section class="official-docs-card">
+          <div class="official-docs-head"><div><small>SECRETARIA • DOCUMENTAÇÃO 2026</small><h3>Documentos necessários para efetivação da matrícula</h3><p>${isNovato?"Aluno identificado como novato.":"Aluno identificado como veterano; itens exclusivos de novatos foram ocultados."}</p></div><span class="official-docs-count">${officialRules.length} item(ns)</span></div>
+          <div class="official-docs-alert"><b>Importante:</b> o texto de origem informa prazo de <b>17/01/2025</b> para o atestado de Educação Física, embora o checklist seja de 2026. A plataforma sinaliza essa data para revisão administrativa e não a corrige automaticamente.</div>
+          <div class="official-docs-grid">${gfDocChecklistSummaryHtml(officialRules)}</div>
+          <div class="official-docs-actions"><button class="btn btn-primary" id="generateOfficialDocs" ${pendingOfficial.length?"":"disabled"}>${pendingOfficial.length?`Gerar ${pendingOfficial.length} pendência(s) no checklist`:"Checklist oficial já aplicado"}</button><span>${generatedIds.size?`${officialRules.length-pendingOfficial.length} item(ns) já vinculados ao aluno.`:"Os itens serão criados como Pendente, sem marcar entrega automaticamente."}</span></div>
+        </section>
         <div class="section-head"><h2>Checklist / Pasta documental</h2><div class="toolbar"><button class="btn btn-primary" id="addStudentDoc">+ Adicionar documento</button><button class="btn btn-report" id="docsReport">📄 Relatório</button></div></div>
         <div class="table-wrap"><table><thead><tr><th>Documento</th><th>Obrigatório</th><th>Status</th><th>Entrega</th><th>Link</th><th></th></tr></thead><tbody>${docs.map(d=>`<tr><td><strong>${esc(d.DOCUMENTO)}</strong><br><span class="muted">${esc(d.OBSERVACAO||"")}</span></td><td>${esc(d.OBRIGATORIO||"")}</td><td>${pill(d.STATUS||"Pendente",d.STATUS==="Entregue"?"ok":"warn")}</td><td>${esc(d.DATA_ENTREGA||"")}</td><td>${d.LINK_DRIVE?`<a href="${esc(d.LINK_DRIVE)}" target="_blank" rel="noopener noreferrer">Abrir</a>`:"—"}</td><td><button class="icon-btn" data-doc="${esc(d.ID_DOCUMENTO)}" data-status="${esc(d.STATUS||"")}">${d.STATUS==="Entregue"?"Reabrir":"Marcar entregue"}</button></td></tr>`).join("")||`<tr><td colspan="6" class="empty">Nenhum documento cadastrado ainda. Use “Adicionar documento” para iniciar a pasta do aluno.</td></tr>`}</tbody></table></div>`;
       $("#docsReport").onclick=()=>openDocumentsReport(aluno,docs);
       $("#addStudentDoc").onclick=()=>openAddDocument(aluno,docs);
+      if($("#generateOfficialDocs"))$("#generateOfficialDocs").onclick=async()=>{
+        const btn=$("#generateOfficialDocs");if(!pendingOfficial.length)return;
+        btn.disabled=true;const original=btn.textContent;
+        try{
+          let done=0;
+          for(const rule of pendingOfficial){
+            btn.textContent="Criando "+(done+1)+" de "+pendingOfficial.length+"…";
+            await api("adicionarDocumentoAluno",{token:tokenFor("staff"),data:{
+              ID_ALUNO:aluno.ID_ALUNO,
+              ID_MATRICULA:mat&&(mat["ID_MATRÍCULA"]||mat.ID_MATRICULA)||"",
+              ID_REGRA:rule.id,
+              DOCUMENTO:rule.documento,
+              STATUS:"Pendente",
+              OBRIGATORIO:rule.obrigatorio,
+              PENDENCIA:rule.condicao,
+              OBSERVACAO:[rule.condicao,rule.prazo].filter(Boolean).join(" • ")
+            }});
+            done++;
+          }
+          clearApiCache();showToast("Checklist oficial 2026 vinculado ao aluno ✓","ok");await loadDocs(id);
+        }catch(e){showToast(e.message||"Não foi possível gerar o checklist oficial.","error");btn.disabled=false;btn.textContent=original}
+      };
       $$('[data-doc]').forEach(x=>x.onclick=async()=>{
         const novo=x.dataset.status==="Entregue"?"Pendente":"Entregue";
         x.disabled=true;x.textContent="Salvando…";
