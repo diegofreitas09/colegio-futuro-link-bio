@@ -472,3 +472,29 @@ test('official checklist source is present in the Secretaria documents UI',()=>{
  assert.match(src,/Histórico Escolar original ou declaração provisória/);
  assert.match(src,/Comprovante de pagamento da 1ª parcela da anuidade de 2026/);
 });
+
+
+test('flyer documents switch between novato and veterano',()=>{
+ const x=setup();try{
+  x.w.__cfg={};
+  let d=x.run('gfFlyerDocumentRules(2026,"3º Ano","Novato",window.__cfg)');
+  assert.equal(d.tipo,'Novato');
+  assert.ok(d.items.some(i=>/Pasta escolar amarela/.test(i.t)));
+  assert.ok(d.items.some(i=>/Histórico Escolar/.test(i.t)));
+  assert.ok(d.items.some(i=>/1ª parcela/.test(i.t)));
+  d=x.run('gfFlyerDocumentRules(2026,"3º Ano","Veterano",window.__cfg)');
+  assert.equal(d.tipo,'Veterano');
+  assert.equal(d.items.some(i=>/Pasta escolar/.test(i.t)),false);
+  assert.equal(d.items.some(i=>/Histórico Escolar/.test(i.t)),false);
+  assert.ok(d.items.some(i=>/Cartão de Vacinação/.test(i.t)));
+  assert.ok(d.items.some(i=>/Requerimento de matrícula 2026/.test(i.t)));
+ }finally{x.dom.window.close()}
+});
+
+test('flyer type selector is integrated with attendance shortcut',()=>{
+ const src=read('app/comercial.js');
+ assert.match(src,/id='flyerStudentType'/);
+ assert.match(src,/state\.flyerStudentType/);
+ assert.match(src,/\$\("#attType"\)\?\.value\|\|"Novato"/);
+ assert.match(src,/gfFlyerDocumentsMarkup/);
+});
