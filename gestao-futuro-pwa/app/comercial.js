@@ -981,7 +981,48 @@ function gfUniformPickerMarkup(cfg,serie){
   }).join("")+"</div>";
 }
 
-function gfFlyerMarkup(y,s,cfg,list){
+
+function gfFlyerGradeNumber(serie){
+  var s=gfNorm(serie),m=s.match(/\b([1-9])\s*(?:º|o)?\s*ano\b/);return m?Number(m[1]):0;
+}
+function gfFlyerFolderName(serie){
+  var s=gfNorm(serie),n=gfFlyerGradeNumber(serie);
+  if(s.includes("infantil"))return "Pasta escolar rosa";
+  if(n>=1&&n<=5)return "Pasta escolar amarela";
+  if(n>=6&&n<=9)return "Pasta escolar verde";
+  return "Pasta escolar conforme orientação da Secretaria";
+}
+function gfFlyerDocumentRules(y,serie,tipo,cfg){
+  var n=gfFlyerGradeNumber(serie),veterano=gfNorm(tipo)==="veterano",year=Number(y)||2026;
+  var common=[
+    {t:"Requerimento de matrícula "+year+" preenchido e assinado"},
+    {t:"Contrato de Prestação de Serviços Educacionais "+year+" assinado"},
+    {t:"Cartão de Vacinação",d:"Obrigatório na matrícula/rematrícula • Lei nº 16.929/2019 (CE)"},
+    {t:"RG e CPF do responsável financeiro"},
+    {t:"Comprovante de residência do responsável financeiro",d:"Emitido há no máximo 90 dias"},
+    {t:"Comprovante de pagamento da 1ª parcela da anuidade de "+year}
+  ];
+  if(n>=1&&n<=9)common.splice(3,0,{t:"Atestado médico para prática de Educação Física",d:year===2026?"Prazo informado pela Secretaria deve ser confirmado.":"Entregar conforme prazo informado pela Secretaria."});
+  var novatos=[
+    {t:gfFlyerFolderName(serie),d:"Somente para alunos novatos"},
+    {t:"Certidão de Nascimento ou Identidade"},
+    {t:"CPF e RG do pai e da mãe do aluno"},
+    {t:"Dados do NIS",d:"Se receber Bolsa Família"},
+    {t:"Comprovante de endereço atual com CEP",d:"Emitido há no máximo 90 dias"},
+    {t:"2 fotos 3x4 coloridas e recentes"}
+  ];
+  if(n>=2&&n<=9)novatos.push({t:"Histórico Escolar original ou declaração provisória da escola de origem",d:year===2026?"Histórico poderá ser entregue até 19/01/2026.":"Histórico conforme prazo informado pela Secretaria."});
+  var custom=veterano?String(cfg&&cfg.DOCUMENTOS_VETERANO||"").trim():String(cfg&&cfg.DOCUMENTOS_NOVATO||"").trim();
+  return {tipo:veterano?"Veterano":"Novato",items:veterano?common:novatos.concat(common),custom:custom};
+}
+function gfFlyerDocumentsMarkup(y,serie,tipo,cfg){
+  var d=gfFlyerDocumentRules(y,serie,tipo,cfg);
+  var custom=d.custom?"<div class='flyer-doc-custom'>"+esc(d.custom)+"</div>":"";
+  return "<section class='flyer-docs-integrated'><div class='flyer-docs-title'><div><small>DOCUMENTAÇÃO • "+esc(d.tipo.toUpperCase())+"</small><h3>Documentos necessários</h3></div><span>"+d.items.length+" item(ns)</span></div>"+
+    "<div class='flyer-doc-list'>"+d.items.map(function(x){return "<div class='flyer-doc-item'><i>✓</i><div><b>"+esc(x.t)+"</b>"+(x.d?"<small>"+esc(x.d)+"</small>":"")+"</div></div>"}).join("")+"</div>"+custom+"</section>";
+}
+
+function gfFlyerMarkup(y,s,cfg,list,tipoAluno){
   var groups=gfGroups(list),body="";
   Object.keys(groups).forEach(function(cat){
     body+="<section class='flyer-category'><h3>"+esc(cat)+"</h3><div class='flyer-items'>"+
@@ -997,14 +1038,14 @@ function gfFlyerMarkup(y,s,cfg,list){
     "</div></section>":"";
   var offer=cfg.O_QUE_OFERECE?"<section class='flyer-info'><h3>O que oferecemos</h3><p>"+esc(cfg.O_QUE_OFERECE)+"</p></section>":"";
   var notes=cfg.OBSERVACOES?"<div class='flyer-note'>"+esc(cfg.OBSERVACOES)+"</div>":"";
-  var uniforms=gfUniformMarkup(cfg,s);
+  var uniforms=gfUniformMarkup(cfg,s),docsHtml=gfFlyerDocumentsMarkup(y,s,tipoAluno||"Novato",cfg);
   return "<article class='flyer flyer-a4"+density+"' id='flyerPreview'>"+
     "<div class='flyer-head'>"+(window.FUTURO_BRAND&&window.FUTURO_BRAND.logo?"<img src='"+window.FUTURO_BRAND.logo+"' alt='Colégio Futuro'>":"")+
     "<div><span>MATRÍCULAS "+y+"</span><h2>"+esc(cfg.TITULO||("Colégio Futuro • "+s))+"</h2><p>"+esc(cfg.SUBTITULO||"Educação que prepara para o presente e impulsiona cada estudante para o futuro.")+"</p></div></div>"+
     "<div class='flyer-series'>"+esc(s)+"</div>"+
     uniforms+
     "<div class='flyer-content-grid'>"+body+extrasHtml+offer+"</div>"+
-    "<div class='flyer-cols'><section><h3>Novatos</h3><p>"+esc(cfg.DOCUMENTOS_NOVATO||"Documentação conforme orientação da Secretaria.")+"</p></section><section><h3>Veteranos</h3><p>"+esc(cfg.DOCUMENTOS_VETERANO||"Atualização cadastral e novo contrato.")+"</p></section></div>"+
+    docsHtml+
     notes+
     "<footer><b>Colégio Futuro</b><span>Informações oficiais • Gestão Futuro</span></footer></article>";
 }
