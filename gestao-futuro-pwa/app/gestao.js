@@ -1,3 +1,103 @@
+
+function gfGestaoDocFallbackRows(ano){
+  var rules=typeof GF_DOCS_2026_RULES!=="undefined"?GF_DOCS_2026_RULES:[];
+  return rules.map(function(r){
+    return {
+      ID_REGRA:r.id,
+      TIPO_MATRICULA:r.novato?"Novato":"Todos",
+      PUBLICO:r.grupo,
+      SERIE_APLICAVEL:r.series==="1-9"?"1º ao 9º Ano":r.series==="2-9"?"2º ao 9º Ano":"Todos",
+      DOCUMENTO:r.documento,
+      OBRIGATORIO:r.obrigatorio,
+      CONDICAO:r.condicao,
+      PRAZO:r.prazo,
+      STATUS_PADRAO:"Pendente",
+      ORIGEM:"Secretaria 2026",
+      OBSERVACAO:"",
+      ATIVO:"Sim",
+      PUBLICADO_SECRETARIA:"Sim",
+      PUBLICADO_PANFLETO:"Sim",
+      ANO_LETIVO:Number(ano)||2026
+    };
+  });
+}
+async function gfLoadChecklistGestao(ano){
+  try{
+    var rows=await api("listarChecklistDocumentos",{token:state.adminToken,ano:Number(ano)||2026});
+    if(Array.isArray(rows)&&rows.length)return {rows:rows,source:"api"};
+  }catch(e){}
+  return {rows:gfGestaoDocFallbackRows(ano),source:"fallback"};
+}
+function gfDocPubBadge(v){return pill(String(v||"Sim"),String(v||"Sim")==="Sim"?"ok":"warn")}
+async function renderDocumentacaoGestao(){
+  var year=Number(state.docRulesYear||2026),loaded=await gfLoadChecklistGestao(year),rows=loaded.rows||[];
+  state.docRulesYear=year;
+  $("#view").innerHTML=`
+    <div class="section-head">
+      <div><h2>Documentação da matrícula</h2><span class="muted">Fonte central da Gestão para Secretaria e Panfletos.</span></div>
+      <div class="toolbar"><select id="docRulesYear" class="search"><option value="2026" ${year===2026?"selected":""}>2026</option></select><button class="btn btn-soft" id="refreshDocRules">Atualizar</button></div>
+    </div>
+    <section class="doc-mgmt-flow">
+      <div><small>1 • GESTÃO</small><b>Define as exigências</b><span>Documento, público, condição, prazo e obrigatoriedade.</span></div>
+      <i>→</i>
+      <div><small>2 • SECRETARIA</small><b>Gera o checklist do aluno</b><span>Novato/veterano e série determinam os itens aplicáveis.</span></div>
+      <i>→</i>
+      <div><small>3 • PANFLETO</small><b>Mostra a lista correta</b><span>O material acompanha o tipo de aluno selecionado.</span></div>
+    </section>
+    <section class="card doc-mgmt-summary">
+      <div><small>REGRAS ATIVAS</small><strong>${rows.filter(r=>String(r.ATIVO||"Sim")!=="Não").length}</strong></div>
+      <div><small>SECRETARIA</small><strong>${rows.filter(r=>String(r.PUBLICADO_SECRETARIA||"Sim")==="Sim").length}</strong><span>publicadas</span></div>
+      <div><small>PANFLETO</small><strong>${rows.filter(r=>String(r.PUBLICADO_PANFLETO||"Sim")==="Sim").length}</strong><span>publicadas</span></div>
+      <div><small>FONTE</small><strong>${loaded.source==="api"?"Base oficial":"Regras sincronizadas"}</strong><span>${loaded.source==="api"?"Google Sheets/API":"modo compatível com API atual"}</span></div>
+    </section>
+    <section class="card doc-mgmt-preview">
+      <div class="section-head compact"><div><h3>Prévia por perfil</h3><span class="muted">Confira exatamente o que será mostrado para a família.</span></div><div class="toolbar"><select id="docPreviewType" class="search"><option>Novato</option><option>Veterano</option></select><select id="docPreviewSeries" class="search">${gfOptions("Infantil 2")}</select><button class="btn btn-primary" id="openDocFlyer">Abrir no panfleto</button></div></div>
+      <div id="docPreviewArea"></div>
+    </section>
+    <div class="section-head"><div><h3>Regras oficiais ${year}</h3><span class="muted">Alterações centrais devem refletir na Secretaria e nos Panfletos.</span></div>${state.backendCaps&&state.backendCaps.checklistManagement===true?'<button class="btn btn-primary" id="newDocRule">+ Novo requisito</button>':''}</div>
+    <div class="table-wrap"><table><thead><tr><th>Documento</th><th>Público</th><th>Aplicação</th><th>Obrigatório</th><th>Prazo</th><th>Secretaria</th><th>Panfleto</th><th></th></tr></thead><tbody>
+      ${rows.map(r=>`<tr><td><strong>${esc(r.DOCUMENTO||"")}</strong><br><span class="muted">${esc(r.CONDICAO||"")}</span></td><td>${esc(r.PUBLICO||"")}</td><td>${esc(r.TIPO_MATRICULA||"Todos")} • ${esc(r.SERIE_APLICAVEL||"Todos")}</td><td>${esc(r.OBRIGATORIO||"")}</td><td>${esc(r.PRAZO||"")}</td><td>${gfDocPubBadge(r.PUBLICADO_SECRETARIA)}</td><td>${gfDocPubBadge(r.PUBLICADO_PANFLETO)}</td><td>${state.backendCaps&&state.backendCaps.checklistManagement===true?`<button class="icon-btn" data-edit-doc-rule="${esc(r.ID_REGRA)}">Editar</button>`:""}</td></tr>`).join("")||'<tr><td colspan="8" class="empty">Nenhuma regra cadastrada.</td></tr>'}
+    </tbody></table></div>
+    ${loaded.source==="fallback"?'<div class="notice">A interface da Gestão já está integrada à mesma regra usada pela Secretaria e pelo Panfleto. A API publicada ainda não expõe edição central das regras; por isso esta versão usa a camada de compatibilidade sem interromper o funcionamento.</div>':""}
+  `;
+
+  function preview(){
+    var tipo=$("#docPreviewType").value,serie=$("#docPreviewSeries").value;
+    var docs=typeof gfDocs2026ForStudent==="function"?gfDocs2026ForStudent({TIPO_ALUNO:tipo,"SÉRIE":serie},{TIPO_MATRICULA:tipo,"SÉRIE":serie,ANO_LETIVO:year}):[];
+    $("#docPreviewArea").innerHTML="<div class='doc-preview-list'>"+docs.map(function(d){return "<div><i>✓</i><span><b>"+esc(d.documento)+"</b><small>"+esc([d.condicao,d.prazo].filter(Boolean).join(" • "))+"</small></span></div>"}).join("")+"</div>";
+  }
+  $("#docPreviewType").onchange=preview;$("#docPreviewSeries").onchange=preview;preview();
+  $("#openDocFlyer").onclick=function(){state.flyerYear=year;state.flyerSeries=$("#docPreviewSeries").value;state.flyerStudentType=$("#docPreviewType").value;navigate("panfletos")};
+  $("#refreshDocRules").onclick=function(){clearApiCache();renderDocumentacaoGestao()};
+  $("#docRulesYear").onchange=function(){state.docRulesYear=Number(this.value);renderDocumentacaoGestao()};
+  if($("#newDocRule"))$("#newDocRule").onclick=function(){openDocRuleForm(null,year)};
+  $$("[data-edit-doc-rule]").forEach(function(btn){btn.onclick=function(){openDocRuleForm(rows.find(r=>String(r.ID_REGRA)===String(btn.dataset.editDocRule))||null,year)}});
+}
+function openDocRuleForm(rule,year){
+  rule=rule||{};
+  modal(`<div class="modal-head"><h3>${rule.ID_REGRA?"Editar requisito":"Novo requisito"}</h3><button class="icon-btn" data-close>✕</button></div><div class="modal-body"><form id="docRuleForm" class="form-grid">
+    <div class="field span-3"><label>Documento *</label><input name="DOCUMENTO" value="${esc(rule.DOCUMENTO||"")}" required></div>
+    <div class="field"><label>Tipo de matrícula</label><select name="TIPO_MATRICULA"><option ${rule.TIPO_MATRICULA==="Todos"?"selected":""}>Todos</option><option ${rule.TIPO_MATRICULA==="Novato"?"selected":""}>Novato</option><option ${rule.TIPO_MATRICULA==="Veterano"?"selected":""}>Veterano</option></select></div>
+    <div class="field"><label>Público</label><select name="PUBLICO"><option ${rule.PUBLICO==="Matrícula"?"selected":""}>Matrícula</option><option ${rule.PUBLICO==="Aluno"?"selected":""}>Aluno</option><option ${rule.PUBLICO==="Responsável financeiro"?"selected":""}>Responsável financeiro</option></select></div>
+    <div class="field"><label>Série aplicável</label><input name="SERIE_APLICAVEL" value="${esc(rule.SERIE_APLICAVEL||"Todos")}"></div>
+    <div class="field"><label>Obrigatório</label><select name="OBRIGATORIO"><option ${rule.OBRIGATORIO==="Sim"?"selected":""}>Sim</option><option ${rule.OBRIGATORIO==="Condicional"?"selected":""}>Condicional</option><option ${rule.OBRIGATORIO==="Não"?"selected":""}>Não</option></select></div>
+    <div class="field span-2"><label>Condição</label><input name="CONDICAO" value="${esc(rule.CONDICAO||"")}"></div>
+    <div class="field"><label>Prazo</label><input name="PRAZO" value="${esc(rule.PRAZO||"")}"></div>
+    <div class="field"><label>Secretaria</label><select name="PUBLICADO_SECRETARIA"><option ${rule.PUBLICADO_SECRETARIA!=="Não"?"selected":""}>Sim</option><option ${rule.PUBLICADO_SECRETARIA==="Não"?"selected":""}>Não</option></select></div>
+    <div class="field"><label>Panfleto</label><select name="PUBLICADO_PANFLETO"><option ${rule.PUBLICADO_PANFLETO!=="Não"?"selected":""}>Sim</option><option ${rule.PUBLICADO_PANFLETO==="Não"?"selected":""}>Não</option></select></div>
+    <div class="field"><label>Ativo</label><select name="ATIVO"><option ${rule.ATIVO!=="Não"?"selected":""}>Sim</option><option ${rule.ATIVO==="Não"?"selected":""}>Não</option></select></div>
+  </form></div><div class="modal-foot"><button class="btn btn-soft" data-close>Cancelar</button><button class="btn btn-primary" id="saveDocRule">Salvar e sincronizar</button></div>`);
+  $$("[data-close]").forEach(x=>x.onclick=closeModal);
+  $("#saveDocRule").onclick=async function(){
+    var btn=this,data=Object.fromEntries(new FormData($("#docRuleForm")).entries());data.ANO_LETIVO=year;
+    btn.disabled=true;btn.textContent="Salvando…";
+    try{
+      await api("salvarRegraDocumento",{token:state.adminToken,id:rule.ID_REGRA||"",data:data});
+      clearApiCache();closeModal();showToast("Regra documental sincronizada ✓","ok");await renderDocumentacaoGestao();
+    }catch(e){showToast(e.message||"Não foi possível salvar a regra.","error");btn.disabled=false;btn.textContent="Salvar e sincronizar"}
+  };
+}
+
 function prodAdjustmentPct(p){
   const raw=p&&p["REAJUSTE_%"];
   const direct=Number(raw);
