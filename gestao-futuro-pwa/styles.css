@@ -846,3 +846,23 @@ body.home-active .shell{filter:blur(2px) saturate(.8);pointer-events:none;user-s
 .flyer-a4.ultra-dense .flyer-docs-integrated{padding:7px 8px}.flyer-a4.ultra-dense .flyer-doc-list{gap:3px 7px}.flyer-a4.ultra-dense .flyer-doc-item b{font-size:7.4px}.flyer-a4.ultra-dense .flyer-doc-item small{font-size:6.3px}
 @media(max-width:760px){.flyer-doc-list{grid-template-columns:1fr}.flyer-docs-title{align-items:flex-start}}
 @media print{.flyer-doc-list{grid-template-columns:repeat(2,minmax(0,1fr))!important}.flyer-docs-integrated{break-inside:avoid!important;page-break-inside:avoid!important}}
+
+/* Gestão central da documentação */
+.doc-mgmt-flow{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:12px;align-items:stretch;margin:0 0 14px}
+.doc-mgmt-flow>div{padding:14px;border-radius:16px;background:linear-gradient(180deg,#f8fbff,#fff);border:1px solid #d7e3f0;box-shadow:0 8px 22px rgba(23,65,115,.07)}
+.doc-mgmt-flow small{display:block;font-size:8px;font-weight:900;letter-spacing:.1em;color:#2b67a8}
+.doc-mgmt-flow b{display:block;margin-top:4px;color:#123b76;font-size:14px}
+.doc-mgmt-flow span{display:block;margin-top:4px;color:#738195;font-size:9px;line-height:1.4}
+.doc-mgmt-flow>i{align-self:center;color:#7ca2cb;font-style:normal;font-size:22px;font-weight:900}
+.doc-mgmt-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.doc-mgmt-summary>div{padding:12px;border-radius:13px;background:#f7f9fd}
+.doc-mgmt-summary small{display:block;font-size:8px;font-weight:900;color:#6e7d90;letter-spacing:.05em}
+.doc-mgmt-summary strong{display:block;margin-top:5px;font-size:18px;color:#164c88}
+.doc-mgmt-summary span{display:block;margin-top:2px;font-size:8px;color:#7a8797}
+.doc-mgmt-preview{margin-bottom:14px}
+.doc-preview-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px 10px;margin-top:10px}
+.doc-preview-list>div{display:grid;grid-template-columns:18px 1fr;gap:7px;padding:8px;border-radius:10px;background:#f8fbff;border:1px solid #e0e8f2}
+.doc-preview-list i{width:17px;height:17px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#e0f4e7;color:#167443;font-style:normal;font-size:9px;font-weight:900}
+.doc-preview-list b{display:block;font-size:9.5px;color:#243850}
+.doc-preview-list small{display:block;margin-top:2px;font-size:8px;color:#788698;line-height:1.35}
+@media(max-width:900px){.doc-mgmt-flow{grid-template-columns:1fr}.doc-mgmt-flow>i{transform:rotate(90deg);justify-self:center}.doc-mgmt-summary{grid-template-columns:1fr 1fr}.doc-preview-list{grid-template-columns:1fr}}
