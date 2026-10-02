@@ -498,3 +498,23 @@ test('flyer type selector is integrated with attendance shortcut',()=>{
  assert.match(src,/\$\("#attType"\)\?\.value\|\|"Novato"/);
  assert.match(src,/gfFlyerDocumentsMarkup/);
 });
+
+
+test('management module centralizes documents for Secretaria and flyer',()=>{
+ const src=read('app/gestao.js');
+ assert.match(src,/function renderDocumentacaoGestao\(/);
+ assert.match(src,/Fonte central da Gestão para Secretaria e Panfletos/);
+ assert.match(src,/gfChecklistRowsForProfile/);
+ assert.match(src,/Abrir no panfleto/);
+ assert.match(src,/PUBLICADO_SECRETARIA/);
+ assert.match(src,/PUBLICADO_PANFLETO/);
+});
+
+test('flyer consumes central management document cache when available',()=>{
+ const x=setup();try{
+  x.run('state.docRulesCache={2026:{rows:[{ID_REGRA:"X1",TIPO_MATRICULA:"Novato",PUBLICO:"Aluno",SERIE_APLICAVEL:"Todos",DOCUMENTO:"Documento da Gestão",OBRIGATORIO:"Sim",CONDICAO:"Sempre",PRAZO:"Na matrícula",ATIVO:"Sim",PUBLICADO_PANFLETO:"Sim",PUBLICADO_SECRETARIA:"Sim"}]}}');
+  const d=x.run('gfFlyerDocumentRules(2026,"3º Ano","Novato",{})');
+  assert.equal(d.source,'gestao');
+  assert.ok(d.items.some(i=>i.t==='Documento da Gestão'));
+ }finally{x.dom.window.close()}
+});
