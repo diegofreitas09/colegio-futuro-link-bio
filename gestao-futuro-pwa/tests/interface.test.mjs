@@ -518,3 +518,30 @@ test('flyer consumes central management document cache when available',()=>{
   assert.ok(d.items.some(i=>i.t==='Documento da Gestão'));
  }finally{x.dom.window.close()}
 });
+
+
+test('series adjustment wizard filters products and previews percentage',()=>{
+ const x=setup();try{
+  x.w.__products=[
+   {ID_PRODUTO:'INF-ANU',ANO_LETIVO:2026,PRODUTO:'Anuidade Infantil',CATEGORIA:'Mensalidade',ATIVO:'Sim',VALOR_BASE:5805.93,'SEGMENTO_SÉRIE':'Infantil 2 ao 5'},
+   {ID_PRODUTO:'AI-MAT',ANO_LETIVO:2026,PRODUTO:'Material Didático Anos Iniciais',CATEGORIA:'Material Didático',ATIVO:'Sim',VALOR_BASE:1000,'SEGMENTO_SÉRIE':'1º ao 5º Ano'},
+   {ID_PRODUTO:'AF-UNI',ANO_LETIVO:2026,PRODUTO:'Fardamento Anos Finais',CATEGORIA:'Fardamento',ATIVO:'Sim',VALOR_BASE:200,'SEGMENTO_SÉRIE':'6º ao 9º Ano'}
+  ];
+  let rows=x.run('prodSeriesWizardRows(window.__products,2026,"3º Ano")');
+  assert.equal(rows.length,1);assert.equal(rows[0].ID_PRODUTO,'AI-MAT');
+  rows=x.run('prodSeriesWizardRows(window.__products,2026,"Infantil 4")');
+  assert.equal(rows.length,1);assert.equal(rows[0].ID_PRODUTO,'INF-ANU');
+  assert.equal(x.run('prodPreviewValue(1000,8)'),1080);
+ }finally{x.dom.window.close()}
+});
+
+test('series adjustment wizard publishes the new base year to all operational modules',()=>{
+ const src=read('app/gestao.js');
+ assert.match(src,/ASSISTENTE DE REAJUSTE POR SÉRIE/);
+ assert.match(src,/Ano anterior • origem/);
+ assert.match(src,/Novo ano-base/);
+ assert.match(src,/Reajuste geral \(%\)/);
+ assert.match(src,/Publicar novos valores e sincronizar/);
+ assert.match(src,/Atendimento, Secretaria, Panfletos e Matrícula/);
+ assert.match(src,/aplicarReajusteIndividual/);
+});
