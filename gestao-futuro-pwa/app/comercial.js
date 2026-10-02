@@ -994,26 +994,13 @@ function gfFlyerFolderName(serie){
 }
 function gfFlyerDocumentRules(y,serie,tipo,cfg){
   var n=gfFlyerGradeNumber(serie),veterano=gfNorm(tipo)==="veterano",year=Number(y)||2026;
-  var central=state.documentRulesByYear&&state.documentRulesByYear[year];
-  if(Array.isArray(central)&&central.length){
-    var tipoNorm=veterano?"veterano":"novato",norm=gfNorm;
-    var items=central.filter(function(r){
-      if(String(r.ATIVO||"Sim")==="Não"||String(r.PUBLICADO_PANFLETO||"Sim")==="Não")return false;
-      var t=norm(r.TIPO_MATRICULA||"Todos");
-      if(t!=="todos"&&t!==tipoNorm)return false;
-      var appl=norm(r.SERIE_APLICAVEL||"Todos");
-      if(appl.includes("1º ao 9º")||appl.includes("1o ao 9o"))return n>=1&&n<=9;
-      if(appl.includes("2º ao 9º")||appl.includes("2o ao 9o"))return n>=2&&n<=9;
-      if(appl==="todos")return true;
-      return !serie||norm(serie).includes(appl)||appl.includes(norm(serie));
-    }).map(function(r){
-      var title=String(r.DOCUMENTO||"");
-      if(norm(title)==="pasta escolar")title=gfFlyerFolderName(serie);
-      var details=[r.CONDICAO,r.PRAZO].filter(Boolean).join(" • ");
-      return {t:title,d:details};
-    });
-    var custom=veterano?String(cfg&&cfg.DOCUMENTOS_VETERANO||"").trim():String(cfg&&cfg.DOCUMENTOS_NOVATO||"").trim();
-    return {tipo:veterano?"Veterano":"Novato",items:items,custom:custom};
+  var central=state.docRulesCache&&state.docRulesCache[year]&&state.docRulesCache[year].rows;
+  if(Array.isArray(central)&&central.length&&typeof gfChecklistRowsForProfile==="function"){
+    var filtered=gfChecklistRowsForProfile(central,year,serie,tipo,"panfleto");
+    if(filtered.length){
+      var customCentral=veterano?String(cfg&&cfg.DOCUMENTOS_VETERANO||"").trim():String(cfg&&cfg.DOCUMENTOS_NOVATO||"").trim();
+      return {tipo:veterano?"Veterano":"Novato",items:filtered.map(function(r){return {t:r.DOCUMENTO||"",d:[r.CONDICAO,r.PRAZO].filter(Boolean).join(" • ")}}),custom:customCentral,source:"gestao"};
+    }
   }
   var common=[
     {t:"Requerimento de matrícula "+year+" preenchido e assinado"},
@@ -1034,7 +1021,7 @@ function gfFlyerDocumentRules(y,serie,tipo,cfg){
   ];
   if(n>=2&&n<=9)novatos.push({t:"Histórico Escolar original ou declaração provisória da escola de origem",d:year===2026?"Histórico poderá ser entregue até 19/01/2026.":"Histórico conforme prazo informado pela Secretaria."});
   var custom=veterano?String(cfg&&cfg.DOCUMENTOS_VETERANO||"").trim():String(cfg&&cfg.DOCUMENTOS_NOVATO||"").trim();
-  return {tipo:veterano?"Veterano":"Novato",items:veterano?common:novatos.concat(common),custom:custom};
+  return {tipo:veterano?"Veterano":"Novato",items:veterano?common:novatos.concat(common),custom:custom,source:"fallback"};
 }
 function gfFlyerDocumentsMarkup(y,serie,tipo,cfg){
   var d=gfFlyerDocumentRules(y,serie,tipo,cfg);
