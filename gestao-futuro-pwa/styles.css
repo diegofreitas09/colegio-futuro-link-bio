@@ -829,3 +829,20 @@ body.home-active .shell{filter:blur(2px) saturate(.8);pointer-events:none;user-s
 .official-docs-actions{display:flex;align-items:center;gap:12px;margin-top:12px}
 .official-docs-actions span{font-size:9px;color:#718096}
 @media(max-width:900px){.official-docs-grid{grid-template-columns:1fr}.official-docs-head,.official-docs-actions{flex-direction:column}.official-docs-actions .btn{width:100%}}
+
+/* Documentação integrada no panfleto */
+.flyer-docs-integrated{margin-top:10px!important;padding:10px 11px;border:1px solid #d9e5f1;border-radius:13px;background:#f8fbff;break-inside:avoid}
+.flyer-docs-title{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;margin-bottom:7px}
+.flyer-docs-title small{display:block;font-size:8px;font-weight:900;letter-spacing:.08em;color:#2a67a7}
+.flyer-docs-title h3{margin:2px 0 0!important;padding:0!important;border:0!important;font-size:13px!important;color:#123b76}
+.flyer-docs-title>span{padding:4px 7px;border-radius:999px;background:#e3eef9;color:#174c88;font-size:8px;font-weight:900;white-space:nowrap}
+.flyer-doc-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 10px}
+.flyer-doc-item{display:grid;grid-template-columns:15px 1fr;gap:5px;align-items:start;min-width:0}
+.flyer-doc-item i{width:14px;height:14px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#e0f4e7;color:#167443;font-style:normal;font-size:8px;font-weight:900}
+.flyer-doc-item b{display:block;font-size:8.7px;line-height:1.2;color:#25384f}
+.flyer-doc-item small{display:block;margin-top:1px;font-size:7.2px;line-height:1.25;color:#77869a}
+.flyer-doc-custom{margin-top:7px;padding-top:6px;border-top:1px dashed #cfdae7;font-size:7.6px;line-height:1.3;color:#52657b}
+.flyer-a4.dense .flyer-doc-item b{font-size:8px}.flyer-a4.dense .flyer-doc-item small{font-size:6.8px}
+.flyer-a4.ultra-dense .flyer-docs-integrated{padding:7px 8px}.flyer-a4.ultra-dense .flyer-doc-list{gap:3px 7px}.flyer-a4.ultra-dense .flyer-doc-item b{font-size:7.4px}.flyer-a4.ultra-dense .flyer-doc-item small{font-size:6.3px}
+@media(max-width:760px){.flyer-doc-list{grid-template-columns:1fr}.flyer-docs-title{align-items:flex-start}}
+@media print{.flyer-doc-list{grid-template-columns:repeat(2,minmax(0,1fr))!important}.flyer-docs-integrated{break-inside:avoid!important;page-break-inside:avoid!important}}
