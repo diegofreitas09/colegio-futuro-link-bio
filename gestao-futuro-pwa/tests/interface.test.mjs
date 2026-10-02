@@ -437,3 +437,38 @@ test('STI stays in 12 installments and synchronizes with regular plan',()=>{
   assert.match(s.label,/1x final de R.*654,50 somente S\.T\.I\./);
  }finally{x.dom.window.close()}
 });
+
+
+test('official 2026 document checklist applies folder colors and grade rules',()=>{
+ const x=setup();try{
+  x.w.__aluno={TIPO_ALUNO:'Novato','SÉRIE':'3º Ano'};
+  x.w.__mat={TIPO_MATRICULA:'Novato','SÉRIE':'3º Ano',ANO_LETIVO:2026};
+  const docs=x.run('gfDocs2026ForStudent(window.__aluno,window.__mat)');
+  assert.ok(docs.some(d=>d.id==='DOC-NOV-003'&&/amarela/.test(d.documento)));
+  assert.ok(docs.some(d=>d.id==='DOC-NOV-010'));
+  assert.ok(docs.some(d=>d.id==='DOC-NOV-011'));
+  assert.ok(docs.some(d=>d.id==='DOC-NOV-009'&&/16\.929/.test(d.condicao)));
+  assert.ok(docs.some(d=>d.id==='DOC-NOV-015'));
+  assert.ok(docs.some(d=>/17\/01\/2025/.test(d.prazo)));
+ }finally{x.dom.window.close()}
+});
+
+test('veteran checklist hides novato-only requirements',()=>{
+ const x=setup();try{
+  x.w.__aluno={TIPO_ALUNO:'Veterano','SÉRIE':'7º Ano'};
+  x.w.__mat={TIPO_MATRICULA:'Veterano','SÉRIE':'7º Ano',ANO_LETIVO:2026};
+  const docs=x.run('gfDocs2026ForStudent(window.__aluno,window.__mat)');
+  assert.equal(docs.some(d=>d.id==='DOC-NOV-003'),false);
+  assert.equal(docs.some(d=>d.id==='DOC-NOV-004'),false);
+  assert.equal(docs.some(d=>d.id==='DOC-NOV-009'),true);
+  assert.equal(docs.some(d=>d.id==='DOC-NOV-012'),true);
+ }finally{x.dom.window.close()}
+});
+
+test('official checklist source is present in the Secretaria documents UI',()=>{
+ const src=read('app/secretaria.js');
+ assert.match(src,/SECRETARIA • DOCUMENTAÇÃO 2026/);
+ assert.match(src,/Gerar .*pendência\(s\) no checklist/);
+ assert.match(src,/Histórico Escolar original ou declaração provisória/);
+ assert.match(src,/Comprovante de pagamento da 1ª parcela da anuidade de 2026/);
+});
