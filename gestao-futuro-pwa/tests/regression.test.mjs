@@ -89,8 +89,9 @@ test('management documentation module is wired to Secretaria and Panfletos',()=>
  assert.match(gestao,/listarChecklistDocumentos/);
  assert.match(secretaria,/listarChecklistDocumentos/);
  assert.match(comercial,/listarChecklistDocumentos/);
- assert.match(comercial,/PUBLICADO_PANFLETO/);
+ assert.match(gestao,/PUBLICADO_PANFLETO/);
  assert.match(secretaria,/PUBLICADO_SECRETARIA/);
+ assert.match(comercial,/gfChecklistRowsForProfile/);
 });
 
 test('backend exposes checklist management actions',()=>{
