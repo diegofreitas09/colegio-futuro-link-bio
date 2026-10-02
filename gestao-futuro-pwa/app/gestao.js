@@ -21,12 +21,48 @@ function gfGestaoDocFallbackRows(ano){
     };
   });
 }
-async function gfLoadChecklistGestao(ano){
+async function gfLoadChecklistGestao(ano,force){
+  var y=Number(ano)||2026;
+  state.docRulesCache=state.docRulesCache||{};
+  if(!force&&state.docRulesCache[y])return state.docRulesCache[y];
   try{
-    var rows=await api("listarChecklistDocumentos",{token:state.adminToken,ano:Number(ano)||2026});
-    if(Array.isArray(rows)&&rows.length)return {rows:rows,source:"api"};
+    var rows=await api("listarChecklistDocumentos",{token:tokenFor("staff"),ano:y});
+    if(Array.isArray(rows)&&rows.length){
+      state.docRulesCache[y]={rows:rows,source:"api",year:y};
+      return state.docRulesCache[y];
+    }
   }catch(e){}
-  return {rows:gfGestaoDocFallbackRows(ano),source:"fallback"};
+  state.docRulesCache[y]={rows:gfGestaoDocFallbackRows(y),source:"fallback",year:y};
+  return state.docRulesCache[y];
+}
+function gfChecklistSeriesMatch(rule,serie){
+  var a=gfNorm(rule&&rule.SERIE_APLICAVEL||"Todos"),s=gfNorm(serie),n=(s.match(/\b([1-9])\s*(?:º|o)?\s*ano\b/)||[])[1];
+  n=Number(n||0);
+  if(!a||a==="todos")return true;
+  if(a.includes("1º ao 9º")||a.includes("1o ao 9o")||a.includes("1 ao 9"))return n>=1&&n<=9;
+  if(a.includes("2º ao 9º")||a.includes("2o ao 9o")||a.includes("2 ao 9"))return n>=2&&n<=9;
+  if(a.includes("infantil"))return s.includes("infantil");
+  if(a.includes("anos iniciais"))return n>=1&&n<=5;
+  if(a.includes("anos finais"))return n>=6&&n<=9;
+  return s===a||s.includes(a)||a.includes(s);
+}
+function gfChecklistFolderLabel(serie){
+  var s=gfNorm(serie),m=s.match(/\b([1-9])\s*(?:º|o)?\s*ano\b/),n=Number(m&&m[1]||0);
+  if(s.includes("infantil"))return "Pasta escolar rosa (Educação Infantil)";
+  if(n>=1&&n<=5)return "Pasta escolar amarela (Anos Iniciais)";
+  if(n>=6&&n<=9)return "Pasta escolar verde (Anos Finais)";
+  return "Pasta escolar conforme orientação da Secretaria";
+}
+function gfChecklistRowsForProfile(rows,ano,serie,tipo,channel){
+  var t=gfNorm(tipo||"Novato"),pub=channel==="panfleto"?"PUBLICADO_PANFLETO":"PUBLICADO_SECRETARIA";
+  return (rows||[]).filter(function(r){
+    var rt=gfNorm(r.TIPO_MATRICULA||"Todos");
+    return String(r.ATIVO||"Sim")!=="Não"&&String(r[pub]||"Sim")!=="Não"&&(rt==="todos"||rt===t)&&gfChecklistSeriesMatch(r,serie);
+  }).map(function(r){
+    var x=Object.assign({},r);
+    if(/pasta escolar/i.test(String(x.DOCUMENTO||"")))x.DOCUMENTO=gfChecklistFolderLabel(serie);
+    return x;
+  });
 }
 function gfDocPubBadge(v){return pill(String(v||"Sim"),String(v||"Sim")==="Sim"?"ok":"warn")}
 async function renderDocumentacaoGestao(){
@@ -63,12 +99,12 @@ async function renderDocumentacaoGestao(){
 
   function preview(){
     var tipo=$("#docPreviewType").value,serie=$("#docPreviewSeries").value;
-    var docs=typeof gfDocs2026ForStudent==="function"?gfDocs2026ForStudent({TIPO_ALUNO:tipo,"SÉRIE":serie},{TIPO_MATRICULA:tipo,"SÉRIE":serie,ANO_LETIVO:year}):[];
-    $("#docPreviewArea").innerHTML="<div class='doc-preview-list'>"+docs.map(function(d){return "<div><i>✓</i><span><b>"+esc(d.documento)+"</b><small>"+esc([d.condicao,d.prazo].filter(Boolean).join(" • "))+"</small></span></div>"}).join("")+"</div>";
+    var docs=gfChecklistRowsForProfile(rows,year,serie,tipo,"secretaria");
+    $("#docPreviewArea").innerHTML="<div class='doc-preview-list'>"+docs.map(function(d){return "<div><i>✓</i><span><b>"+esc(d.DOCUMENTO||"")+"</b><small>"+esc([d.CONDICAO,d.PRAZO].filter(Boolean).join(" • "))+"</small></span></div>"}).join("")+"</div>";
   }
   $("#docPreviewType").onchange=preview;$("#docPreviewSeries").onchange=preview;preview();
   $("#openDocFlyer").onclick=function(){state.flyerYear=year;state.flyerSeries=$("#docPreviewSeries").value;state.flyerStudentType=$("#docPreviewType").value;navigate("panfletos")};
-  $("#refreshDocRules").onclick=function(){clearApiCache();renderDocumentacaoGestao()};
+  $("#refreshDocRules").onclick=function(){clearApiCache();if(state.docRulesCache)delete state.docRulesCache[year];renderDocumentacaoGestao()};
   $("#docRulesYear").onchange=function(){state.docRulesYear=Number(this.value);renderDocumentacaoGestao()};
   if($("#newDocRule"))$("#newDocRule").onclick=function(){openDocRuleForm(null,year)};
   $$("[data-edit-doc-rule]").forEach(function(btn){btn.onclick=function(){openDocRuleForm(rows.find(r=>String(r.ID_REGRA)===String(btn.dataset.editDocRule))||null,year)}});
