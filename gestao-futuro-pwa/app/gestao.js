@@ -278,14 +278,14 @@ function campaignTitle(segment){
   if(s.indexOf("6º ao 9º")>=0||s.indexOf("6o ao 9o")>=0)return "Anos Finais";
   return segment||"Segmento";
 }
-function campaignCardHtml(first,campaign,year,i){
-  var base=Number(first.VALOR_BASE||0),m=campaign?gfCampaignMeta(campaign):{name:"Campanha Matrículas "+year,discount:30,cardInstallments:3,paymentMethod:"Cartão",studentType:"Todos",start:"",end:"",showFlyer:true,autoApply:true,noInterest:true,note:""},final=campaign?gfCampaignResult(base,campaign).final:Math.round(base*(1-m.discount/100)*100)/100,active=!campaign||String(campaign.ATIVO||"Sim")!=="Não";
+function campaignCardHtml(first,campaign,year,i,list){
+  var segment=first&&first["SEGMENTO_SÉRIE"]||"",base=gfCampaignBaseAmount(list||[],year,segment)||Number(first&&first.VALOR_BASE||0),m=campaign?gfCampaignMeta(campaign):{name:"Campanha Matrículas "+year,discount:30,cardInstallments:3,paymentMethod:"Cartão",studentType:"Todos",start:"",end:"",showFlyer:true,autoApply:true,noInterest:true,note:""},calcCampaign=campaign||{VALOR_BASE:m.discount,QTD_PARCELAS:m.cardInstallments,OBSERVACAO_INTERNA:JSON.stringify(m)},final=gfCampaignResult(base,calcCampaign).final,active=!campaign||String(campaign.ATIVO||"Sim")!=="Não";
   var opts=Array.from({length:12},function(_,i){return i+1}).map(function(n){return '<option value="'+n+'" '+(Number(m.cardInstallments)===n?"selected":"")+'>'+n+'x</option>'}).join("");
   var pay=["Cartão","Pix","Cartão ou Pix","Qualquer forma"].map(function(v){return '<option '+(m.paymentMethod===v?"selected":"")+'>'+v+'</option>'}).join("");
   var pub=["Todos","Novato","Veterano"].map(function(v){return '<option '+(m.studentType===v?"selected":"")+'>'+v+'</option>'}).join("");
   return '<article class="campaign-segment-card" data-campaign-card="'+i+'" data-campaign-id="'+esc(campaign&&campaign.ID_PRODUTO||"")+'" data-segment="'+esc(first["SEGMENTO_SÉRIE"]||"")+'" data-first-base="'+base+'">'+
     '<div class="campaign-card-head"><div><small>SEGMENTO</small><h4>'+esc(campaignTitle(first["SEGMENTO_SÉRIE"]))+'</h4><span>'+esc(first["SEGMENTO_SÉRIE"]||"")+'</span></div><span class="campaign-status '+(active?"on":"off")+'">'+(active?"ATIVA":"INATIVA")+'</span></div>'+
-    '<div class="campaign-price-preview"><div><small>1ª PARCELA OFICIAL</small><b>'+money(base)+'</b></div><div class="discount"><small>COM CAMPANHA</small><b data-campaign-final>'+money(final)+'</b><span data-campaign-saving>'+m.discount+'% de desconto</span></div></div>'+
+    '<div class="campaign-price-preview"><div><small>BASE • 12x APÓS VENCIMENTO</small><b>'+money(base)+'</b></div><div class="discount"><small>1ª PARCELA COM CAMPANHA</small><b data-campaign-final>'+money(final)+'</b><span data-campaign-saving>'+m.discount+'% de desconto</span></div></div>'+
     '<div class="campaign-fields"><div class="field span-2"><label>Nome da campanha</label><input data-campaign-field="name" value="'+esc(m.name)+'"></div>'+
     '<div class="field"><label>Desconto na 1ª parcela (%)</label><input data-campaign-field="discount" type="number" min="0" max="100" step="0.0001" value="'+esc(Math.round(Number(m.discount||0)*10000)/10000)+'"></div>'+
     '<div class="field"><label>Parcelamento máximo da 1ª parcela</label><select data-campaign-field="cardInstallments">'+opts+'</select></div>'+
@@ -303,7 +303,7 @@ function campaignCardHtml(first,campaign,year,i){
 function campaignCardData(card,year){
   var g=function(k){return card.querySelector('[data-campaign-field="'+k+'"]')},base=Number(card.dataset.firstBase||0);
   var meta={name:g("name").value.trim()||("Campanha Matrículas "+year),discount:Math.max(0,Math.min(100,Number(g("discount").value||0))),cardInstallments:Math.max(1,Number(g("cardInstallments").value||1)),paymentMethod:g("paymentMethod").value||"Cartão",studentType:g("studentType").value||"Todos",start:g("start").value||"",end:g("end").value||"",showFlyer:g("showFlyer").checked,autoApply:g("autoApply").checked,noInterest:g("noInterest").checked,note:g("note").value.trim()};
-  var final=Math.round(base*(1-meta.discount/100)*100)/100,note=(meta.discount?meta.discount+"% de desconto na 1ª parcela":"Sem desconto")+(meta.cardInstallments>1?" • até "+meta.cardInstallments+"x no "+meta.paymentMethod.toLowerCase()+(meta.noInterest?" sem juros":""):"");
+  var final=gfCampaignResult(base,{VALOR_BASE:meta.discount,QTD_PARCELAS:meta.cardInstallments,OBSERVACAO_INTERNA:JSON.stringify(meta)}).final,note=(meta.discount?meta.discount+"% de desconto na 1ª parcela":"Sem desconto")+(meta.cardInstallments>1?" • até "+meta.cardInstallments+"x no "+meta.paymentMethod.toLowerCase()+(meta.noInterest?" sem juros":""):"");
   return {id:card.dataset.campaignId||"",segment:card.dataset.segment||"",base:base,final:final,meta:meta,payload:{ANO_LETIVO:Number(year),CATEGORIA:"Campanha",SUBCATEGORIA:"1ª Parcela",PRODUTO:meta.name,"SEGMENTO_SÉRIE":card.dataset.segment||"","DESCRIÇÃO":note,VALOR_BASE:meta.discount,"VALOR_PÓS_VENCIMENTO":0,"VALOR_CRÉDITO":0,QTD_PARCELAS:meta.cardInstallments,VALOR_PARCELA:0,VENCIMENTO_PADRÃO:meta.end||"",ATIVO:g("active").checked?"Sim":"Não","OBSERVAÇÃO":meta.note||note,TIPO_COBRANCA:"Campanha",DISPONIVEL_MATRICULA:"Não",ORDEM_EXIBICAO:1,OBSERVACAO_INTERNA:JSON.stringify(meta),PUBLICADO_ATENDIMENTO:"Sim"}};
 }
 
@@ -314,7 +314,8 @@ async function renderProdutos(){
   const targetDefault=years.includes(2027)?2027:(years.find(y=>y>=2027)||years[0]||2027);
   const sourceDefault=years.includes(2026)?2026:(years.find(y=>y<targetDefault)||targetDefault-1);
   const current=targetDefault;
-  const targetYears=[...years].sort((a,b)=>b-a);
+  const flowYears=[2026,2027].filter(y=>years.includes(y));
+  const targetYears=flowYears.length===2?flowYears:[...years].sort((a,b)=>b-a);
   const campaignDefaultYear=campaignFirstProducts(list,2027).length?2027:targetDefault;
   state.productYear=targetDefault;
 
@@ -339,7 +340,7 @@ async function renderProdutos(){
 
       <section class="tuition-plan-engine" id="tuitionPlanEngine">
         <div class="tuition-plan-head">
-          <div><small>MENSALIDADE REGULAR</small><h4>Anuidade e planos vinculados</h4><span>Altere a anuidade e a 1ª parcela; as parcelas 12x e 11x são recalculadas automaticamente.</span></div>
+          <div><small>MENSALIDADE REGULAR</small><h4>Anuidade e planos vinculados</h4><span>Anuidade, 12x e 11x seguem a tabela oficial; a campanha usa como base o valor de 12x após o vencimento.</span></div>
           <span class="plan-formula-badge" id="planFormulaBadge">Tabela oficial independente</span>
         </div>
         <div id="tuitionPlanBody"></div>
@@ -383,7 +384,7 @@ async function renderProdutos(){
   const drawCampaignManager=()=>{
     const year=Number($("#campaignYear")?.value||campaignDefaultYear),firsts=campaignFirstProducts(list,year),root=$("#campaignCards");if(!root)return;
     if(!firsts.length){root.innerHTML="<div class='notice warn'>Cadastre primeiro as 1ª parcelas oficiais deste ano.</div>";return}
-    root.innerHTML=firsts.map(function(first,i){return campaignCardHtml(first,campaignForSegment(list,year,first["SEGMENTO_SÉRIE"]),year,i)}).join("");
+    root.innerHTML=firsts.map(function(first,i){return campaignCardHtml(first,campaignForSegment(list,year,first["SEGMENTO_SÉRIE"]),year,i,list)}).join("");
     $$("[data-campaign-card]").forEach(function(card){
       const refresh=()=>{const d=campaignCardData(card,year),fake={VALOR_BASE:d.meta.discount,QTD_PARCELAS:d.meta.cardInstallments,OBSERVACAO_INTERNA:JSON.stringify(d.meta)};card.querySelector("[data-campaign-final]").textContent=money(d.final);card.querySelector("[data-campaign-saving]").textContent=d.meta.discount+"% de desconto";card.querySelector("[data-campaign-condition]").textContent=gfCampaignConditionText(fake)};
       card.querySelectorAll("[data-campaign-field]").forEach(function(el){el.oninput=refresh;el.onchange=refresh});
@@ -532,8 +533,8 @@ async function renderProdutos(){
   };
 
   $("#prodSearch").oninput=drawCatalog;$("#prodYear").onchange=drawCatalog;
-  $("#newSchoolYear").onclick=()=>openSchoolYearForm(years,list);
-  $("#individualAdjustment").onclick=()=>openIndividualAdjustment(list,years);
+  $("#newSchoolYear").onclick=()=>openSchoolYearForm(targetYears,list);
+  $("#individualAdjustment").onclick=()=>openIndividualAdjustment(list,targetYears);
   $("#newProductService").onclick=()=>openNewProductService();
   $("#campaignYear").onchange=drawCampaignManager;
   $("#campaignSaveAll").onclick=saveAllCampaigns;
