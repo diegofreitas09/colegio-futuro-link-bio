@@ -59,15 +59,16 @@ function gfFirstProduct(list){return (list||[]).find(function(p){var t=gfNorm([p
 function gfRecurringProduct(list,n){return (list||[]).find(function(p){return p.CATEGORIA==="Mensalidade"&&Number(p.QTD_PARCELAS)===Number(n)})||null}
 function gfPlanCalc(list,n,discFirst,discRecurring){
   n=Math.max(1,Math.trunc(Number(n||12)));discFirst=Math.max(0,Math.min(100,Number(discFirst||0)));discRecurring=Math.max(0,Math.min(100,Number(discRecurring||0)));
-  var annual=gfAnnualProduct(list),firstProduct=gfFirstProduct(list),monthly=gfRecurringProduct(list,n);
+  var annual=gfAnnualProduct(list),firstProduct=gfFirstProduct(list),monthly=gfRecurringProduct(list,n),campaignBaseProduct=gfRecurringProduct(list,12);
   var annualCents=Math.round(parseMoney(annual&&annual.VALOR_BASE)*100),annualValue=annualCents/100;
-  var firstCents=Math.round(parseMoney(firstProduct&&((firstProduct.VALOR_BASE!==""&&firstProduct.VALOR_BASE!=null)?firstProduct.VALOR_BASE:firstProduct.VALOR_PARCELA))*100);
+  var firstBaseValue=parseMoney(campaignBaseProduct&&campaignBaseProduct["VALOR_PÓS_VENCIMENTO"])||parseMoney(firstProduct&&((firstProduct.VALOR_BASE!==""&&firstProduct.VALOR_BASE!=null)?firstProduct.VALOR_BASE:firstProduct.VALOR_PARCELA));
+  var firstCents=Math.round(firstBaseValue*100);
   var recurringCents=Math.round(parseMoney(monthly&&((monthly.VALOR_PARCELA!==""&&monthly.VALOR_PARCELA!=null)?monthly.VALOR_PARCELA:monthly.VALOR_BASE))*100);
-  var complete=!!(annual&&firstProduct&&monthly&&annualCents>0&&firstCents>0&&recurringCents>0);
+  var complete=!!(annual&&monthly&&campaignBaseProduct&&annualCents>0&&firstCents>0&&recurringCents>0);
   var firstBase=firstCents/100,recurringBase=recurringCents/100,tableTotalCents=firstCents+(recurringCents*n);
-  var firstFinalCents=Math.round(firstCents*(100-discFirst)/100),recurringFinalCents=Math.round(recurringCents*(100-discRecurring)/100);
+  var firstFinalCents=Math.floor((firstCents*(100-discFirst)/100)+1e-9),recurringFinalCents=Math.round(recurringCents*(100-discRecurring)/100);
   var firstFinal=firstFinalCents/100,recurringFinal=recurringFinalCents/100,totalCents=firstFinalCents+(recurringFinalCents*n),total=totalCents/100,economy=Math.max(0,(annualCents-totalCents)/100);
-  return {n:n,annual:annual,firstProduct:firstProduct,annualValue:annualValue,monthly:monthly,firstBase:firstBase,recurringBase:recurringBase,discFirst:discFirst,discRecurring:discRecurring,firstFinal:firstFinal,recurringFinal:recurringFinal,total:total,economy:economy,tableTotal:tableTotalCents/100,complete:complete};
+  return {n:n,annual:annual,firstProduct:firstProduct,campaignBaseProduct:campaignBaseProduct,annualValue:annualValue,monthly:monthly,firstBase:firstBase,recurringBase:recurringBase,discFirst:discFirst,discRecurring:discRecurring,firstFinal:firstFinal,recurringFinal:recurringFinal,total:total,economy:economy,tableTotal:tableTotalCents/100,complete:complete};
 }
 function gfPlanSummary(plan){return "1ª parcela "+money(plan.firstFinal)+" + "+plan.n+"x de "+money(plan.recurringFinal)}
 function gfStiPlanSync(plan,stiValue){
@@ -130,11 +131,11 @@ function gfFlyerTuitionPlansMarkup(list,y){
   if(!annual&&!first&&!p12&&!p11)return "";
   var ref=annual||first||p12||p11,seg=gfFlyerTuitionSegmentLabel(ref);
   var annualMain=parseMoney(annual&&annual.VALOR_BASE),annualPost=gfFlyerAfterDue(annual);
-  var firstBase=parseMoney(first&&((first.VALOR_BASE!==""&&first.VALOR_BASE!=null)?first.VALOR_BASE:first.VALOR_PARCELA)),firstPost=gfFlyerAfterDue(first);
-  var campaign=gfCampaignFor(list,y,ref&&ref["SEGMENTO_SÉRIE"]||"", "Todos", false),firstMain=campaign?gfCampaignResult(firstBase,campaign).final:firstBase;
   var p12Main=parseMoney(p12&&((p12.VALOR_PARCELA!==""&&p12.VALOR_PARCELA!=null)?p12.VALOR_PARCELA:p12.VALOR_BASE)),p12Post=gfFlyerAfterDue(p12);
   var p11Main=parseMoney(p11&&((p11.VALOR_PARCELA!==""&&p11.VALOR_PARCELA!=null)?p11.VALOR_PARCELA:p11.VALOR_BASE)),p11Post=gfFlyerAfterDue(p11);
-  var firstCell=gfFlyerTuitionCell(firstMain,firstPost,"first");
+  var firstOfficial=parseMoney(first&&((first.VALOR_BASE!==""&&first.VALOR_BASE!=null)?first.VALOR_BASE:first.VALOR_PARCELA));
+  var campaign=gfCampaignFor(list,y,ref&&ref["SEGMENTO_SÉRIE"]||"", "Todos", false),campaignBase=p12Post||gfCampaignBaseAmount(list,y,ref&&ref["SEGMENTO_SÉRIE"]||"")||firstOfficial,firstMain=campaign?gfCampaignResult(campaignBase,campaign).final:firstOfficial;
+  var firstCell=gfFlyerTuitionCell(firstMain,0,"first");
   return "<section class='flyer-regular-table'><h3>Tempo regular</h3><div class='regular-table-scroll'><div class='regular-table-grid'>"+
     "<div class='regular-head'>SEGMENTO</div>"+
     "<div class='regular-head'>ANUIDADE</div>"+
@@ -1090,10 +1091,10 @@ function gfFlyerDocumentsMarkup(y,serie,tipo,cfg){
 function gfFlyerCampaignMarkup(list,y,s,tipoAluno){
   var campaign=gfCampaignFor(list,y,s,tipoAluno||"Todos",false);if(!campaign)return "";
   var meta=gfCampaignMeta(campaign);if(meta.showFlyer===false)return "";
-  var first=gfFirstProduct((list||[]).filter(function(p){return p.CATEGORIA==="Mensalidade"}));if(!first)return "";
-  var r=gfCampaignResult(parseMoney(first.VALOR_BASE||first.VALOR_PARCELA),campaign);
+  var base=gfCampaignBaseAmount(list,y,s);if(!base)return "";
+  var r=gfCampaignResult(base,campaign);
   return "<section class='flyer-campaign'><div><small>CAMPANHA DE MATRÍCULA</small><h3>"+esc(meta.name)+"</h3><p>"+esc(gfCampaignConditionText(campaign))+"</p></div>"+
-    "<div class='flyer-campaign-price'><span>1ª parcela</span><s>"+money(r.base)+"</s><b>"+money(r.final)+"</b></div></section>";
+    "<div class='flyer-campaign-price'><span>Base • 12x após vencimento</span><s>"+money(r.base)+"</s><b>"+money(r.final)+"</b></div></section>";
 }
 function gfFlyerMarkup(y,s,cfg,list,tipoAluno){
   var coreTuition=(list||[]).filter(gfFlyerIsTuitionCore),catalogRows=(list||[]).filter(function(p){return !gfFlyerIsTuitionCore(p)&&!gfIsCampaignProduct(p)}),groups=gfGroups(catalogRows),body="";
