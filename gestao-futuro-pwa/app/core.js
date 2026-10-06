@@ -699,7 +699,39 @@ function gfCampaignBaseProduct(products,year,serie){
       (!serie||typeof gfApplies!=="function"||gfApplies(p,serie));
   })||null;
 }
+function gfMoneyFloor2(v){
+  return Math.floor((Number(v||0)+1e-9)*100)/100;
+}
+function gfAnnualTuitionProduct(products,year,serie){
+  return (products||[]).find(function(p){
+    if(Number(p&&p.ANO_LETIVO)!==Number(year)||String(p&&p.ATIVO||"Sim")==="Não"||String(p&&p.CATEGORIA||"")!=="Mensalidade")return false;
+    var txt=String((p&&p.SUBCATEGORIA)||"")+" "+String((p&&p.PRODUTO)||"");
+    txt=txt.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+    if(txt.indexOf("anuidade")<0)return false;
+    return !serie||typeof gfApplies!=="function"||gfApplies(p,serie);
+  })||null;
+}
+function gfTuitionModelFromAnnual(annualMain,annualPost){
+  var annual=Number(annualMain||0),post=Number(annualPost||0);
+  return {
+    annual:annual,annualPost:post,
+    plan12:gfMoneyFloor2(annual/13),
+    plan12Post:gfMoneyFloor2(post/13),
+    plan11:gfMoneyFloor2(annual/12),
+    plan11Post:gfMoneyFloor2(post/12),
+    firstBase:gfMoneyFloor2(post/13)
+  };
+}
+function gfTuitionModel(products,year,serie){
+  var annual=gfAnnualTuitionProduct(products,year,serie);
+  if(!annual)return null;
+  var model=gfTuitionModelFromAnnual(Number(annual.VALOR_BASE||0),Number(annual["VALOR_PÓS_VENCIMENTO"]||0));
+  model.annualProduct=annual;
+  return model;
+}
 function gfCampaignBaseAmount(products,year,serie){
+  var model=gfTuitionModel(products,year,serie);
+  if(model&&model.firstBase>0)return model.firstBase;
   var p=gfCampaignBaseProduct(products,year,serie);
   return Number(p&&p["VALOR_PÓS_VENCIMENTO"]||p&&p.VALOR_PARCELA||p&&p.VALOR_BASE||0);
 }
@@ -900,12 +932,10 @@ function dashTuitionFromCatalog(products,year){
     const first=rows.find(p=>bySeries(p)&&(dashNorm(p.SUBCATEGORIA).includes("1ª parcela")||dashNorm(p.SUBCATEGORIA).includes("1a parcela")||dashNorm(p.PRODUTO).includes("primeira parcela")||dashNorm(p.PRODUTO).includes("1ª parcela")));
     const p12=rows.find(p=>bySeries(p)&&Number(p.QTD_PARCELAS)===12&&!dashNorm(p.SUBCATEGORIA).includes("1ª parcela"));
     const p11=rows.find(p=>bySeries(p)&&Number(p.QTD_PARCELAS)===11);
-    const anu=Number(annual?.VALOR_BASE||0),anuPost=Number(annual?.["VALOR_PÓS_VENCIMENTO"]||0);
-    const firstValue=Number(first?.VALOR_BASE||first?.VALOR_PARCELA||0),firstPost=Number(first?.["VALOR_PÓS_VENCIMENTO"]||0);
-    const v12=Number(p12?.VALOR_PARCELA||p12?.VALOR_BASE||0),v12Post=Number(p12?.["VALOR_PÓS_VENCIMENTO"]||0);
-    const v11=Number(p11?.VALOR_PARCELA||p11?.VALOR_BASE||0),v11Post=Number(p11?.["VALOR_PÓS_VENCIMENTO"]||0);
-    return {...s,year:Number(year),annual:anu,annualPost:anuPost,first:firstValue,firstPost:firstPost,plan12:v12,plan12Post:v12Post,plan11:v11,plan11Post:v11Post,
-      first12:firstValue,first12Post:firstPost,first11:firstValue,first11Post:firstPost,
+    const anu=Number(annual?.VALOR_BASE||0),anuPost=Number(annual?.["VALOR_PÓS_VENCIMENTO"]||0),model=gfTuitionModelFromAnnual(anu,anuPost);
+    return {...s,year:Number(year),annual:anu,annualPost:anuPost,first:model.firstBase,firstPost:model.firstBase,
+      plan12:model.plan12,plan12Post:model.plan12Post,plan11:model.plan11,plan11Post:model.plan11Post,
+      first12:model.firstBase,first12Post:model.firstBase,first11:model.firstBase,first11Post:model.firstBase,
       catalogComplete:!!(annual&&first&&p12&&p11)
     };
   });
@@ -1034,7 +1064,7 @@ function dashTuitionYearTable(rows,year,products){
   const body=(rows||[]).map(r=>{
     const firstOfficial=Number(r.first||r.first12||GF_FIRST_REFERENCE[Number(year)]?.[r.key]||0);
     const campaign=Number(year)>=2026?gfCampaignFor(products||[],year,r.series,"Todos",false):null;
-    const campaignBase=Number(r.plan12Post||0)||gfCampaignBaseAmount(products||[],year,r.series)||firstOfficial;
+    const campaignBase=gfCampaignBaseAmount(products||[],year,r.series)||Number(r.plan12Post||0)||firstOfficial;
     const firstResult=campaign?gfCampaignResult(campaignBase,campaign):{final:firstOfficial},first=Number(firstResult.final||firstOfficial||0);
     return "<tr><td><b>"+esc(r.label)+"</b><small>"+esc(r.series)+"</small></td>"+
       "<td>"+valuePair(r.annual,r.annualPost,r.pctAnnual,r.pctAnnualPost)+"</td>"+
@@ -1051,7 +1081,7 @@ function dashCampaignPolicyHtml(products,year){
   if(Number(year)<=2025)return "";
   const campaigns=(products||[]).filter(p=>gfIsCampaignProduct(p)&&dashYear(p)===Number(year)&&String(p.ATIVO||"Sim")!=="Não");
   if(!campaigns.length)return "";
-  const tuition=dashTuitionRowsForYear(products,year),firstMap=Object.fromEntries(tuition.map(r=>[dashNorm(r.series),Number(r.plan12Post||0)||gfCampaignBaseAmount(products,year,r.series)||Number(r.first||r.first12||0)]));
+  const tuition=dashTuitionRowsForYear(products,year),firstMap=Object.fromEntries(tuition.map(r=>[dashNorm(r.series),gfCampaignBaseAmount(products,year,r.series)||Number(r.plan12Post||0)||Number(r.first||r.first12||0)]));
   const rows=campaigns.map(p=>{
     const m=gfCampaignMeta(p),base=firstMap[dashNorm(p["SEGMENTO_SÉRIE"]||"")]||0,r=gfCampaignResult(base,p);
     const validity=(m.start||m.end)?((m.start?new Date(m.start+"T12:00:00").toLocaleDateString("pt-BR"):"—")+" → "+(m.end?new Date(m.end+"T12:00:00").toLocaleDateString("pt-BR"):"sem término")):"Sem período definido";
