@@ -1077,3 +1077,22 @@ body.home-active .shell{filter:blur(2px) saturate(.8);pointer-events:none;user-s
 .mat-campaign-values>div:last-child b{color:#b21b68}
 @media(max-width:760px){.flyer-campaign,.campaign-applied,.mat-campaign-head{align-items:flex-start;flex-direction:column}.flyer-campaign-price{text-align:left}.campaign-applied span{text-align:left}.mat-campaign-values{grid-template-columns:1fr}}
 @media print{.flyer-campaign{break-inside:avoid!important;page-break-inside:avoid!important}}
+
+
+/* Central de integrações • catálogo e campanhas sincronizadas */
+.integration-sync-card{margin-bottom:16px;border:1px solid #d9e7f6;background:linear-gradient(180deg,#fbfdff,#fff)}
+.integration-sync-modules{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 12px}
+.integration-sync-modules span{font-size:11px;font-weight:800;color:#165c3d;background:#eaf7f0;border:1px solid #ccebd9;border-radius:999px;padding:6px 9px}
+.integration-campaign-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.integration-campaign-list article{border:1px solid #e0e8f0;border-radius:12px;padding:10px;background:#fff;display:grid;grid-template-columns:1fr auto;gap:5px 10px;align-items:center}
+.integration-campaign-list article>div{display:grid;gap:1px}
+.integration-campaign-list small{font-size:9px;font-weight:900;color:#71839a}
+.integration-campaign-list b{font-size:12px;color:#123b76}
+.integration-campaign-list span{font-size:9.5px;color:#6b7b8e}
+.integration-campaign-list strong{font-size:18px;color:#b21b68}
+.integration-campaign-list em{grid-column:1/-1;font-size:9.5px;font-style:normal;color:#7a6742;background:#fff5df;padding:5px 7px;border-radius:8px}
+.integration-api-examples{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.integration-api-examples .api-example{display:grid;gap:7px}
+.integration-api-examples .api-example>b{font-size:10px;letter-spacing:.06em;color:#123b76}
+.integration-import-hint{margin-top:10px;padding:8px 10px;border-radius:9px;background:#f5f8fc;color:#61748a;font-size:11px;line-height:1.4}
+@media(max-width:980px){.integration-campaign-list,.integration-api-examples{grid-template-columns:1fr}}
