@@ -4,6 +4,7 @@ const GF_INTEGRATION_ENTITIES=[
   ["responsaveis","Responsáveis"],
   ["matriculas","Matrículas"],
   ["produtos","Produtos / serviços"],
+  ["campanhas","Campanhas da 1ª parcela"],
   ["atendimentos","Atendimentos"]
 ];
 
@@ -34,7 +35,8 @@ function gfIntTemplate(entity){
     alunos:["NOME_COMPLETO","DATA_NASCIMENTO","CPF","RG","SÉRIE","TURMA","TURNO","TIPO_ALUNO","MODALIDADE","ESCOLA_ORIGEM","CEP","LOGRADOURO","NUMERO","BAIRRO","CIDADE","ANO_LETIVO"],
     responsaveis:["ID_ALUNO","NOME_COMPLETO","CPF","PARENTESCO","TELEFONE","EMAIL","RESPONSAVEL_FINANCEIRO","CEP","ENDERECO"],
     matriculas:["ID_ALUNO","ANO_LETIVO","SÉRIE","TURNO","TIPO_MATRICULA","ID_PRODUTO_PLANO","PLANO_PARCELAS","VALOR_ANUIDADE_CONTRATADO","DIA_VENCIMENTO","PRIMEIRO_VENCIMENTO","OBSERVAÇÃO"],
-    produtos:["ANO_LETIVO","CATEGORIA","SUBCATEGORIA","PRODUTO","SEGMENTO_SÉRIE","DESCRIÇÃO","VALOR_BASE","QTD_PARCELAS","TIPO_COBRANCA","ATIVO"],
+    produtos:["ANO_LETIVO","CATEGORIA","SUBCATEGORIA","PRODUTO","SEGMENTO_SÉRIE","DESCRIÇÃO","VALOR_BASE","QTD_PARCELAS","TIPO_COBRANCA","ATIVO","PUBLICADO_ATENDIMENTO","DISPONIVEL_MATRICULA","OBSERVAÇÃO","OBSERVACAO_INTERNA"],
+    campanhas:["ANO_LETIVO","NOME_CAMPANHA","SEGMENTO_SÉRIE","DESCONTO_PRIMEIRA_%","PARCELAMENTO_MAXIMO","FORMA_PAGAMENTO","SEM_JUROS","PUBLICO","DATA_INICIO","DATA_FIM","APLICAR_AUTOMATICAMENTE","EXIBIR_PANFLETO","ATIVO","OBSERVAÇÃO"],
     atendimentos:["NOME_ALUNO","RESPONSAVEL","TELEFONE","EMAIL","TIPO_ALUNO","ANO_LETIVO","SERIE_PRETENDIDA","TURNO","MODALIDADE","ORIGEM","ETAPA","STATUS","OBSERVACAO"]
   };
   return headers[entity]||[];
@@ -52,16 +54,28 @@ async function gfCopy(textValue){
 }
 
 async function renderIntegracoes(){
-  const [jobs,keys]=await Promise.all([
+  const [jobs,keys,catalog]=await Promise.all([
     integrationApi({action:"admin:list-jobs",token:state.adminToken}).catch(()=>([])),
-    integrationApi({action:"admin:list-keys",token:state.adminToken}).catch(()=>([]))
+    integrationApi({action:"admin:list-keys",token:state.adminToken}).catch(()=>([])),
+    integrationApi({action:"admin:catalog-snapshot",token:state.adminToken}).catch(()=>({products:[],campaigns:[],updatedAt:""}))
   ]);
+  const campaigns=Array.isArray(catalog?.campaigns)?catalog.campaigns:[],products=Array.isArray(catalog?.products)?catalog.products:[];
 
   $("#view").innerHTML=`
     <div class="integration-hero">
-      <div><span>CENTRAL DE INTEGRAÇÕES</span><h2>Entrada de dados externos</h2><p>Receba dados por API, CSV ou Excel, faça uma pré-validação e só depois grave no banco oficial.</p></div>
+      <div><span>CENTRAL DE INTEGRAÇÕES</span><h2>Entrada e saída de dados sincronizados</h2><p>API, CSV e Excel usam o mesmo catálogo oficial da Gestão, incluindo campanhas da 1ª parcela e suas condições.</p></div>
       <div class="integration-badges"><b>API</b><b>CSV</b><b>Excel</b><b>JSON</b></div>
     </div>
+
+    <section class="card integration-sync-card">
+      <div class="section-head"><div><h2>Catálogo oficial sincronizado</h2><span class="muted">${products.length} produto(s) • ${campaigns.length} campanha(s) • atualizado ${esc(gfIntDate(catalog?.updatedAt))}</span></div><span class="pill ok">Fonte única</span></div>
+      <div class="integration-sync-modules">
+        <span>✓ Gestão</span><span>✓ Atendimento</span><span>✓ Secretaria</span><span>✓ Matrícula</span><span>✓ Panfletos</span><span>✓ Demonstrativos</span><span>✓ API/CSV/Excel</span>
+      </div>
+      <div class="integration-campaign-list">
+        ${campaigns.length?campaigns.map(x=>`<article><div><small>${esc(x.segment||"Todos")}</small><b>${esc(x.name||"Campanha")}</b><span>${esc(x.studentType||"Todos")} • ${esc(x.start||"sem início")} → ${esc(x.end||"sem término")}</span></div><strong>${Number(x.discount||0).toLocaleString("pt-BR",{maximumFractionDigits:2})}%</strong><em>até ${esc(x.cardInstallments||1)}x • ${esc(x.paymentMethod||"")}${x.noInterest?" • sem juros":""}</em></article>`).join(""):`<div class="notice">Nenhuma campanha publicada ainda. Ao salvar uma campanha na Gestão, ela entra automaticamente neste catálogo e nos módulos integrados.</div>`}
+      </div>
+    </section>
 
     <div class="integration-grid">
       <section class="card">
@@ -76,6 +90,7 @@ async function renderIntegracoes(){
           <button class="btn btn-soft" id="downloadTemplate">Baixar modelo CSV</button>
           <button class="btn btn-primary" id="stageFile">Receber e validar</button>
         </div>
+        <div class="integration-import-hint" id="integrationEntityHint">O modelo muda conforme o tipo de dado escolhido. Campanhas usam campos próprios de desconto, parcelamento, validade e público.</div>
       </section>
 
       <section class="card">
@@ -92,8 +107,11 @@ async function renderIntegracoes(){
     </div>
 
     <section class="card integration-api-card">
-      <div class="section-head"><div><h2>API para outra plataforma enviar dados</h2><span class="muted">Endpoint: <code>/api/integrations</code></span></div><button class="btn btn-gold" id="newIntegrationKey">+ Nova chave API</button></div>
-      <div class="api-example"><code>POST /api/integrations<br>Authorization: Bearer SUA_CHAVE<br><br>{ "action":"ingest", "entity":"alunos", "source":"Sistema parceiro", "records":[ ... ] }</code></div>
+      <div class="section-head"><div><h2>API bidirecional para plataformas parceiras</h2><span class="muted">Endpoint: <code>/api/integrations</code> • a mesma chave pode enviar dados e consultar o catálogo publicado</span></div><button class="btn btn-gold" id="newIntegrationKey">+ Nova chave API</button></div>
+      <div class="integration-api-examples">
+        <div class="api-example"><b>ENVIAR DADOS</b><code>POST /api/integrations<br>Authorization: Bearer SUA_CHAVE<br><br>{ "action":"ingest", "entity":"alunos", "source":"Sistema parceiro", "records":[ ... ] }</code></div>
+        <div class="api-example"><b>PUXAR CATÁLOGO + CAMPANHAS</b><code>POST /api/integrations<br>Authorization: Bearer SUA_CHAVE<br><br>{ "action":"catalog", "year":2027, "series":"Infantil 2" }</code></div>
+      </div>
       <div class="table-wrap"><table><thead><tr><th>Integração</th><th>Prefixo</th><th>Criada em</th><th>Status</th><th></th></tr></thead><tbody>
         ${keys.map(k=>`<tr><td><b>${esc(k.label||"Integração")}</b></td><td><code>${esc(k.prefix||"")}</code></td><td>${esc(gfIntDate(k.createdAt))}</td><td>${pill(k.active===false?"Revogada":"Ativa",k.active===false?"":"ok")}</td><td>${k.active===false?"":`<button class="btn btn-danger btn-sm" data-revoke-key="${esc(k.id)}">Revogar</button>`}</td></tr>`).join("")||`<tr><td colspan="5" class="empty">Nenhuma chave criada.</td></tr>`}
       </tbody></table></div>
@@ -107,6 +125,15 @@ async function renderIntegracoes(){
     </section>
   `;
 
+  const refreshIntegrationHint=()=>{
+    const entity=$("#intFileEntity").value,h=$("#integrationEntityHint");if(!h)return;
+    h.textContent=entity==="campanhas"
+      ?"Campanha da 1ª parcela: informe segmento, percentual, parcelamento máximo, forma de pagamento, público, validade e publicação. Ao processar, ela entra no mesmo catálogo consumido pelos demais módulos."
+      :entity==="produtos"
+      ?"Produtos e serviços usam os valores oficiais do catálogo. Campanhas devem ser importadas no tipo “Campanhas da 1ª parcela” para não serem tratadas como preço regular."
+      :"O arquivo será validado antes de entrar no banco oficial.";
+  };
+  $("#intFileEntity").onchange=refreshIntegrationHint;refreshIntegrationHint();
   $("#downloadTemplate").onclick=()=>gfDownloadCsvTemplate($("#intFileEntity").value);
   $("#stageFile").onclick=async function(){
     const f=$("#intFileForm");if(!f.reportValidity())return;
