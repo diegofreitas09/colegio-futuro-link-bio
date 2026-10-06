@@ -692,9 +692,21 @@ function gfCampaignFor(products,year,serie,studentType,allowScheduled){
     return allowScheduled===true||gfCampaignDateActive(m);
   }).sort(function(a,b){return Number(a.ORDEM_EXIBICAO||0)-Number(b.ORDEM_EXIBICAO||0)})[0]||null;
 }
+function gfCampaignBaseProduct(products,year,serie){
+  return (products||[]).find(function(p){
+    return Number(p&&p.ANO_LETIVO)===Number(year)&&String(p&&p.ATIVO||"Sim")!=="Não"&&
+      String(p&&p.CATEGORIA||"")==="Mensalidade"&&Number(p&&p.QTD_PARCELAS||0)===12&&
+      (!serie||typeof gfApplies!=="function"||gfApplies(p,serie));
+  })||null;
+}
+function gfCampaignBaseAmount(products,year,serie){
+  var p=gfCampaignBaseProduct(products,year,serie);
+  return Number(p&&p["VALOR_PÓS_VENCIMENTO"]||p&&p.VALOR_PARCELA||p&&p.VALOR_BASE||0);
+}
 function gfCampaignResult(firstBase,campaign){
-  var base=Number(firstBase||0),meta=gfCampaignMeta(campaign),final=Number(meta.finalValue||0);
-  if(!(final>0))final=Math.round(base*(1-meta.discount/100)*100)/100;
+  var base=Number(firstBase||0),meta=gfCampaignMeta(campaign);
+  var raw=base*(1-Number(meta.discount||0)/100);
+  var final=Math.floor((raw+1e-9)*100)/100;
   return {base:base,discount:meta.discount,final:final,meta:meta,campaign:campaign||null};
 }
 function gfCampaignConditionText(campaign){
@@ -1020,9 +1032,10 @@ function dashTuitionYearTable(rows,year,products){
       (post?"<strong>"+money(post)+"</strong><small>(após o vencimento)</small>"+dashAdjustmentBadge(pctB):"")+"</div>";
   };
   const body=(rows||[]).map(r=>{
-    const firstBase=Number(r.first||r.first12||GF_FIRST_REFERENCE[Number(year)]?.[r.key]||0);
+    const firstOfficial=Number(r.first||r.first12||GF_FIRST_REFERENCE[Number(year)]?.[r.key]||0);
     const campaign=Number(year)>=2026?gfCampaignFor(products||[],year,r.series,"Todos",false):null;
-    const firstResult=campaign?gfCampaignResult(firstBase,campaign):{final:firstBase},first=Number(firstResult.final||firstBase||0);
+    const campaignBase=Number(r.plan12Post||0)||gfCampaignBaseAmount(products||[],year,r.series)||firstOfficial;
+    const firstResult=campaign?gfCampaignResult(campaignBase,campaign):{final:firstOfficial},first=Number(firstResult.final||firstOfficial||0);
     return "<tr><td><b>"+esc(r.label)+"</b><small>"+esc(r.series)+"</small></td>"+
       "<td>"+valuePair(r.annual,r.annualPost,r.pctAnnual,r.pctAnnualPost)+"</td>"+
       "<td><div class='school-first-payment'><strong>"+(first?money(first):"—")+"</strong><small>"+(campaign?"campanha vigente":(Number(year)<=2025?"referência histórica":"valor oficial da Gestão"))+"</small>"+dashAdjustmentBadge(r.pctFirst)+"</div></td>"+
@@ -1038,7 +1051,7 @@ function dashCampaignPolicyHtml(products,year){
   if(Number(year)<=2025)return "";
   const campaigns=(products||[]).filter(p=>gfIsCampaignProduct(p)&&dashYear(p)===Number(year)&&String(p.ATIVO||"Sim")!=="Não");
   if(!campaigns.length)return "";
-  const tuition=dashTuitionRowsForYear(products,year),firstMap=Object.fromEntries(tuition.map(r=>[dashNorm(r.series),Number(r.first||r.first12||0)]));
+  const tuition=dashTuitionRowsForYear(products,year),firstMap=Object.fromEntries(tuition.map(r=>[dashNorm(r.series),Number(r.plan12Post||0)||gfCampaignBaseAmount(products,year,r.series)||Number(r.first||r.first12||0)]));
   const rows=campaigns.map(p=>{
     const m=gfCampaignMeta(p),base=firstMap[dashNorm(p["SEGMENTO_SÉRIE"]||"")]||0,r=gfCampaignResult(base,p);
     const validity=(m.start||m.end)?((m.start?new Date(m.start+"T12:00:00").toLocaleDateString("pt-BR"):"—")+" → "+(m.end?new Date(m.end+"T12:00:00").toLocaleDateString("pt-BR"):"sem término")):"Sem período definido";
