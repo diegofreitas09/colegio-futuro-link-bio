@@ -988,3 +988,33 @@ body.home-active .shell{filter:blur(2px) saturate(.8);pointer-events:none;user-s
 .flyer-plan-after{display:block;margin-top:4px;font-size:7.8px;color:#8a5c00}
 .flyer-plan-note{margin:6px 0 0;font-size:8px;line-height:1.2;color:#5e7188}
 @media(max-width:760px){.flyer-plan-grid,.flyer-tuition-summary{grid-template-columns:1fr}}
+
+
+/* Panfleto • tabela Tempo regular no padrão oficial */
+.flyer-regular-table{margin-top:8px!important;break-inside:avoid}
+.flyer-regular-table>h3{margin:0 0 8px!important;padding:0!important;border:0!important;text-align:center;color:#2d6fc7!important;font-size:22px!important;line-height:1.05;font-weight:900;letter-spacing:.01em}
+.regular-table-scroll{overflow-x:auto}
+.regular-table-grid{display:grid;grid-template-columns:1.08fr 1fr 1fr 1.03fr 1.03fr;gap:7px;min-width:690px}
+.regular-head,.regular-cell,.regular-segment{background:#f3e6bf;min-height:72px;padding:9px 8px;display:flex;align-items:center;justify-content:center;text-align:center;box-sizing:border-box}
+.regular-head{min-height:54px;font-size:12px;font-weight:900;color:#111;line-height:1.05}
+.regular-head small{display:block;margin-top:3px;font-size:8px;font-weight:700;line-height:1.15}
+.regular-segment{flex-direction:column;gap:2px;color:#111}
+.regular-segment b{font-size:11.5px;line-height:1.18}
+.regular-segment span{font-size:9.5px;line-height:1.15}
+.regular-segment strong{font-size:10.5px;line-height:1.15;color:#2d6fc7}
+.regular-value{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:54px}
+.regular-value b{font-size:12px;line-height:1.1;color:#111;white-space:nowrap}
+.regular-value small{font-size:8.5px;line-height:1.12;color:#222}
+.regular-value.regular-first b{font-size:13px;color:#b21b68}
+.regular-value.empty{font-size:14px;color:#8e8e8e}
+.regular-table-note{margin:6px 4px 0!important;font-size:7.8px!important;line-height:1.25!important;text-align:center;text-transform:uppercase;color:#222!important}
+@media(max-width:760px){
+ .flyer-regular-table>h3{font-size:19px!important}
+ .regular-table-scroll{margin-left:-2px;margin-right:-2px;padding-bottom:3px}
+}
+@media print{
+ .regular-table-scroll{overflow:visible!important}
+ .regular-table-grid{min-width:0!important;grid-template-columns:1.08fr 1fr 1fr 1.03fr 1.03fr!important;gap:5px!important}
+ .regular-head,.regular-cell,.regular-segment{padding:7px 5px!important}
+ .flyer-regular-table{break-inside:avoid!important;page-break-inside:avoid!important}
+}
