@@ -809,3 +809,24 @@ test('management demonstrative shows configured first-installment campaign by se
   assert.match(html,/3x/);
  }finally{x.dom.window.close()}
 });
+
+
+test('integration hub treats first-installment campaigns as a synchronized entity',()=>{
+ const x=setup();try{
+  assert.ok(x.run('GF_INTEGRATION_ENTITIES.some(x=>x[0]==="campanhas")'));
+  const headers=x.run('gfIntTemplate("campanhas")');
+  assert.ok(headers.includes("DESCONTO_PRIMEIRA_%"));
+  assert.ok(headers.includes("PARCELAMENTO_MAXIMO"));
+  assert.ok(headers.includes("DATA_INICIO"));
+  assert.ok(headers.includes("DATA_FIM"));
+ }finally{x.dom.window.close()}
+});
+
+test('integration source supports catalog pull and campaign upsert without duplicating segments',()=>{
+ const src=read('netlify/functions/integrations.mts');
+ assert.match(src,/admin:catalog-snapshot/);
+ assert.match(src,/action==="catalog"/);
+ assert.match(src,/campaignToProduct/);
+ assert.match(src,/existing\?\.id/);
+ assert.match(src,/outboundEntity="produtos"/);
+});
