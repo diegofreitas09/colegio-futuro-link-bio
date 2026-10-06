@@ -960,3 +960,31 @@ body.home-active .shell{filter:blur(2px) saturate(.8);pointer-events:none;user-s
 .bulk-progress-bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#1e6bd6,#1f9d68);transition:width .2s ease}
 .bulk-progress b{display:block;margin-top:8px;font-size:10px;color:#173f72}
 .bulk-progress span{display:block;margin-top:2px;font-size:8.5px;color:#738195;line-height:1.35}
+
+
+/* Planos comerciais nos panfletos */
+.flyer-tuition-plans{margin-top:8px!important;padding:10px;border:1px solid #cfdff1;border-radius:12px;background:linear-gradient(180deg,#f7fbff,#fff);break-inside:avoid}
+.flyer-plans-title{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px}
+.flyer-plans-title small{display:block;font-size:8px;font-weight:900;letter-spacing:.09em;color:#1e63d8}
+.flyer-plans-title h3{margin:2px 0 0!important;padding:0!important;border:0!important;font-size:15px!important;color:#123b76!important}
+.flyer-plans-title>span{font-size:8px;font-weight:800;color:#12673c;background:#eaf9f0;border-radius:999px;padding:4px 7px;white-space:nowrap}
+.flyer-tuition-summary{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:7px}
+.flyer-tuition-summary>div{background:#123b76;color:#fff;border-radius:9px;padding:7px 9px;display:grid;gap:1px}
+.flyer-tuition-summary small{font-size:8px;opacity:.82}
+.flyer-tuition-summary b{font-size:13px}
+.flyer-plan-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.flyer-plan-card{border:1px solid #dce6f3;border-radius:10px;background:#fff;padding:8px;break-inside:avoid}
+.flyer-plan-card-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}
+.flyer-plan-card-head span{font-size:8px;font-weight:900;color:#1e63d8;letter-spacing:.08em}
+.flyer-plan-card-head b{font-size:10px;color:#123b76}
+.flyer-plan-formula{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:6px}
+.flyer-plan-formula>div{display:grid;gap:1px}
+.flyer-plan-formula small{font-size:8px;color:#6c7e94}
+.flyer-plan-formula strong{font-size:10.5px;color:#123b76}
+.flyer-plan-formula i{font-style:normal;color:#9badc2;font-weight:900}
+.flyer-plan-total{display:flex;justify-content:space-between;gap:8px;border-top:1px dashed #dbe4ef;margin-top:6px;padding-top:5px}
+.flyer-plan-total span{font-size:8px;color:#6c7e94}
+.flyer-plan-total b{font-size:10px;color:#12673c}
+.flyer-plan-after{display:block;margin-top:4px;font-size:7.8px;color:#8a5c00}
+.flyer-plan-note{margin:6px 0 0;font-size:8px;line-height:1.2;color:#5e7188}
+@media(max-width:760px){.flyer-plan-grid,.flyer-tuition-summary{grid-template-columns:1fr}}
