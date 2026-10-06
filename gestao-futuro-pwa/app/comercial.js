@@ -60,7 +60,7 @@ function gfRecurringProduct(list,n){return (list||[]).find(function(p){return p.
 function gfPlanCalc(list,n,discFirst,discRecurring){
   n=Math.max(1,Math.trunc(Number(n||12)));discFirst=Math.max(0,Math.min(100,Number(discFirst||0)));discRecurring=Math.max(0,Math.min(100,Number(discRecurring||0)));
   var annual=gfAnnualProduct(list),firstProduct=gfFirstProduct(list),monthly=gfRecurringProduct(list,n);
-  var annualValue=parseMoney(annual&&annual.VALOR_BASE),annualPost=parseMoney(annual&&annual["VALOR_PÓS_VENCIMENTO"]),model=gfTuitionModelFromAnnual(annualValue,annualPost),useFormula=Number(annual&&annual.ANO_LETIVO||0)>=2027;
+  var annualValue=parseMoney(annual&&annual.VALOR_BASE),annualPost=parseMoney(annual&&annual["VALOR_PÓS_VENCIMENTO"]),model=gfTuitionModelFromAnnual(annualValue,annualPost),useFormula=Number(annual&&annual.ANO_LETIVO||0)>=2027&&annualValue>0&&annualPost>0;
   var firstBase=useFormula?model.firstBase:parseMoney(firstProduct&&((firstProduct.VALOR_BASE!==""&&firstProduct.VALOR_BASE!=null)?firstProduct.VALOR_BASE:firstProduct.VALOR_PARCELA));
   var recurringBase=useFormula?(n===11?model.plan11:model.plan12):parseMoney(monthly&&((monthly.VALOR_PARCELA!==""&&monthly.VALOR_PARCELA!=null)?monthly.VALOR_PARCELA:monthly.VALOR_BASE));
   var firstFinal=gfMoneyFloor2(firstBase*(1-discFirst/100)),recurringFinal=gfMoneyFloor2(recurringBase*(1-discRecurring/100));
@@ -128,7 +128,7 @@ function gfFlyerTuitionPlansMarkup(list,y){
   var annual=gfAnnualProduct(list),first=gfFirstProduct(list),p12=gfRecurringProduct(list,12),p11=gfRecurringProduct(list,11);
   if(!annual&&!first&&!p12&&!p11)return "";
   var ref=annual||first||p12||p11,seg=gfFlyerTuitionSegmentLabel(ref);
-  var annualMain=parseMoney(annual&&annual.VALOR_BASE),annualPost=gfFlyerAfterDue(annual),model=gfTuitionModelFromAnnual(annualMain,annualPost),useFormula=Number(y)>=2027;
+  var annualMain=parseMoney(annual&&annual.VALOR_BASE),annualPost=gfFlyerAfterDue(annual),model=gfTuitionModelFromAnnual(annualMain,annualPost),useFormula=Number(y)>=2027&&annualMain>0&&annualPost>0;
   var p12Main=useFormula?model.plan12:parseMoney(p12&&((p12.VALOR_PARCELA!==""&&p12.VALOR_PARCELA!=null)?p12.VALOR_PARCELA:p12.VALOR_BASE)),p12Post=useFormula?model.plan12Post:gfFlyerAfterDue(p12);
   var p11Main=useFormula?model.plan11:parseMoney(p11&&((p11.VALOR_PARCELA!==""&&p11.VALOR_PARCELA!=null)?p11.VALOR_PARCELA:p11.VALOR_BASE)),p11Post=useFormula?model.plan11Post:gfFlyerAfterDue(p11);
   var historicalFirst=parseMoney(first&&((first.VALOR_BASE!==""&&first.VALOR_BASE!=null)?first.VALOR_BASE:first.VALOR_PARCELA)),campaign=gfCampaignFor(list,y,ref&&ref["SEGMENTO_SÉRIE"]||"", "Todos", false),campaignBase=useFormula?model.firstBase:historicalFirst,firstMain=campaign?gfCampaignResult(campaignBase,campaign).final:campaignBase;
