@@ -640,3 +640,44 @@ test('bulk adjustment reports every unresolved product, not only request errors'
  assert.match(block,/for\(let attempt=0;attempt<3;attempt\+\+\)/);
  assert.doesNotMatch(block,/confirmed\+" de "\+sourceRows\.length\+" produto\(s\) confirmados\. "\+failed\.length/);
 });
+
+
+test('flyer shows official annuality and both payment plans from catalog',()=>{
+ const x=setup();try{
+  x.w.__products=[
+   {ID_PRODUTO:'ANU-INF-2027',ANO_LETIVO:2027,ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Sim',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Anuidade',PRODUTO:'Anuidade 2027 - Educação Infantil','SEGMENTO_SÉRIE':'Infantil 2 ao 5',VALOR_BASE:6270.40,'VALOR_PÓS_VENCIMENTO':6600.50,QTD_PARCELAS:1},
+   {ID_PRODUTO:'PRI-INF-2027',ANO_LETIVO:2027,ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Sim',CATEGORIA:'Mensalidade',SUBCATEGORIA:'1ª Parcela',PRODUTO:'1ª Parcela regular - Educação Infantil','SEGMENTO_SÉRIE':'Infantil 2 ao 5',VALOR_BASE:484.92,VALOR_PARCELA:484.92,QTD_PARCELAS:1},
+   {ID_PRODUTO:'MEN-INF-12-2027',ANO_LETIVO:2027,ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Sim',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Plano 12 parcelas',PRODUTO:'Mensalidade regular - Infantil','SEGMENTO_SÉRIE':'Infantil 2 ao 5',VALOR_BASE:482.12,VALOR_PARCELA:482.12,'VALOR_PÓS_VENCIMENTO':509.63,QTD_PARCELAS:12},
+   {ID_PRODUTO:'MEN-INF-11-2027',ANO_LETIVO:2027,ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Sim',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Plano 11 parcelas',PRODUTO:'Mensalidade regular - Infantil','SEGMENTO_SÉRIE':'Infantil 2 ao 5',VALOR_BASE:525.95,VALOR_PARCELA:525.95,'VALOR_PÓS_VENCIMENTO':555.96,QTD_PARCELAS:11},
+   {ID_PRODUTO:'MAT-INF2-2027',ANO_LETIVO:2027,ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Sim',CATEGORIA:'Material Didático',PRODUTO:'Material Didático - Infantil 2','SEGMENTO_SÉRIE':'Infantil 2',VALOR_BASE:524.34,QTD_PARCELAS:1}
+  ];
+  const list=x.run('gfCatalog(window.__products,2027,"Infantil 2")');
+  x.w.__list=list;
+  const html=x.run('gfFlyerMarkup(2027,"Infantil 2",{},window.__list,"Novato")');
+  assert.match(html,/Planos de mensalidade/);
+  assert.match(html,/PLANO A/);
+  assert.match(html,/1ª \+ 12x/);
+  assert.match(html,/PLANO B/);
+  assert.match(html,/1ª \+ 11x/);
+  assert.match(html,/R\$\s*6\.270,40/);
+  assert.match(html,/12x de R\$\s*482,12/);
+  assert.match(html,/11x de R\$\s*525,95/);
+  assert.match(html,/R\$\s*524,34/);
+  assert.equal((html.match(/<h3>Mensalidade<\/h3>/g)||[]).length,0);
+ }finally{x.dom.window.close()}
+});
+
+test('flyer plan values are calculated dynamically from the current catalog',()=>{
+ const x=setup();try{
+  x.w.__list=[
+   {ANO_LETIVO:2027,ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Sim',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Anuidade',PRODUTO:'Anuidade','SEGMENTO_SÉRIE':'Todos',VALOR_BASE:6600,QTD_PARCELAS:1},
+   {ANO_LETIVO:2027,ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Sim',CATEGORIA:'Mensalidade',SUBCATEGORIA:'1ª Parcela',PRODUTO:'1ª Parcela','SEGMENTO_SÉRIE':'Todos',VALOR_BASE:600,QTD_PARCELAS:1},
+   {ANO_LETIVO:2027,ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Sim',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Plano 12 parcelas',PRODUTO:'Mensalidade','SEGMENTO_SÉRIE':'Todos',VALOR_BASE:500,VALOR_PARCELA:500,QTD_PARCELAS:12},
+   {ANO_LETIVO:2027,ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Sim',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Plano 11 parcelas',PRODUTO:'Mensalidade','SEGMENTO_SÉRIE':'Todos',VALOR_BASE:545.45,VALOR_PARCELA:545.45,QTD_PARCELAS:11}
+  ];
+  const html=x.run('gfFlyerTuitionPlansMarkup(window.__list,2027)');
+  assert.match(html,/R\$\s*6\.600,00/);
+  assert.match(html,/12x de R\$\s*500,00/);
+  assert.match(html,/11x de R\$\s*545,45/);
+ }finally{x.dom.window.close()}
+});
