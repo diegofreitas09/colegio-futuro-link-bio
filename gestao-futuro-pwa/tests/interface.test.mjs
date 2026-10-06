@@ -16,7 +16,11 @@ for(const f of ['openCashReport([])','openStudentReport([])','openResponsibleRep
 }
 test('save, edit, failed update and manual synchronization preserve latest attendance',async()=>{
  const x=setup();const calls=[];let fail=false;let persisted=[];
- const products=[{ID_PRODUTO:'2027-I2',ANO_LETIVO:2027,PRODUTO:'Anuidade Infantil 2',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Anuidade',ATIVO:'Sim',VALOR_BASE:7788,QTD_PARCELAS:1,'SEGMENTO_SÉRIE':'Infantil 2'}];
+ const products=[
+  {ID_PRODUTO:'ANU-I2-2027',ANO_LETIVO:2027,PRODUTO:'Anuidade Infantil 2',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Anuidade',ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Sim',VALOR_BASE:7788,QTD_PARCELAS:1,'SEGMENTO_SÉRIE':'Infantil 2'},
+  {ID_PRODUTO:'PRI-I2-2027',ANO_LETIVO:2027,PRODUTO:'1ª Parcela Infantil 2',CATEGORIA:'Mensalidade',SUBCATEGORIA:'1ª Parcela',ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Sim',VALOR_BASE:599.04,VALOR_PARCELA:599.04,QTD_PARCELAS:1,'SEGMENTO_SÉRIE':'Infantil 2'},
+  {ID_PRODUTO:'MEN-I2-12-2027',ANO_LETIVO:2027,PRODUTO:'Mensalidade Infantil 2',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Plano 12 parcelas',ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Sim',VALOR_BASE:599.08,VALOR_PARCELA:599.08,QTD_PARCELAS:12,'SEGMENTO_SÉRIE':'Infantil 2'}
+ ];
  x.w.fetch=async(url,opts)=>{
   const b=JSON.parse(opts.body);calls.push(b);
   if(b.action==='salvarAtendimento'){
@@ -24,6 +28,7 @@ test('save, edit, failed update and manual synchronization preserve latest atten
    persisted=[{...b.data,ID_ATENDIMENTO:'ATE-1'}];return Response.json({ok:true,data:{id:'ATE-1'}});
   }
   if(b.action==='bootstrapSecretaria')return Response.json({ok:true,data:{produtos:products,alunos:[],responsaveis:[]}});
+  if(b.action==='listarProdutosPublicos')return Response.json({ok:true,data:products});
   if(b.action==='listarAtendimentos')return Response.json({ok:true,data:persisted});
   return Response.json({ok:true,data:[]});
  };
@@ -731,7 +736,7 @@ test('operational plan requires explicit annual first and recurring products fro
   let p=x.run('gfPlanCalc(window.__incomplete,12,0,0)');
   assert.equal(p.complete,false);
   assert.equal(p.firstBase,0);
-  x.w.__complete=window.__incomplete.concat([{ANO_LETIVO:2027,CATEGORIA:'Mensalidade',SUBCATEGORIA:'1ª Parcela',PRODUTO:'1ª Parcela',VALOR_BASE:1000,QTD_PARCELAS:1,'SEGMENTO_SÉRIE':'Todos'}]);
+  x.w.__complete=x.w.__incomplete.concat([{ANO_LETIVO:2027,CATEGORIA:'Mensalidade',SUBCATEGORIA:'1ª Parcela',PRODUTO:'1ª Parcela',VALOR_BASE:1000,QTD_PARCELAS:1,'SEGMENTO_SÉRIE':'Todos'}]);
   p=x.run('gfPlanCalc(window.__complete,12,0,0)');
   assert.equal(p.complete,true);
   assert.equal(p.firstBase,1000);
