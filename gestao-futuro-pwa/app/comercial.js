@@ -624,7 +624,9 @@ async function renderAtendimento(){
   var loaded=await Promise.all([loadBootstrap(),loadCatalogProducts(true)]),b=loaded[0],products=loaded[1]||[],students=b.alunos||[],at=[];
   try{at=await api("listarAtendimentos",{token:tokenFor("staff")})||[]}catch(e){}
   var resume=gfHydrateAddressCompat(state.resumeAttendance||null);
-  var years=[...new Set(products.map(gfYear).filter(Boolean))].sort(function(a,b){return b-a}),year=Number(resume?.ANO_LETIVO||state.attendanceYear||years[0]||2027);
+  var allYears=[...new Set(products.map(gfYear).filter(Boolean))].sort(function(a,b){return b-a}),flowYears=[2026,2027].filter(function(y){return allYears.includes(y)}),years=flowYears.length?flowYears:allYears;
+  var resumedYear=Number(resume?.ANO_LETIVO||0),year=resumedYear&&years.includes(resumedYear)?resumedYear:(years.includes(2027)?2027:(years[0]||2027));
+  state.attendanceYear=year;
   state.attendanceItems=state.attendanceItems||new Set();
   state.attendanceStage=resume?.ETAPA||state.attendanceStage||"Contato";
   var studentOpts=students.map(function(a){return "<option value='"+esc(a.ID_ALUNO)+"'>"+esc(a.NOME_COMPLETO)+" • "+esc(a["SÉRIE"]||"")+"</option>"}).join("");
@@ -1138,7 +1140,7 @@ async function renderPanfletos(){
   let requestSeq=0;
   const activePage=()=>state.view==="panfletos"&&state.navSeq===pageSeq&&!!$("#flyerArea");
 
-  var defaultYear=Number(state.flyerYear||2027),serie=state.flyerSeries||"Infantil 2",defaultType=state.flyerStudentType||"Novato";
+  var requestedFlyerYear=Number(state.flyerYear||2027),defaultYear=(requestedFlyerYear===2026||requestedFlyerYear===2027)?requestedFlyerYear:2027,serie=state.flyerSeries||"Infantil 2",defaultType=state.flyerStudentType||"Novato";
   const view=$("#view");
   if(!view)return;
   view.innerHTML="<div class='section-head'><div><h2>Panfleto por série</h2><span class='muted'>Valores, mensalidades, material, fardamento e documentos vêm automaticamente da Gestão e da Secretaria.</span></div><div class='toolbar'><span class='catalog-sync-badge' id='flyerCatalogSync'>Sincronizando Gestão…</span><select id='flyerYear' class='search'><option>"+defaultYear+"</option><option>"+(defaultYear-1)+"</option></select><select id='flyerSerie' class='search'>"+gfOptions(serie)+"</select><select id='flyerStudentType' class='search'><option "+(defaultType==="Novato"?"selected":"")+">Novato</option><option "+(defaultType==="Veterano"?"selected":"")+">Veterano</option></select><button class='btn btn-primary' id='generateFlyer'>Atualizar dados</button></div></div><div id='flyerArea'><div class='card flyer-loading'><b>Carregando panfleto…</b><span class='muted'>Consultando o catálogo oficial publicado pela Gestão.</span></div></div>";
@@ -1154,10 +1156,12 @@ async function renderPanfletos(){
   }
   if(!activePage())return;
 
-  var years=[...new Set(products.map(gfYear).filter(Boolean))].sort(function(a,b){return b-a});
+  var allFlyerYears=[...new Set(products.map(gfYear).filter(Boolean))].sort(function(a,b){return b-a}),years=[2026,2027].filter(function(y){return allFlyerYears.includes(y)});
+  if(!years.length)years=allFlyerYears;
   const yearSelect=$("#flyerYear");
   if(years.length&&yearSelect){
-    if(!years.includes(defaultYear))defaultYear=years[0];
+    if(!years.includes(defaultYear))defaultYear=years.includes(2027)?2027:years[0];
+    state.flyerYear=defaultYear;
     yearSelect.innerHTML=years.map(function(y){return "<option value='"+y+"' "+(y===defaultYear?"selected":"")+">"+y+"</option>"}).join("");
   }
 
