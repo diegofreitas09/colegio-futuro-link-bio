@@ -333,7 +333,7 @@ async function renderProdutos(){
       <div class="series-adjust-controls plan-aware">
         <div class="field"><label>Série</label><select id="seriesAdjSeries" class="search">${GF_GESTAO_SERIES.map(s=>`<option>${esc(s)}</option>`).join("")}</select></div>
         <div class="field"><label>Plano para conferência</label><select id="seriesAdjPlan" class="search"><option value="12">Plano A • 1ª + 12x</option><option value="11">Plano B • 1ª + 11x</option></select></div>
-        <div class="field"><label>Ano anterior • origem</label><select id="seriesAdjSource" class="search">${years.map(y=>`<option value="${y}" ${y===sourceDefault?"selected":""}>${y}</option>`).join("")}</select></div>
+        <div class="field"><label>Ano anterior • origem</label><select id="seriesAdjSource" class="search">${targetYears.map(y=>`<option value="${y}" ${y===sourceDefault?"selected":""}>${y}</option>`).join("")}</select></div>
         <div class="field"><label>Novo ano-base</label><select id="seriesAdjTarget" class="search">${targetYears.map(y=>`<option value="${y}" ${y===targetDefault?"selected":""}>${y}</option>`).join("")}</select></div>
         <div class="field span-2"><label>Reajuste geral (%)</label><div class="series-adj-inline"><input id="seriesAdjGlobal" type="number" step="0.01" value="0"><button class="btn btn-soft" id="applyGlobalAdj" type="button">Aplicar a todos</button></div></div>
       </div>
@@ -524,7 +524,7 @@ async function renderProdutos(){
         }});
       }
       state.productYear=target;clearApiCache();
-      setNotice("Ano-base "+target+" publicado para "+serie+". Anuidade, 1ª parcela, Plano 1+12 e Plano 1+11 foram fechados matematicamente e sincronizados com Atendimento, Secretaria, Panfletos e Matrícula.","ok");
+      setNotice("Ano-base "+target+" publicado para "+serie+". Anuidade, 12x, 11x e campanha da 1ª parcela foram sincronizados com Atendimento, Secretaria, Panfletos e Matrícula.","ok");
       await renderProdutos();
     }catch(e){
       showToast(e.message||"Não foi possível concluir o reajuste da série.","error");
