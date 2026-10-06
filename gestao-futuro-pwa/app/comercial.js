@@ -107,6 +107,38 @@ function gfFlyerPlanMeta(p,list){
   }
   return null;
 }
+
+function gfFlyerIsTuitionCore(p){
+  if(!p||p.CATEGORIA!=="Mensalidade")return false;
+  var q=Number(p.QTD_PARCELAS||0),txt=gfNorm([p.SUBCATEGORIA,p.PRODUTO].filter(Boolean).join(" "));
+  return q===11||q===12||txt.includes("anuidade")||txt.includes("1ª parcela")||txt.includes("1a parcela")||txt.includes("primeira parcela");
+}
+function gfFlyerAfterDue(p){
+  var v=parseMoney(p&&p["VALOR_PÓS_VENCIMENTO"]);
+  return v>0?v:0;
+}
+function gfFlyerTuitionPlansMarkup(list,y){
+  var annual=gfAnnualProduct(list),first=gfFirstProduct(list),p12=gfRecurringProduct(list,12),p11=gfRecurringProduct(list,11);
+  if(!annual&&!first&&!p12&&!p11)return "";
+  var a=gfPlanCalc(list,12,0,0),b=gfPlanCalc(list,11,0,0);
+  var annualValue=parseMoney(annual&&annual.VALOR_BASE)||a.annualValue||b.annualValue||0;
+  var firstValue=parseMoney(first&&(first.VALOR_BASE||first.VALOR_PARCELA))||a.firstBase||b.firstBase||0;
+  var annualPost=gfFlyerAfterDue(annual),firstPost=gfFlyerAfterDue(first),p12Post=gfFlyerAfterDue(p12),p11Post=gfFlyerAfterDue(p11);
+  function planCard(letter,n,plan,post){
+    if(!(n===12?p12:p11))return "";
+    var total=Number(plan.tableTotal||plan.annualValue||annualValue||0);
+    var after=post?"<small class='flyer-plan-after'>Após o vencimento: "+money(post)+" por parcela</small>":"";
+    return "<div class='flyer-plan-card'><div class='flyer-plan-card-head'><span>PLANO "+letter+"</span><b>1ª + "+n+"x</b></div>"+
+      "<div class='flyer-plan-formula'><div><small>1ª parcela</small><strong>"+money(plan.firstBase||firstValue)+"</strong></div><i>+</i><div><small>"+n+" parcelas</small><strong>"+n+"x de "+money(plan.recurringBase)+"</strong></div></div>"+
+      "<div class='flyer-plan-total'><span>Total da anuidade</span><b>"+money(total)+"</b></div>"+after+"</div>";
+  }
+  var annualAfter=annualPost?"<small>Após o vencimento: "+money(annualPost)+"</small>":"";
+  var firstAfter=firstPost?"<small>Após o vencimento: "+money(firstPost)+"</small>":"";
+  return "<section class='flyer-tuition-plans'><div class='flyer-plans-title'><div><small>VALORES OFICIAIS • "+Number(y||gfYear(annual||p12||p11)||0)+"</small><h3>Planos de mensalidade</h3></div><span>Sincronizado com a Gestão</span></div>"+
+    "<div class='flyer-tuition-summary'><div><small>Anuidade</small><b>"+money(annualValue)+"</b>"+annualAfter+"</div><div><small>1ª parcela</small><b>"+money(firstValue)+"</b>"+firstAfter+"</div></div>"+
+    "<div class='flyer-plan-grid'>"+planCard("A",12,a,p12Post)+planCard("B",11,b,p11Post)+"</div>"+
+    "<p class='flyer-plan-note'>A anuidade é a mesma nos dois planos; muda apenas a distribuição entre a 1ª parcela e as parcelas seguintes.</p></section>";
+}
 function gfOptions(sel){return GF_SERIES.map(function(s){return "<option "+(s===sel?"selected":"")+">"+esc(s)+"</option>"}).join("")}
 function gfStageButtons(){return GF_STAGES.map(function(s,i){return "<button type='button' data-stage='"+esc(s)+"'><i>"+(i+1)+"</i><span>"+esc(s)+"</span></button>"}).join("")+"<button type='button' class='loss' data-stage='Não converteu'><i>×</i><span>Não converteu</span></button>"}
 function gfAutoStage(){
@@ -1032,7 +1064,7 @@ function gfFlyerDocumentsMarkup(y,serie,tipo,cfg){
 }
 
 function gfFlyerMarkup(y,s,cfg,list,tipoAluno){
-  var groups=gfGroups(list),body="";
+  var coreTuition=(list||[]).filter(gfFlyerIsTuitionCore),catalogRows=(list||[]).filter(function(p){return !gfFlyerIsTuitionCore(p)}),groups=gfGroups(catalogRows),body="";
   Object.keys(groups).forEach(function(cat){
     body+="<section class='flyer-category'><h3>"+esc(cat)+"</h3><div class='flyer-items'>"+
       groups[cat].map(function(p){
@@ -1041,17 +1073,18 @@ function gfFlyerMarkup(y,s,cfg,list,tipoAluno){
         return "<div class='flyer-item'><div><b>"+esc(title)+"</b><small>"+esc(desc)+"</small></div><strong>"+value+"</strong></div>";
       }).join("")+"</div></section>";
   });
-  var extras=gfParseExtras(cfg.SERVICOS_ADICIONAIS),itemCount=(list||[]).length+extras.length,density=itemCount>18?" ultra-dense":itemCount>11?" dense":"";
+  var extras=gfParseExtras(cfg.SERVICOS_ADICIONAIS),itemCount=catalogRows.length+extras.length+(coreTuition.length?3:0),density=itemCount>18?" ultra-dense":itemCount>11?" dense":"";
   var extrasHtml=extras.length?"<section class='flyer-category flyer-extras'><h3>Produtos e serviços adicionais</h3><div class='flyer-items'>"+
     extras.map(function(x){return "<div class='flyer-item'><div><b>"+esc(x.nome||"Adicional")+"</b><small>"+esc(x.descricao||"")+"</small></div>"+(x.valor!==""&&x.valor!=null?"<strong>"+money(x.valor)+"</strong>":"")+"</div>"}).join("")+
     "</div></section>":"";
   var offer=cfg.O_QUE_OFERECE?"<section class='flyer-info'><h3>O que oferecemos</h3><p>"+esc(cfg.O_QUE_OFERECE)+"</p></section>":"";
   var notes=cfg.OBSERVACOES?"<div class='flyer-note'>"+esc(cfg.OBSERVACOES)+"</div>":"";
-  var uniforms=gfUniformMarkup(cfg,s),docsHtml=gfFlyerDocumentsMarkup(y,s,tipoAluno||"Novato",cfg);
+  var uniforms=gfUniformMarkup(cfg,s),plansHtml=gfFlyerTuitionPlansMarkup(coreTuition.length?list:[],y),docsHtml=gfFlyerDocumentsMarkup(y,s,tipoAluno||"Novato",cfg);
   return "<article class='flyer flyer-a4"+density+"' id='flyerPreview'>"+
     "<div class='flyer-head'>"+(window.FUTURO_BRAND&&window.FUTURO_BRAND.logo?"<img src='"+window.FUTURO_BRAND.logo+"' alt='Colégio Futuro'>":"")+
     "<div><span>MATRÍCULAS "+y+"</span><h2>"+esc(cfg.TITULO||("Colégio Futuro • "+s))+"</h2><p>"+esc(cfg.SUBTITULO||"Educação que prepara para o presente e impulsiona cada estudante para o futuro.")+"</p></div></div>"+
     "<div class='flyer-series'>"+esc(s)+"</div>"+
+    plansHtml+
     uniforms+
     "<div class='flyer-content-grid'>"+body+extrasHtml+offer+"</div>"+
     docsHtml+
@@ -1061,7 +1094,7 @@ function gfFlyerMarkup(y,s,cfg,list,tipoAluno){
 function gfBindFlyerActions(y,s,cfg,list){
   $("#printFlyer").onclick=function(){
     var w=window.open("","_blank");if(!w)return alert("Permita pop-ups para gerar o PDF.");
-    w.document.write("<!doctype html><html><head><meta charset='utf-8'><title>Panfleto "+esc(s)+" "+y+"</title><link rel='stylesheet' href='/styles.css'><style>@page{size:A4 portrait;margin:7mm}html,body{margin:0!important;padding:0!important;background:#fff!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}.flyer-actions{display:none!important}.flyer-a4{width:196mm!important;max-width:196mm!important;min-height:auto!important;margin:0 auto!important;box-shadow:none!important;border:0!important;border-radius:0!important;padding:5mm!important;box-sizing:border-box!important}.flyer-category,.flyer-uniforms,.flyer-cols section,.flyer-info,.flyer-item{break-inside:avoid!important;page-break-inside:avoid!important}img{max-width:100%!important}</style></head><body>"+$("#flyerPreview").outerHTML+"<script>window.onload=function(){var imgs=[].slice.call(document.images);Promise.all(imgs.map(function(img){return img.complete?Promise.resolve():new Promise(function(r){img.onload=img.onerror=r})})).then(function(){setTimeout(function(){window.print()},500)})}<\/script></body></html>");
+    w.document.write("<!doctype html><html><head><meta charset='utf-8'><title>Panfleto "+esc(s)+" "+y+"</title><link rel='stylesheet' href='/styles.css'><style>@page{size:A4 portrait;margin:7mm}html,body{margin:0!important;padding:0!important;background:#fff!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}.flyer-actions{display:none!important}.flyer-a4{width:196mm!important;max-width:196mm!important;min-height:auto!important;margin:0 auto!important;box-shadow:none!important;border:0!important;border-radius:0!important;padding:5mm!important;box-sizing:border-box!important}.flyer-category,.flyer-uniforms,.flyer-tuition-plans,.flyer-plan-card,.flyer-cols section,.flyer-info,.flyer-item{break-inside:avoid!important;page-break-inside:avoid!important}img{max-width:100%!important}</style></head><body>"+$("#flyerPreview").outerHTML+"<script>window.onload=function(){var imgs=[].slice.call(document.images);Promise.all(imgs.map(function(img){return img.complete?Promise.resolve():new Promise(function(r){img.onload=img.onerror=r})})).then(function(){setTimeout(function(){window.print()},500)})}<\/script></body></html>");
     w.document.close();
   };
   $("#editFlyer")?.addEventListener("click",function(){editFlyerContent(y,s,cfg)});
