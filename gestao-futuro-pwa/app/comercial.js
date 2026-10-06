@@ -59,25 +59,15 @@ function gfFirstProduct(list){return (list||[]).find(function(p){var t=gfNorm([p
 function gfRecurringProduct(list,n){return (list||[]).find(function(p){return p.CATEGORIA==="Mensalidade"&&Number(p.QTD_PARCELAS)===Number(n)})||null}
 function gfPlanCalc(list,n,discFirst,discRecurring){
   n=Math.max(1,Math.trunc(Number(n||12)));discFirst=Math.max(0,Math.min(100,Number(discFirst||0)));discRecurring=Math.max(0,Math.min(100,Number(discRecurring||0)));
-  var annual=gfAnnualProduct(list),firstProduct=gfFirstProduct(list),monthly=gfRecurringProduct(list,n),annualCents=Math.round(parseMoney(annual&&annual.VALOR_BASE)*100),annualValue=annualCents/100;
-  var recurringCents=Math.round(parseMoney(monthly&&(monthly.VALOR_PARCELA||monthly.VALOR_BASE))*100);
-  var ref=parseMoney(firstProduct&&(firstProduct.VALOR_BASE||firstProduct.VALOR_PARCELA)),y=gfYear(annual||monthly||firstProduct),seg=gfNorm((annual||monthly||firstProduct||{})["SEGMENTO_SÉRIE"]||"");
-  if(!ref&&typeof GF_FIRST_REFERENCE!=="undefined"&&GF_FIRST_REFERENCE[y]){
-    var key=seg.includes("infantil")?"infantil":(seg.includes("1º ao 5º")||seg.includes("1o ao 5o")||seg.includes("iniciais"))?"iniciais":(seg.includes("6º ao 9º")||seg.includes("6o ao 9o")||seg.includes("finais"))?"finais":"";
-    ref=Number(key&&GF_FIRST_REFERENCE[y][key]||0);
-  }
-  var firstCents=Math.round(ref*100);
-  if(!recurringCents&&annualCents&&firstCents)recurringCents=Math.round((annualCents-firstCents)/n);
-  if(!firstCents&&annualCents&&recurringCents)firstCents=annualCents-(recurringCents*n);
-  if(!firstCents||firstCents<=0){
-    recurringCents=recurringCents||Math.round(annualCents/(n+1));
-    firstCents=annualCents-(recurringCents*n);
-  }
-  if(!annualCents){annualCents=firstCents+(recurringCents*n);annualValue=annualCents/100}
+  var annual=gfAnnualProduct(list),firstProduct=gfFirstProduct(list),monthly=gfRecurringProduct(list,n);
+  var annualCents=Math.round(parseMoney(annual&&annual.VALOR_BASE)*100),annualValue=annualCents/100;
+  var firstCents=Math.round(parseMoney(firstProduct&&((firstProduct.VALOR_BASE!==""&&firstProduct.VALOR_BASE!=null)?firstProduct.VALOR_BASE:firstProduct.VALOR_PARCELA))*100);
+  var recurringCents=Math.round(parseMoney(monthly&&((monthly.VALOR_PARCELA!==""&&monthly.VALOR_PARCELA!=null)?monthly.VALOR_PARCELA:monthly.VALOR_BASE))*100);
+  var complete=!!(annual&&firstProduct&&monthly&&annualCents>0&&firstCents>0&&recurringCents>0);
   var firstBase=firstCents/100,recurringBase=recurringCents/100,tableTotalCents=firstCents+(recurringCents*n);
   var firstFinalCents=Math.round(firstCents*(100-discFirst)/100),recurringFinalCents=Math.round(recurringCents*(100-discRecurring)/100);
-  var firstFinal=firstFinalCents/100,recurringFinal=recurringFinalCents/100,totalCents=firstFinalCents+(recurringFinalCents*n),total=totalCents/100,economy=Math.max(0,(tableTotalCents-totalCents)/100);
-  return {n:n,annual:annual,firstProduct:firstProduct,annualValue:annualValue,monthly:monthly,firstBase:firstBase,recurringBase:recurringBase,discFirst:discFirst,discRecurring:discRecurring,firstFinal:firstFinal,recurringFinal:recurringFinal,total:total,economy:economy,tableTotal:tableTotalCents/100};
+  var firstFinal=firstFinalCents/100,recurringFinal=recurringFinalCents/100,totalCents=firstFinalCents+(recurringFinalCents*n),total=totalCents/100,economy=Math.max(0,(annualCents-totalCents)/100);
+  return {n:n,annual:annual,firstProduct:firstProduct,annualValue:annualValue,monthly:monthly,firstBase:firstBase,recurringBase:recurringBase,discFirst:discFirst,discRecurring:discRecurring,firstFinal:firstFinal,recurringFinal:recurringFinal,total:total,economy:economy,tableTotal:tableTotalCents/100,complete:complete};
 }
 function gfPlanSummary(plan){return "1ª parcela "+money(plan.firstFinal)+" + "+plan.n+"x de "+money(plan.recurringFinal)}
 function gfStiPlanSync(plan,stiValue){
@@ -715,7 +705,8 @@ async function renderAtendimento(){
     var plan=gfPlanCalc(monthly,disc.n,disc.first,disc.recurring);
     var planHtml="";
     if(annual){
-      planHtml="<section class='finance-plan-card'><div class='section-head compact'><div><h3>Plano financeiro da mensalidade</h3><span class='muted'>Cálculo feito sobre a anuidade oficial de "+money(plan.annualValue)+".</span></div><span class='plan-total-badge'>"+money(plan.total)+"</span></div>"+
+      var catalogPlanWarning=plan.complete?"":"<div class='notice warn'><b>Cadastro financeiro incompleto.</b> A Gestão precisa publicar Anuidade, 1ª parcela e o plano selecionado antes de usar este valor em proposta ou matrícula.</div>";
+      planHtml="<section class='finance-plan-card'><div class='section-head compact'><div><h3>Plano financeiro da mensalidade</h3><span class='muted'>Valores oficiais sincronizados com a Gestão • "+money(plan.annualValue)+".</span></div><span class='plan-total-badge'>"+(plan.complete?money(plan.total):"—")+"</span></div>"+catalogPlanWarning+
       "<div class='finance-plan-grid'><div class='field'><label>Forma de pagamento</label><select id='planCount'>"+availablePlans.map(function(n){return "<option value='"+n+"' "+(n===plan.n?"selected":"")+">1ª parcela + "+n+"x</option>"}).join("")+"</select></div>"+
       "<div class='field'><label>Desconto na 1ª parcela (%)</label><input id='planDiscFirst' type='number' min='0' max='100' step='0.01' value='"+plan.discFirst+"'></div>"+
       "<div class='field'><label>Desconto nas parcelas seguintes (%)</label><input id='planDiscRecurring' type='number' min='0' max='100' step='0.01' value='"+plan.discRecurring+"'></div></div>"+
