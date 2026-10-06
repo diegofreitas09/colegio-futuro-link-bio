@@ -154,13 +154,14 @@ function openRematriculaCorrection(m,studentMap,catalog){
 function openMatForm(b){
   const alunos=b.alunos||[], resp=b.responsaveis||[], prods=(b.produtos||[]).filter(p=>p.ATIVO==="Sim"&&String(p.PUBLICADO_ATENDIMENTO||"").trim().toLowerCase()==="sim");
   const inferYear=p=>Number(p.ANO_LETIVO)||Number((String(p.ID_PRODUTO||"")+" "+String(p.PRODUTO||"")).match(/20\d{2}/)?.[0])||0;
-  const years=[...new Set(prods.map(inferYear).filter(Boolean))].sort((a,b)=>b-a);
-  const currentYear=years[0]||new Date().getFullYear();
+  const allYears=[...new Set(prods.map(inferYear).filter(Boolean))].sort((a,b)=>b-a);
+  const flowYears=[2026,2027].filter(y=>allYears.includes(y)),years=flowYears.length?flowYears:allYears;
+  const currentYear=years.includes(2027)?2027:(years[0]||new Date().getFullYear());
   const firstDue=`${currentYear}-01-05`;
 
   modal(`<div class="modal-head"><h3>Nova matrícula</h3><button class="icon-btn" data-close>✕</button></div><div class="modal-body"><form id="matForm" class="form-grid">
     <div class="field span-2"><label>Aluno *</label><input id="matAlunoSearch" list="matAlunoList" autocomplete="off" placeholder="Digite as primeiras letras…" required><datalist id="matAlunoList">${alunos.map(a=>`<option value="${esc(a.NOME_COMPLETO+" — "+(a["SÉRIE"]||"")+" — "+(a.MATRICULA_ORIGEM||a.ID_ALUNO||""))}"></option>`).join("")}</datalist><select name="ID_ALUNO" id="matAluno" class="hidden" required><option value="">Selecione</option>${alunos.map(a=>`<option value="${esc(a.ID_ALUNO)}" data-serie="${esc(a["SÉRIE"]||"")}" data-turno="${esc(a.TURNO||"")}">${esc(a.NOME_COMPLETO)} — ${esc(a["SÉRIE"]||"")}</option>`).join("")}</select></div>
-    <div class="field"><label>Ano letivo *</label><select name="ANO_LETIVO" id="matYear" required>${years.map(y=>`<option value="${y}">${y}</option>`).join("")}</select></div>
+    <div class="field"><label>Ano letivo *</label><select name="ANO_LETIVO" id="matYear" required>${years.map(y=>`<option value="${y}" ${y===currentYear?"selected":""}>${y}</option>`).join("")}</select></div>
     <div class="field"><label>Série *</label><select name="SÉRIE" id="matSerie" required><option value="">Selecione</option>${seriesOptions()}</select></div>
     <div class="field"><label>Turno</label><select name="TURNO" id="matTurno"><option>Manhã</option><option>Tarde</option><option>Integral</option></select></div>
     <div class="field"><label>Tipo</label><select name="TIPO_MATRICULA" id="matType"><option>Novato</option><option>Veterano</option></select></div>
