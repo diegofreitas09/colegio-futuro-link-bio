@@ -536,7 +536,7 @@ function gfCurrentAttendanceSnapshot(products){
 
   var list=gfCatalog(products||[],Number(rec.ANO_LETIVO),rec.SERIE_PRETENDIDA);
   var monthly=list.filter(function(p){return p.CATEGORIA==="Mensalidade"});
-  var others=list.filter(function(p){return p.CATEGORIA!=="Mensalidade"});
+  var others=list.filter(function(p){return p.CATEGORIA!=="Mensalidade"&&!gfIsCampaignProduct(p)});
   var n=Number($("#planCount")?.value ?? rec.PLANO_PARCELAS ?? 12);
   var d1=Number($("#planDiscFirst")?.value ?? rec["DESCONTO_PRIMEIRA_%"] ?? 0);
   var dr=Number($("#planDiscRecurring")?.value ?? rec["DESCONTO_PARCELAS_%"] ?? 0);
@@ -698,7 +698,8 @@ async function renderAtendimento(){
   function drawCatalog(){
     var s=$("#attSerie").value,y=Number($("#attYear").value);state.attendanceYear=y;
     if(!s){$("#catalogArea").className="empty card";$("#catalogArea").innerHTML="Escolha a série.";$("#attTotal").textContent=money(0);return}
-    var list=gfCatalog(products,y,s),monthly=list.filter(function(p){return p.CATEGORIA==="Mensalidade"}),others=list.filter(function(p){return p.CATEGORIA!=="Mensalidade"}),annual=gfAnnualProduct(monthly),stiProduct=others.find(gfIsRecurringStiProduct)||null,catalogOthers=others.filter(function(p){return p!==stiProduct}),groups=gfGroups(catalogOthers),disc=currentPlanDiscounts();
+    var list=gfCatalog(products,y,s),monthly=list.filter(function(p){return p.CATEGORIA==="Mensalidade"}),campaign=gfCampaignFor(list,y,s,$("#attType")?.value||"Todos",false),campaignMeta=campaign?gfCampaignMeta(campaign):null,others=list.filter(function(p){return p.CATEGORIA!=="Mensalidade"&&!gfIsCampaignProduct(p)}),annual=gfAnnualProduct(monthly),stiProduct=others.find(gfIsRecurringStiProduct)||null,catalogOthers=others.filter(function(p){return p!==stiProduct}),groups=gfGroups(catalogOthers),disc=currentPlanDiscounts();
+    if(campaignMeta&&campaignMeta.autoApply!==false&&Number(disc.first||0)===0)disc.first=Number(campaignMeta.discount||0);
     var availablePlans=[12,11].filter(function(n){return !!gfRecurringProduct(monthly,n)});
     if(!availablePlans.length)availablePlans=[12,11];
     if(!availablePlans.includes(disc.n))disc.n=availablePlans[0];
@@ -706,12 +707,13 @@ async function renderAtendimento(){
     var planHtml="";
     if(annual){
       var catalogPlanWarning=plan.complete?"":"<div class='notice warn'><b>Cadastro financeiro incompleto.</b> A Gestão precisa publicar Anuidade, 1ª parcela e o plano selecionado antes de usar este valor em proposta ou matrícula.</div>";
-      planHtml="<section class='finance-plan-card'><div class='section-head compact'><div><h3>Plano financeiro da mensalidade</h3><span class='muted'>Valores oficiais sincronizados com a Gestão • "+money(plan.annualValue)+".</span></div><span class='plan-total-badge'>"+(plan.complete?money(plan.total):"—")+"</span></div>"+catalogPlanWarning+
+      var campaignBanner=campaignMeta?"<div class='campaign-applied'><b>Campanha oficial da 1ª parcela</b><span>"+esc(gfCampaignConditionText(campaign))+"</span></div>":"";
+      planHtml="<section class='finance-plan-card'><div class='section-head compact'><div><h3>Plano financeiro da mensalidade</h3><span class='muted'>Valores oficiais sincronizados com a Gestão • "+money(plan.annualValue)+".</span></div><span class='plan-total-badge'>"+(plan.complete?money(plan.total):"—")+"</span></div>"+catalogPlanWarning+campaignBanner+
       "<div class='finance-plan-grid'><div class='field'><label>Forma de pagamento</label><select id='planCount'>"+availablePlans.map(function(n){return "<option value='"+n+"' "+(n===plan.n?"selected":"")+">1ª parcela + "+n+"x</option>"}).join("")+"</select></div>"+
       "<div class='field'><label>Desconto na 1ª parcela (%)</label><input id='planDiscFirst' type='number' min='0' max='100' step='0.01' value='"+plan.discFirst+"'></div>"+
       "<div class='field'><label>Desconto nas parcelas seguintes (%)</label><input id='planDiscRecurring' type='number' min='0' max='100' step='0.01' value='"+plan.discRecurring+"'></div></div>"+
       "<div class='plan-results'><div><small>1ª parcela base</small><b id='planFirstBase'>"+money(plan.firstBase)+"</b></div><div><small>1ª parcela com desconto</small><b id='planFirstFinal'>"+money(plan.firstFinal)+"</b></div><div><small>"+plan.n+" parcelas base</small><b id='planRecurringBase'>"+money(plan.recurringBase)+"</b></div><div><small>"+plan.n+" parcelas com desconto</small><b id='planRecurringFinal'>"+money(plan.recurringFinal)+"</b></div><div class='total'><small>Anuidade negociada</small><b id='planTotal'>"+money(plan.total)+"</b></div><div class='economy'><small>Economia</small><b id='planEconomy'>"+money(plan.economy)+"</b></div></div>"+
-      "<div class='plan-note'><span>Resumo:</span><b id='planSummary'>"+gfPlanSummary(plan)+"</b><button type='button' class='btn btn-gold btn-sm "+((plan.discFirst||plan.discRecurring)?"":"hidden")+"' id='requestPlanDiscount'>Solicitar autorização desta condição</button></div></section>";
+      "<div class='plan-note'><span>Resumo:</span><b id='planSummary'>"+gfPlanSummary(plan)+"</b><button type='button' class='btn btn-gold btn-sm "+((campaignMeta&&Math.abs(plan.discFirst-Number(campaignMeta.discount||0))<0.001&&!plan.discRecurring)||!(plan.discFirst||plan.discRecurring)?"hidden":"")+"' id='requestPlanDiscount'>Solicitar autorização desta condição</button></div></section>";
     }
     var stiQuoteHtml="";
     if(stiProduct){
@@ -745,7 +747,7 @@ async function renderAtendimento(){
       if($(".plan-total-badge"))$(".plan-total-badge").textContent=money(calc.total);
       if($("#planEconomy"))$("#planEconomy").textContent=money(calc.economy);
       if($("#planSummary"))$("#planSummary").textContent=gfPlanSummary(calc);
-      var req=$("#requestPlanDiscount");if(req)req.classList.toggle("hidden",!(calc.discFirst||calc.discRecurring));
+      var req=$("#requestPlanDiscount"),campaignAuthorized=!!(campaignMeta&&Math.abs(calc.discFirst-Number(campaignMeta.discount||0))<0.001&&!calc.discRecurring);if(req)req.classList.toggle("hidden",campaignAuthorized||!(calc.discFirst||calc.discRecurring));
       var selectedExtras=others.filter(function(p){return state.attendanceItems.has(p.ID_PRODUTO)}),extrasInicial=gfInitialExtrasFromProducts(selectedExtras),investimentoInicial=gfRound2(calc.firstFinal+extrasInicial);
       $("#attTotal").textContent=money(investimentoInicial);
       if(stiProduct){
@@ -1075,8 +1077,17 @@ function gfFlyerDocumentsMarkup(y,serie,tipo,cfg){
     "<div class='flyer-doc-list'>"+d.items.map(function(x){return "<div class='flyer-doc-item'><i>✓</i><div><b>"+esc(x.t)+"</b>"+(x.d?"<small>"+esc(x.d)+"</small>":"")+"</div></div>"}).join("")+"</div>"+custom+"</section>";
 }
 
+
+function gfFlyerCampaignMarkup(list,y,s,tipoAluno){
+  var campaign=gfCampaignFor(list,y,s,tipoAluno||"Todos",false);if(!campaign)return "";
+  var meta=gfCampaignMeta(campaign);if(meta.showFlyer===false)return "";
+  var first=gfFirstProduct((list||[]).filter(function(p){return p.CATEGORIA==="Mensalidade"}));if(!first)return "";
+  var r=gfCampaignResult(parseMoney(first.VALOR_BASE||first.VALOR_PARCELA),campaign);
+  return "<section class='flyer-campaign'><div><small>CAMPANHA DE MATRÍCULA</small><h3>"+esc(meta.name)+"</h3><p>"+esc(gfCampaignConditionText(campaign))+"</p></div>"+
+    "<div class='flyer-campaign-price'><span>1ª parcela</span><s>"+money(r.base)+"</s><b>"+money(r.final)+"</b></div></section>";
+}
 function gfFlyerMarkup(y,s,cfg,list,tipoAluno){
-  var coreTuition=(list||[]).filter(gfFlyerIsTuitionCore),catalogRows=(list||[]).filter(function(p){return !gfFlyerIsTuitionCore(p)}),groups=gfGroups(catalogRows),body="";
+  var coreTuition=(list||[]).filter(gfFlyerIsTuitionCore),catalogRows=(list||[]).filter(function(p){return !gfFlyerIsTuitionCore(p)&&!gfIsCampaignProduct(p)}),groups=gfGroups(catalogRows),body="";
   Object.keys(groups).forEach(function(cat){
     body+="<section class='flyer-category'><h3>"+esc(cat)+"</h3><div class='flyer-items'>"+
       groups[cat].map(function(p){
@@ -1091,12 +1102,13 @@ function gfFlyerMarkup(y,s,cfg,list,tipoAluno){
     "</div></section>":"";
   var offer=cfg.O_QUE_OFERECE?"<section class='flyer-info'><h3>O que oferecemos</h3><p>"+esc(cfg.O_QUE_OFERECE)+"</p></section>":"";
   var notes=cfg.OBSERVACOES?"<div class='flyer-note'>"+esc(cfg.OBSERVACOES)+"</div>":"";
-  var uniforms=gfUniformMarkup(cfg,s),plansHtml=gfFlyerTuitionPlansMarkup(coreTuition.length?list:[],y),docsHtml=gfFlyerDocumentsMarkup(y,s,tipoAluno||"Novato",cfg);
+  var uniforms=gfUniformMarkup(cfg,s),plansHtml=gfFlyerTuitionPlansMarkup(coreTuition.length?list:[],y),campaignHtml=gfFlyerCampaignMarkup(list,y,s,tipoAluno||"Novato"),docsHtml=gfFlyerDocumentsMarkup(y,s,tipoAluno||"Novato",cfg);
   return "<article class='flyer flyer-a4"+density+"' id='flyerPreview'>"+
     "<div class='flyer-head'>"+(window.FUTURO_BRAND&&window.FUTURO_BRAND.logo?"<img src='"+window.FUTURO_BRAND.logo+"' alt='Colégio Futuro'>":"")+
     "<div><span>MATRÍCULAS "+y+"</span><h2>"+esc(cfg.TITULO||("Colégio Futuro • "+s))+"</h2><p>"+esc(cfg.SUBTITULO||"Educação que prepara para o presente e impulsiona cada estudante para o futuro.")+"</p></div></div>"+
     "<div class='flyer-series'>"+esc(s)+"</div>"+
     plansHtml+
+    campaignHtml+
     uniforms+
     "<div class='flyer-content-grid'>"+body+extrasHtml+offer+"</div>"+
     docsHtml+
