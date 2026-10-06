@@ -4,7 +4,7 @@
  * Este arquivo deve substituir o conteúdo atual de ApiPwa.gs no MESMO projeto Apps Script.
  * O Código.gs existente permanece como base de Secretaria/Financeiro.
  */
-const PWA_API_VERSION="2026.10.01.1";
+const PWA_API_VERSION="2026.10.06.1";
 const PWA_CAPABILITIES=Object.freeze({testMode:true,clearTest:true,modeTagging:true,modeFilteredFinance:true,modeIsolationGuard:true,cashSaveIdempotency:true,cashDeleteIndividual:true,studentMigration:true,studentProgression:true,studentConfirmedSeries:true,rematriculaFlow:true,rematriculaCorrection:true,documentAdd:true,documentDriveUpload:true,multiDocumentUpload:true,stiBudget:true,initialInvestmentTotal:true,addressFields:true,sessionSliding:true,checklistManagement:true,attendanceDelete:true});
 const PWA_GATEWAY_PROP="FUTURO_PWA_GATEWAY_KEY";
 const PWA_STAFF_HASH_PROP="FUTURO_STAFF_PASSWORD_SHA256";
@@ -777,7 +777,7 @@ function aplicarReajusteIndividualPwa_(token,d){
     var current=pwaNum_(p.VALOR_BASE),newValue=modo==="valor"?v:gfRoundMoneyPwa_(current*(1+v/100));
     var pct=current?gfRoundMoneyPwa_(((newValue/current)-1)*100):0,now=new Date();
     var destId=String(id).indexOf(String(origem))>=0?String(id).replace(String(origem),String(destino)):String(id)+"-"+destino;
-    var all=rows_(S.PRODUTOS),old=all.find(function(x){return x.ID_PRODUTO===destId||Number(x.ANO_LETIVO)===destino&&x.PRODUTO===String(p.PRODUTO||"").replace(String(origem),String(destino))&&x.CATEGORIA===p.CATEGORIA&&x["SEGMENTO_SÉRIE"]===p["SEGMENTO_SÉRIE"]});
+    var all=rows_(S.PRODUTOS),old=all.find(function(x){return x.ID_PRODUTO===destId})||all.find(function(x){return Number(x.ANO_LETIVO)===destino&&x.PRODUTO===String(p.PRODUTO||"").replace(String(origem),String(destino))&&x.CATEGORIA===p.CATEGORIA&&x["SEGMENTO_SÉRIE"]===p["SEGMENTO_SÉRIE"]&&String(x.SUBCATEGORIA||"")===String(p.SUBCATEGORIA||"")&&Number(x.QTD_PARCELAS||0)===Number(p.QTD_PARCELAS||0)});
     var factor=current?newValue/current:1,rec=Object.assign({},p);
     rec.ID_PRODUTO=old&&old.ID_PRODUTO||destId;rec.ANO_LETIVO=destino;rec.ANO_ORIGEM=origem;rec.VALOR_ORIGEM=current;rec["REAJUSTE_%"]=pct;rec.PUBLICADO_ATENDIMENTO=pub;rec.ATUALIZADO_EM=now;rec.ATUALIZADO_POR=pwaUser_("Gestão");rec.ORIGEM="Reajuste individual "+origem+"→"+destino;rec.PRODUTO=String(p.PRODUTO||"").replace(String(origem),String(destino));
     rec.VALOR_BASE=newValue;
@@ -867,7 +867,7 @@ function aplicarReajusteCatalogoPwa_(token,d){
     var dest=rows_(S.PRODUTOS).filter(function(p){return Number(p.ANO_LETIVO)===destino}),count=0,now=new Date(),factor=1+pct/100;
     source.forEach(function(p){
       var id=String(p.ID_PRODUTO||"").indexOf(String(origem))>=0?String(p.ID_PRODUTO).replace(String(origem),String(destino)):String(p.ID_PRODUTO||"")+"-"+destino;
-      var old=dest.find(function(x){return x.ID_PRODUTO===id||x.PRODUTO===String(p.PRODUTO||"").replace(String(origem),String(destino))&&x.CATEGORIA===p.CATEGORIA&&x["SEGMENTO_SÉRIE"]===p["SEGMENTO_SÉRIE"]}),rec=Object.assign({},p);
+      var old=dest.find(function(x){return x.ID_PRODUTO===id})||dest.find(function(x){return x.PRODUTO===String(p.PRODUTO||"").replace(String(origem),String(destino))&&x.CATEGORIA===p.CATEGORIA&&x["SEGMENTO_SÉRIE"]===p["SEGMENTO_SÉRIE"]&&String(x.SUBCATEGORIA||"")===String(p.SUBCATEGORIA||"")&&Number(x.QTD_PARCELAS||0)===Number(p.QTD_PARCELAS||0)}),rec=Object.assign({},p);
       rec.ID_PRODUTO=old&&old.ID_PRODUTO||id;rec.ANO_LETIVO=destino;rec.ANO_ORIGEM=origem;rec.VALOR_ORIGEM=pwaNum_(p.VALOR_BASE);rec["REAJUSTE_%"]=pct;rec.PUBLICADO_ATENDIMENTO=pub;rec.ATUALIZADO_EM=now;rec.ATUALIZADO_POR=pwaUser_("Gestão");rec.ORIGEM="Reajuste "+origem+"→"+destino;rec.PRODUTO=String(p.PRODUTO||"").replace(String(origem),String(destino));
       ["VALOR_BASE","VALOR_PÓS_VENCIMENTO","VALOR_CRÉDITO","VALOR_PARCELA"].forEach(function(k){if(p[k]!==""&&p[k]!=null)rec[k]=Math.round(pwaNum_(p[k])*factor*100)/100});
       if(old)updateById_(S.PRODUTOS,"ID_PRODUTO",old.ID_PRODUTO,rec);else append_(S.PRODUTOS,rec);count++;
