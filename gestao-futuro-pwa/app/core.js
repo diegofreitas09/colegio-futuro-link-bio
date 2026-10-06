@@ -922,14 +922,6 @@ const GF_STI_HISTORY = Object.freeze({
   2025:{
     infantil:{key:"infantil",label:"Educação Infantil",series:"Infantil 2 ao 5",regular:419.73,regularPost:456.22,sti:515,total:934.73,totalPost:971.22},
     iniciais:{key:"iniciais",label:"Ensino Fundamental I",series:"1º ao 5º Ano",regular:431.56,regularPost:469.09,sti:515,total:946.56,totalPost:984.09}
-  },
-  2026:{
-    infantil:{key:"infantil",label:"Educação Infantil",series:"Infantil 2 ao 5",regular:446.41,regularPost:471.05,sti:590,total:1036.41,totalPost:1061.05},
-    iniciais:{key:"iniciais",label:"Ensino Fundamental I",series:"1º ao 5º Ano",regular:458.17,regularPost:484.30,sti:590,total:1048.17,totalPost:1074.30}
-  },
-  2027:{
-    infantil:{key:"infantil",label:"Educação Infantil",series:"Infantil 2 ao 5",regular:482.12,regularPost:509.63,sti:654.50,total:1136.62,totalPost:1164.13},
-    iniciais:{key:"iniciais",label:"Ensino Fundamental I",series:"1º ao 5º Ano",regular:494.82,regularPost:523.04,sti:654.50,total:1149.32,totalPost:1177.54}
   }
 });
 function dashStiFromCatalog(products,year){
