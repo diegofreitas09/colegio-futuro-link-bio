@@ -1018,3 +1018,34 @@ body.home-active .shell{filter:blur(2px) saturate(.8);pointer-events:none;user-s
  .regular-head,.regular-cell,.regular-segment{padding:7px 5px!important}
  .flyer-regular-table{break-inside:avoid!important;page-break-inside:avoid!important}
 }
+
+
+/* Gestão • campanha da 1ª parcela */
+.campaign-manager{margin:18px 0;padding:18px;border:1px solid #d9e5f2;border-radius:18px;background:#fff}
+.campaign-manager-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;margin-bottom:14px}
+.campaign-manager-head small{font-weight:900;letter-spacing:.08em;color:#1f67c7}
+.campaign-manager-head h3{margin:3px 0 5px;color:#123b76}
+.campaign-manager-head p{margin:0;color:#66778c}
+.campaign-toolbar{display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-bottom:14px}
+.campaign-toolbar .field{min-width:170px;margin:0}
+.campaign-segment-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.campaign-segment-card{border:1px solid #dbe5f0;border-radius:14px;padding:13px;background:#fdfefe}
+.campaign-card-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.campaign-card-head small{font-size:10px;font-weight:900;color:#6c7d91}
+.campaign-card-head h4{margin:2px 0;color:#123b76}
+.campaign-card-head span{font-size:12px;color:#6d7e90}
+.campaign-status{font-size:10px;font-weight:900;border-radius:999px;padding:5px 8px}
+.campaign-status.on{background:#e8f7ef;color:#117343}.campaign-status.off{background:#f3f3f3;color:#777}
+.campaign-price-preview{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:11px 0}
+.campaign-price-preview>div{border-radius:10px;padding:9px;background:#eef4fb;display:grid;gap:2px}
+.campaign-price-preview .discount{background:#fff4df}
+.campaign-price-preview small{font-size:9px;font-weight:900;color:#65788e}
+.campaign-price-preview b{font-size:18px;color:#123b76}.campaign-price-preview .discount b{color:#b21b68}
+.campaign-price-preview span{font-size:10px;color:#7b6a42}
+.campaign-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.campaign-fields .field{margin:0}.campaign-fields .span-2{grid-column:span 2}
+.campaign-check{display:flex;align-items:center;gap:7px;font-size:12px;color:#374b62}
+.campaign-card-foot{margin-top:10px;padding-top:9px;border-top:1px dashed #d7e1ec;display:flex;justify-content:space-between;gap:10px;align-items:center}
+.campaign-card-foot>span{font-size:10px;color:#60738a;line-height:1.35}
+.campaign-manager-note{margin-top:12px;padding:10px 12px;border-radius:10px;background:#f4f8fd;color:#566a81;font-size:12px}
+@media(max-width:1050px){.campaign-segment-grid{grid-template-columns:1fr}.campaign-manager-head{flex-direction:column}.campaign-card-foot{align-items:flex-start;flex-direction:column}}
