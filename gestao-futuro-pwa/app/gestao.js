@@ -574,7 +574,7 @@ async function renderProdutos(){
 }
 function openSchoolYearForm(years,list){
   const origem=years.includes(2026)?2026:Number(state.productYear||years[0]||2026),destino=years.includes(2027)?2027:origem+1;
-  const categories=[...new Set((list||[]).filter(p=>prodInferYear(p)===origem&&String(p.ATIVO||"Sim")!=="Não"&&!gfIsCampaignProduct(p)).map(p=>String(p.CATEGORIA||"").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
+  const categories=[...new Set((list||[]).filter(p=>prodInferYear(p)===origem&&String(p.ATIVO||"Sim")!=="Não"&&!gfIsCampaignProduct(p)&&!prodIsTuitionCore(p)).map(p=>String(p.CATEGORIA||"").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
   modal(`<div class="modal-head"><h3>Reajuste em lote</h3><button class="icon-btn" data-close>✕</button></div>
   <div class="modal-body"><div class="notice">O reajuste será salvo produto por produto para evitar timeout do Apps Script. Se houver oscilação de conexão, a plataforma confere o que já foi gravado antes de continuar.</div>
   <form id="yearForm" class="form-grid">
@@ -583,7 +583,7 @@ function openSchoolYearForm(years,list){
     <div class="field"><label>Reajuste (%)</label><input type="number" step="0.01" name="percentual" value="8" required></div>
     <div class="field"><label>Categoria</label><select name="categoria"><option value="">Todas</option>${categories.map(x=>`<option>${esc(x)}</option>`).join("")}</select></div>
     <div class="field"><label>Publicar no Atendimento, Panfleto e Secretaria</label><select name="publicar"><option>Sim</option><option>Não</option></select></div>
-    <div class="field span-3"><label>Regra</label><span class="muted">Cada produto do ano de origem será criado/atualizado no ano de destino. O histórico não é apagado.</span></div>
+    <div class="field span-3"><label>Regra</label><span class="muted">Mensalidades regulares não entram neste lote: elas são geradas pela anuidade no assistente 2026 → 2027. Aqui ficam material, fardamento, S.T.I. e demais produtos.</span></div>
   </form>
   <div id="bulkProgress" class="bulk-progress" hidden><div class="bulk-progress-bar"><i id="bulkProgressFill"></i></div><b id="bulkProgressTitle">Preparando…</b><span id="bulkProgressDetail"></span></div></div>
   <div class="modal-foot"><button class="btn btn-soft" data-close>Cancelar</button><button class="btn btn-primary" id="createYear">Aplicar reajuste</button></div>`);
@@ -601,7 +601,7 @@ function openSchoolYearForm(years,list){
     const form=$("#yearForm"),data=Object.fromEntries(new FormData(form).entries()),btn=$("#createYear");
     const sourceYear=Number(data.anoOrigem),targetYear=Number(data.anoDestino),pct=Number(data.percentual||0),category=String(data.categoria||"").trim();
     if(!sourceYear||!targetYear||sourceYear===targetYear){showToast("Ano de origem e destino precisam ser diferentes.","error");return}
-    const sourceRows=(list||[]).filter(p=>prodInferYear(p)===sourceYear&&String(p.ATIVO||"Sim")!=="Não"&&!gfIsCampaignProduct(p)&&(!category||String(p.CATEGORIA||"")===category));
+    const sourceRows=(list||[]).filter(p=>prodInferYear(p)===sourceYear&&String(p.ATIVO||"Sim")!=="Não"&&!gfIsCampaignProduct(p)&&!prodIsTuitionCore(p)&&(!category||String(p.CATEGORIA||"")===category));
     if(!sourceRows.length){showToast("Nenhum produto ativo encontrado para o filtro escolhido.","error");return}
 
     btn.disabled=true;form.querySelectorAll("input,select").forEach(el=>el.disabled=true);
