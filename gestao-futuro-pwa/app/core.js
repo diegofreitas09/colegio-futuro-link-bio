@@ -1074,8 +1074,9 @@ function dashTuitionDownloadModal(products,currentView){
   };
 }
 function dashMountTuitionDashboard(products){
-  const selector="<div class='tuition-selector-bar'><div class='field'><label for='tuitionTableSelector'>Tabela em exibição</label><select id='tuitionTableSelector'><option value='2024'>Tabela 2024</option><option value='2025'>Tabela 2025</option><option value='2026'>Tabela 2026</option><option value='2027' selected>Tabela 2027</option><option value='history'>Comparativo 2024–2027</option></select></div><div class='tuition-selector-copy'><b id='tuitionSelectionTitle'>Tabela oficial 2027</b><span id='tuitionSelectionHint'>2024–2025 vêm do histórico oficial; 2026–2027 usam o catálogo da Gestão Futuro.</span></div></div>";
-  $("#view").insertAdjacentHTML("beforeend","<section class='card tuition-dashboard school-dashboard'><div class='tuition-dashboard-head school-dashboard-head'><div><small>COLÉGIO FUTURO • GESTÃO</small><h2>Tabela de Valores • Padrão da Escola</h2><p>Ano letivo 2024 • 2025 • 2026 • 2027</p><span class='catalog-sync-badge ok'>"+esc(gfCatalogSourceLabel(products))+" • Secretaria • Panfletos • Demonstrativos</span></div><button class='btn btn-primary' id='downloadTuitionTable'>⬇ Baixar tabela</button></div>"+selector+"<div id='tuitionDashboardBody'></div>"+dashComparisonChartsHtml(products)+"</section>");
+  const role=activeInterfaceRole(),roleLabel=role==="staff"?"SECRETARIA • SOMENTE LEITURA":"GESTÃO • FONTE OFICIAL";
+  const selector="<div class='tuition-selector-bar'><div class='field'><label for='tuitionTableSelector'>Tabela em exibição</label><select id='tuitionTableSelector'><option value='2024'>Tabela 2024</option><option value='2025'>Tabela 2025</option><option value='2026'>Tabela 2026</option><option value='2027' selected>Tabela 2027</option><option value='history'>Comparativo 2024–2027</option></select></div><div class='tuition-selector-copy'><b id='tuitionSelectionTitle'>Tabela oficial 2027</b><span id='tuitionSelectionHint'>2024–2025 vêm do histórico oficial; 2026–2027 usam o catálogo publicado pela Gestão.</span></div></div>";
+  $("#view").insertAdjacentHTML("beforeend","<section class='card tuition-dashboard school-dashboard'><div class='tuition-dashboard-head school-dashboard-head'><div><small>COLÉGIO FUTURO • "+roleLabel+"</small><h2>Tabela de Valores • Padrão da Escola</h2><p>Ano letivo 2024 • 2025 • 2026 • 2027</p><span class='catalog-sync-badge ok'>"+esc(gfCatalogSourceLabel(products))+" • Secretaria • Atendimento • Matrícula • Panfletos • Demonstrativos</span></div><button class='btn btn-primary' id='downloadTuitionTable'>⬇ Baixar tabela</button></div>"+selector+"<div id='tuitionDashboardBody'></div>"+dashComparisonChartsHtml(products)+"</section>");
   let current="2027";
   const draw=()=>{
     if(current==="history"){
@@ -1129,6 +1130,15 @@ async function renderDashboard(){
       dashMountTuitionDashboard(products);
     }catch(e){
       $("#view").insertAdjacentHTML("beforeend",`<div class="notice error">Não foi possível montar a tabela de anuidades: ${esc(e.message)}</div>`);
+    }
+  }
+  if(state.staffToken&&!state.adminToken){
+    try{
+      const products=await loadCatalogProducts(true);
+      if(dashboardSeq!==state.navSeq)return;
+      dashMountTuitionDashboard(products);
+    }catch(e){
+      $("#view").insertAdjacentHTML("beforeend",`<div class="notice error">Não foi possível sincronizar a tabela oficial da Gestão: ${esc(e.message)}</div>`);
     }
   }
   const role=activeInterfaceRole();
