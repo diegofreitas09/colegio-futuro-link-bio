@@ -650,6 +650,61 @@ async function loadCatalogProducts(force=false){
   }).finally(function(){if(generation===(state.cacheGeneration||0))state.catalogPromise=null});
   return state.catalogPromise;
 }
+
+function gfIsCampaignProduct(p){
+  if(!p)return false;
+  var cat=String(p.CATEGORIA||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+  var sub=String(p.SUBCATEGORIA||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+  return cat==="campanha"&&(sub.includes("1ª parcela")||sub.includes("1a parcela")||sub.includes("primeira parcela"));
+}
+function gfCampaignMeta(p){
+  var raw={},txt=String(p&&p.OBSERVACAO_INTERNA||"").trim();
+  if(txt){try{raw=JSON.parse(txt)||{}}catch(e){raw={}}}
+  return {
+    name:String(raw.name||p&&p.PRODUTO||"Campanha de matrícula"),
+    discount:Math.max(0,Math.min(100,Number(p&&p.VALOR_BASE||raw.discount||0))),
+    cardInstallments:Math.max(1,Math.trunc(Number(p&&p.QTD_PARCELAS||raw.cardInstallments||1))),
+    paymentMethod:String(raw.paymentMethod||"Cartão"),
+    start:String(raw.start||""),
+    end:String(raw.end||""),
+    studentType:String(raw.studentType||"Todos"),
+    showFlyer:raw.showFlyer!==false,
+    autoApply:raw.autoApply!==false,
+    noInterest:raw.noInterest!==false,
+    note:String(raw.note||p&&p["OBSERVAÇÃO"]||p&&p["DESCRIÇÃO"]||"")
+  };
+}
+function gfCampaignDateActive(meta,when){
+  meta=meta||{};var d=when instanceof Date?when:new Date(),key=[d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-");
+  if(meta.start&&key<meta.start)return false;
+  if(meta.end&&key>meta.end)return false;
+  return true;
+}
+function gfCampaignFor(products,year,serie,studentType,allowScheduled){
+  var st=String(studentType||"Todos").toLowerCase();
+  return (products||[]).filter(function(p){
+    if(!gfIsCampaignProduct(p)||String(p.ATIVO||"Sim")==="Não"||Number(p.ANO_LETIVO)!==Number(year))return false;
+    if(String(p.PUBLICADO_ATENDIMENTO||"Sim")==="Não")return false;
+    if(serie&&typeof gfApplies==="function"&&!gfApplies(p,serie))return false;
+    var m=gfCampaignMeta(p),mt=String(m.studentType||"Todos").toLowerCase();
+    if(mt!=="todos"&&st!=="todos"&&mt!==st)return false;
+    return allowScheduled===true||gfCampaignDateActive(m);
+  }).sort(function(a,b){return Number(a.ORDEM_EXIBICAO||0)-Number(b.ORDEM_EXIBICAO||0)})[0]||null;
+}
+function gfCampaignResult(firstBase,campaign){
+  var base=Number(firstBase||0),meta=gfCampaignMeta(campaign),final=Math.round(base*(1-meta.discount/100)*100)/100;
+  return {base:base,discount:meta.discount,final:final,meta:meta,campaign:campaign||null};
+}
+function gfCampaignConditionText(campaign){
+  if(!campaign)return "";
+  var m=gfCampaignMeta(campaign),parts=[];
+  if(m.discount)parts.push(m.discount.toLocaleString("pt-BR",{maximumFractionDigits:2})+"% de desconto na 1ª parcela");
+  if(m.cardInstallments>1)parts.push("até "+m.cardInstallments+"x no "+m.paymentMethod.toLowerCase()+(m.noInterest?" sem juros":""));
+  else if(m.paymentMethod)parts.push(m.paymentMethod);
+  if(m.start||m.end)parts.push("validade "+(m.start?new Date(m.start+"T12:00:00").toLocaleDateString("pt-BR"):"início livre")+" a "+(m.end?new Date(m.end+"T12:00:00").toLocaleDateString("pt-BR"):"sem data final"));
+  return parts.join(" • ");
+}
+
 function gfCatalogUpdatedAt(products){
   const times=(products||[]).map(function(p){const d=new Date(p&&p.ATUALIZADO_EM||0).getTime();return Number.isFinite(d)?d:0}).filter(Boolean);
   return times.length?new Date(Math.max.apply(null,times)):null;
