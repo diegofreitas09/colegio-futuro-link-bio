@@ -717,14 +717,17 @@ test('current demonstratives never invent missing management values',()=>{
  }finally{x.dom.window.close()}
 });
 
-test('management dashboard demonstratives use the same published catalog route as Secretaria and flyers',()=>{
+test('management and secretaria demonstratives use the same published catalog route as flyers',()=>{
  const src=read('app/core.js');
  const start=src.indexOf('async function renderDashboard()');
- const block=src.slice(start,start+9000);
+ const block=src.slice(start,start+12000);
  assert.match(block,/loadCatalogProducts\(true\)/);
  assert.doesNotMatch(block,/listarProdutosGestao/);
+ assert.match(block,/state\.staffToken&&!state\.adminToken/);
+ assert.match(block,/dashMountTuitionDashboard\(products\)/);
  assert.match(src,/gfApplyCatalogToBootstrap/);
  assert.match(src,/state\.bootstrap\.produtos=list/);
+ assert.match(src,/Secretaria • Atendimento • Matrícula • Panfletos • Demonstrativos/);
 });
 
 test('operational plan requires explicit annual first and recurring products from management',()=>{
