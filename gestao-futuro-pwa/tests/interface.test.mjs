@@ -589,3 +589,30 @@ test('values wizard exposes both payment plans and exact annuality formula',()=>
  assert.match(src,/prodTuitionPlanCalc/);
  assert.match(src,/modo:"valor",valor:row\.value/);
 });
+
+
+test('bulk adjustment avoids long Apps Script batch request and verifies saves',()=>{
+ const src=read('app/gestao.js');
+ const start=src.indexOf('function openSchoolYearForm(years,list)');
+ const end=src.indexOf('function openIndividualAdjustment(',start);
+ assert.ok(start>=0&&end>start);
+ const block=src.slice(start,end);
+ assert.match(block,/aplicarReajusteIndividual/);
+ assert.doesNotMatch(block,/aplicarReajusteCatalogo/);
+ assert.match(block,/listarProdutosGestao/);
+ assert.match(block,/findVerifiedTarget/);
+ assert.match(block,/pendingRows/);
+ assert.match(block,/A gravação pode ter ocorrido|pode ter concluído a gravação/);
+});
+
+test('bulk adjustment target matching is idempotent',()=>{
+ const x=setup();try{
+  x.w.__list=[
+   {ID_PRODUTO:'MAT-INF2-2027',ANO_LETIVO:2027,CATEGORIA:'Material Didático',SUBCATEGORIA:'FTD',PRODUTO:'Material Didático - Infantil 2','SEGMENTO_SÉRIE':'Infantil 2',VALOR_BASE:524.34,QTD_PARCELAS:10},
+   {ID_PRODUTO:'MAT-INF2-2028',ANO_LETIVO:2028,CATEGORIA:'Material Didático',SUBCATEGORIA:'FTD',PRODUTO:'Material Didático - Infantil 2','SEGMENTO_SÉRIE':'Infantil 2',VALOR_BASE:576.77,QTD_PARCELAS:10}
+  ];
+  const found=x.run('prodTargetMatch(window.__list,window.__list[0],2028)');
+  assert.equal(found.ID_PRODUTO,'MAT-INF2-2028');
+  assert.equal(x.run('prodPreviewValue(524.34,10)'),576.77);
+ }finally{x.dom.window.close()}
+});
