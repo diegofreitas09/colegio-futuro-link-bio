@@ -699,7 +699,14 @@ async function renderAtendimento(){
     var s=$("#attSerie").value,y=Number($("#attYear").value);state.attendanceYear=y;
     if(!s){$("#catalogArea").className="empty card";$("#catalogArea").innerHTML="Escolha a série.";$("#attTotal").textContent=money(0);return}
     var list=gfCatalog(products,y,s),monthly=list.filter(function(p){return p.CATEGORIA==="Mensalidade"}),campaign=gfCampaignFor(list,y,s,$("#attType")?.value||"Todos",false),campaignMeta=campaign?gfCampaignMeta(campaign):null,others=list.filter(function(p){return p.CATEGORIA!=="Mensalidade"&&!gfIsCampaignProduct(p)}),annual=gfAnnualProduct(monthly),stiProduct=others.find(gfIsRecurringStiProduct)||null,catalogOthers=others.filter(function(p){return p!==stiProduct}),groups=gfGroups(catalogOthers),disc=currentPlanDiscounts();
-    if(campaignMeta&&campaignMeta.autoApply!==false&&Number(disc.first||0)===0)disc.first=Number(campaignMeta.discount||0);
+    var priorCampaign=state.attendanceCampaignAuto||null;
+    if(campaignMeta&&campaignMeta.autoApply!==false&&(Number(disc.first||0)===0||(priorCampaign&&Math.abs(Number(disc.first||0)-Number(priorCampaign.discount||0))<0.001))){
+      disc.first=Number(campaignMeta.discount||0);state.attendanceCampaignAuto={id:campaign&&campaign.ID_PRODUTO||"",discount:disc.first};
+    }else if(!campaignMeta&&priorCampaign&&Math.abs(Number(disc.first||0)-Number(priorCampaign.discount||0))<0.001){
+      disc.first=0;state.attendanceCampaignAuto=null;
+    }else if(campaignMeta&&Math.abs(Number(disc.first||0)-Number(campaignMeta.discount||0))>=0.001){
+      state.attendanceCampaignAuto=null;
+    }
     var availablePlans=[12,11].filter(function(n){return !!gfRecurringProduct(monthly,n)});
     if(!availablePlans.length)availablePlans=[12,11];
     if(!availablePlans.includes(disc.n))disc.n=availablePlans[0];
@@ -737,6 +744,7 @@ async function renderAtendimento(){
 
     function updatePlanAndTotal(){
       var n=Number($("#planCount")?.value||disc.n||12),d1=Number($("#planDiscFirst")?.value||0),dr=Number($("#planDiscRecurring")?.value||0),calc=gfPlanCalc(monthly,n,d1,dr);
+      if(campaignMeta&&Math.abs(d1-Number(campaignMeta.discount||0))>=0.001)state.attendanceCampaignAuto=null;
       state.attendancePlanComplete=calc.complete;
       setHidden("PLANO_PARCELAS",calc.n);setHidden("VALOR_ANUIDADE",calc.annualValue);setHidden("VALOR_PRIMEIRA_BASE",calc.firstBase);setHidden("DESCONTO_PRIMEIRA_%",calc.discFirst);setHidden("VALOR_PRIMEIRA_FINAL",calc.firstFinal);setHidden("VALOR_PARCELA_BASE",calc.recurringBase);setHidden("DESCONTO_PARCELAS_%",calc.discRecurring);setHidden("VALOR_PARCELA_FINAL",calc.recurringFinal);setHidden("TOTAL_PLANO",calc.total);setHidden("ECONOMIA_PLANO",calc.economy);
       if($("#planFirstBase"))$("#planFirstBase").textContent=money(calc.firstBase);
