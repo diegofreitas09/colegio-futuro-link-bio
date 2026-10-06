@@ -318,6 +318,7 @@ async function renderProdutos(){
   const sourceDefault=years.includes(targetDefault-1)?targetDefault-1:(years.find(y=>y<targetDefault)||years[0]||targetDefault-1);
   const futureYear=Math.max(...years,targetDefault)+1;
   const targetYears=[...new Set([futureYear,...years])].sort((a,b)=>b-a);
+  const campaignDefaultYear=years.find(y=>campaignFirstProducts(list,y).length)||targetDefault;
   state.productYear=targetDefault;
 
   $("#view").innerHTML=`
@@ -357,7 +358,7 @@ async function renderProdutos(){
 
     <section class="campaign-manager">
       <div class="campaign-manager-head"><div><small>POLÍTICA COMERCIAL</small><h3>Campanha da 1ª parcela</h3><p>Edite por segmento o desconto promocional, parcelamento, público e validade sem alterar o valor oficial.</p></div><div class="series-sync-icons"><span>✓ Atendimento</span><span>✓ Secretaria</span><span>✓ Panfletos</span><span>✓ Matrícula</span></div></div>
-      <div class="campaign-toolbar"><div class="field"><label>Ano da campanha</label><select id="campaignYear" class="search">${targetYears.map(y=>'<option value="'+y+'" '+(y===targetDefault?'selected':'')+'>'+y+'</option>').join('')}</select></div><button class="btn btn-soft" id="campaignCopyAll" type="button">Copiar condição para todos</button><button class="btn btn-primary" id="campaignSaveAll" type="button">Salvar todas as campanhas</button></div>
+      <div class="campaign-toolbar"><div class="field"><label>Ano da campanha</label><select id="campaignYear" class="search">${targetYears.map(y=>'<option value="'+y+'" '+(y===campaignDefaultYear?'selected':'')+'>'+y+'</option>').join('')}</select></div><button class="btn btn-soft" id="campaignCopyAll" type="button">Copiar condição para todos</button><button class="btn btn-primary" id="campaignSaveAll" type="button">Salvar todas as campanhas</button></div>
       <div id="campaignCards" class="campaign-segment-grid"></div>
       <div class="campaign-manager-note"><b>Regra:</b> a campanha afeta somente a 1ª parcela. Anuidade e planos 11x/12x permanecem como valores oficiais.</div>
     </section>
@@ -383,7 +384,7 @@ async function renderProdutos(){
 
 
   const drawCampaignManager=()=>{
-    const year=Number($("#campaignYear")?.value||targetDefault),firsts=campaignFirstProducts(list,year),root=$("#campaignCards");if(!root)return;
+    const year=Number($("#campaignYear")?.value||campaignDefaultYear),firsts=campaignFirstProducts(list,year),root=$("#campaignCards");if(!root)return;
     if(!firsts.length){root.innerHTML="<div class='notice warn'>Cadastre primeiro as 1ª parcelas oficiais deste ano.</div>";return}
     root.innerHTML=firsts.map(function(first,i){return campaignCardHtml(first,campaignForSegment(list,year,first["SEGMENTO_SÉRIE"]),year,i)}).join("");
     $$("[data-campaign-card]").forEach(function(card){
@@ -392,7 +393,7 @@ async function renderProdutos(){
       card.querySelector("[data-save-campaign]").onclick=async function(){const d=campaignCardData(card,year),btn=this;btn.disabled=true;btn.textContent="Salvando…";try{if(d.id)await api("atualizarProduto",{token:state.adminToken,id:d.id,data:d.payload});else await api("criarProdutoServico",{token:state.adminToken,data:d.payload});clearApiCache();setNotice("Campanha de "+esc(d.segment)+" salva e sincronizada.","ok");await renderProdutos()}catch(e){showToast(e.message||"Não foi possível salvar a campanha.","error");btn.disabled=false;btn.textContent="Salvar segmento"}};
     });
   };
-  const saveAllCampaigns=async()=>{const year=Number($("#campaignYear")?.value||targetDefault),cards=$$("[data-campaign-card]"),btn=$("#campaignSaveAll");if(!cards.length)return;btn.disabled=true;try{for(let i=0;i<cards.length;i++){btn.textContent="Salvando "+(i+1)+"/"+cards.length+"…";const d=campaignCardData(cards[i],year);if(d.id)await api("atualizarProduto",{token:state.adminToken,id:d.id,data:d.payload});else await api("criarProdutoServico",{token:state.adminToken,data:d.payload})}clearApiCache();setNotice("Campanhas da 1ª parcela salvas e sincronizadas com Atendimento, Secretaria, Panfletos e Matrícula.","ok");await renderProdutos()}catch(e){showToast(e.message||"Não foi possível salvar todas as campanhas.","error");btn.disabled=false;btn.textContent="Salvar todas as campanhas"}};
+  const saveAllCampaigns=async()=>{const year=Number($("#campaignYear")?.value||campaignDefaultYear),cards=$("[data-campaign-card]"),btn=$("#campaignSaveAll");if(!cards.length)return;btn.disabled=true;try{for(let i=0;i<cards.length;i++){btn.textContent="Salvando "+(i+1)+"/"+cards.length+"…";const d=campaignCardData(cards[i],year);if(d.id)await api("atualizarProduto",{token:state.adminToken,id:d.id,data:d.payload});else await api("criarProdutoServico",{token:state.adminToken,data:d.payload})}clearApiCache();setNotice("Campanhas da 1ª parcela salvas e sincronizadas com Atendimento, Secretaria, Panfletos e Matrícula.","ok");await renderProdutos()}catch(e){showToast(e.message||"Não foi possível salvar todas as campanhas.","error");btn.disabled=false;btn.textContent="Salvar todas as campanhas"}};
 
   let wizardRows=[],tuitionBundle=null;
   const tuitionCalc=()=>prodTuitionPlanCalc(tuitionBundle,Number($("#tuitionAnnualPct")?.value||0),Number($("#tuitionFirstPct")?.value||0));
