@@ -270,12 +270,24 @@ async function commitJob(job:Job,token:string){
     return {done:true,processed:offset,total:job.recordCount,result:job.result||{}};
   }
   job.status="PROCESSING";await saveJob(job);
+  let outboundEntity=job.entity,outboundRecords:Row[]=chunk;
+  if(job.entity==="campanhas"){
+    outboundEntity="produtos";
+    const current=await fetchPublishedCatalog();
+    outboundRecords=chunk.map(row=>{
+      const product=campaignToProduct(row);
+      const year=Number(product.ANO_LETIVO||0),segment=String(product["SEGMENTO_SÉRIE"]||"").trim().toLowerCase();
+      const existing=(current.campaigns||[]).find((x:any)=>Number(x.year)===year&&String(x.segment||"").trim().toLowerCase()===segment);
+      if(existing?.id)product.ID_PRODUTO=existing.id;
+      return product;
+    });
+  }
   const r=await fetch(APPS_SCRIPT_URL,{
     method:"POST",headers:{"content-type":"application/json"},redirect:"follow",signal:AbortSignal.timeout(20000),
     body:JSON.stringify({
       action:"importarLoteIntegracao",token,gatewayKey,
       modo:job.environment,sessaoTeste:job.environment==="TESTE"?job.id:"",
-      data:{jobId:job.id,source:job.source,entity:job.entity==="campanhas"?"produtos":job.entity,mode:job.mode,records:job.entity==="campanhas"?chunk.map(campaignToProduct):chunk}
+      data:{jobId:job.id,source:job.source,entity:outboundEntity,mode:job.mode,records:outboundRecords}
     })
   });
   const out=await r.json() as any;
