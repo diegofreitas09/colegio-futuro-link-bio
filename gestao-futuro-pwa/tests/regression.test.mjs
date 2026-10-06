@@ -101,3 +101,14 @@ test('backend exposes checklist management actions',()=>{
  assert.match(api,/case "listarChecklistDocumentos"/);
  assert.match(api,/case "salvarRegraDocumento"/);
 });
+
+
+test('backend distinguishes 11x and 12x products during adjustments',()=>{
+ const api=source('backend/ApiPwa.gs');
+ assert.match(api,/String\(x\.SUBCATEGORIA\|\|""\)===String\(p\.SUBCATEGORIA\|\|""\)/);
+ assert.match(api,/Number\(x\.QTD_PARCELAS\|\|0\)===Number\(p\.QTD_PARCELAS\|\|0\)/);
+ const individual=api.slice(api.indexOf('function aplicarReajusteIndividualPwa_'),api.indexOf('function pwaAtualizarProduto_'));
+ const batch=api.slice(api.indexOf('function aplicarReajusteCatalogoPwa_'),api.indexOf('function doPost'));
+ assert.match(individual,/x\.ID_PRODUTO===destId/);
+ assert.match(batch,/x\.ID_PRODUTO===id/);
+});
