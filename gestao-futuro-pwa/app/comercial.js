@@ -117,27 +117,45 @@ function gfFlyerAfterDue(p){
   var v=parseMoney(p&&p["VALOR_PÓS_VENCIMENTO"]);
   return v>0?v:0;
 }
+function gfFlyerTuitionSegmentLabel(p){
+  var raw=String(p&&p["SEGMENTO_SÉRIE"]||"").trim(),n=gfNorm(raw);
+  if(n.includes("infantil"))return {title:"EDUCAÇÃO INFANTIL",sub:raw||"Infantil 2 ao 5"};
+  if(n.includes("1º ao 5º")||n.includes("1o ao 5o")||n.includes("iniciais"))return {title:"ENSINO FUNDAMENTAL",mid:"(Anos Iniciais)",sub:raw||"1º ao 5º Ano"};
+  if(n.includes("6º ao 9º")||n.includes("6o ao 9o")||n.includes("finais"))return {title:"ENSINO FUNDAMENTAL",mid:"(Anos Finais)",sub:raw||"6º ao 9º Ano"};
+  if(n.includes("medio"))return {title:"ENSINO MÉDIO",sub:raw||"1ª à 3ª Série"};
+  return {title:raw||"SEGMENTO",sub:""};
+}
+function gfFlyerTuitionCell(main,after,kind){
+  var mainValue=parseMoney(main),afterValue=parseMoney(after);
+  if(!mainValue&&!afterValue)return "<div class='regular-value empty'>—</div>";
+  var cls=kind==="first"?" regular-first":"";
+  return "<div class='regular-value"+cls+"'>"+
+    (mainValue?"<b>"+money(mainValue)+"</b>":"")+
+    (kind==="first"?"":(mainValue?"<small>(até o vencimento)</small>":""))+
+    (afterValue?"<b>"+money(afterValue)+"</b><small>(após o vencimento)</small>":"")+
+    "</div>";
+}
 function gfFlyerTuitionPlansMarkup(list,y){
   var annual=gfAnnualProduct(list),first=gfFirstProduct(list),p12=gfRecurringProduct(list,12),p11=gfRecurringProduct(list,11);
   if(!annual&&!first&&!p12&&!p11)return "";
-  var a=gfPlanCalc(list,12,0,0),b=gfPlanCalc(list,11,0,0);
-  var annualValue=parseMoney(annual&&annual.VALOR_BASE)||a.annualValue||b.annualValue||0;
-  var firstValue=parseMoney(first&&(first.VALOR_BASE||first.VALOR_PARCELA))||a.firstBase||b.firstBase||0;
-  var annualPost=gfFlyerAfterDue(annual),firstPost=gfFlyerAfterDue(first),p12Post=gfFlyerAfterDue(p12),p11Post=gfFlyerAfterDue(p11);
-  function planCard(letter,n,plan,post){
-    if(!(n===12?p12:p11))return "";
-    var total=Number(plan.tableTotal||plan.annualValue||annualValue||0);
-    var after=post?"<small class='flyer-plan-after'>Após o vencimento: "+money(post)+" por parcela</small>":"";
-    return "<div class='flyer-plan-card'><div class='flyer-plan-card-head'><span>PLANO "+letter+"</span><b>1ª + "+n+"x</b></div>"+
-      "<div class='flyer-plan-formula'><div><small>1ª parcela</small><strong>"+money(plan.firstBase||firstValue)+"</strong></div><i>+</i><div><small>"+n+" parcelas</small><strong>"+n+"x de "+money(plan.recurringBase)+"</strong></div></div>"+
-      "<div class='flyer-plan-total'><span>Total da anuidade</span><b>"+money(total)+"</b></div>"+after+"</div>";
-  }
-  var annualAfter=annualPost?"<small>Após o vencimento: "+money(annualPost)+"</small>":"";
-  var firstAfter=firstPost?"<small>Após o vencimento: "+money(firstPost)+"</small>":"";
-  return "<section class='flyer-tuition-plans'><div class='flyer-plans-title'><div><small>VALORES OFICIAIS • "+Number(y||gfYear(annual||p12||p11)||0)+"</small><h3>Planos de mensalidade</h3></div><span>Sincronizado com a Gestão</span></div>"+
-    "<div class='flyer-tuition-summary'><div><small>Anuidade</small><b>"+money(annualValue)+"</b>"+annualAfter+"</div><div><small>1ª parcela</small><b>"+money(firstValue)+"</b>"+firstAfter+"</div></div>"+
-    "<div class='flyer-plan-grid'>"+planCard("A",12,a,p12Post)+planCard("B",11,b,p11Post)+"</div>"+
-    "<p class='flyer-plan-note'>A anuidade é a mesma nos dois planos; muda apenas a distribuição entre a 1ª parcela e as parcelas seguintes.</p></section>";
+  var ref=annual||first||p12||p11,seg=gfFlyerTuitionSegmentLabel(ref);
+  var annualMain=parseMoney(annual&&annual.VALOR_BASE),annualPost=gfFlyerAfterDue(annual);
+  var firstMain=parseMoney(first&&((first.VALOR_BASE!==""&&first.VALOR_BASE!=null)?first.VALOR_BASE:first.VALOR_PARCELA)),firstPost=gfFlyerAfterDue(first);
+  var p12Main=parseMoney(p12&&((p12.VALOR_PARCELA!==""&&p12.VALOR_PARCELA!=null)?p12.VALOR_PARCELA:p12.VALOR_BASE)),p12Post=gfFlyerAfterDue(p12);
+  var p11Main=parseMoney(p11&&((p11.VALOR_PARCELA!==""&&p11.VALOR_PARCELA!=null)?p11.VALOR_PARCELA:p11.VALOR_BASE)),p11Post=gfFlyerAfterDue(p11);
+  var firstCell=gfFlyerTuitionCell(firstMain,firstPost,"first");
+  return "<section class='flyer-regular-table'><h3>Tempo regular</h3><div class='regular-table-scroll'><div class='regular-table-grid'>"+
+    "<div class='regular-head'>SEGMENTO</div>"+
+    "<div class='regular-head'>ANUIDADE</div>"+
+    "<div class='regular-head'>1ª PARCELA</div>"+
+    "<div class='regular-head'>12 PARCELAS<small>(janeiro a dezembro)</small></div>"+
+    "<div class='regular-head'>11 PARCELAS<small>(fevereiro a dezembro)</small></div>"+
+    "<div class='regular-segment'><b>"+esc(seg.title)+"</b>"+(seg.mid?"<span>"+esc(seg.mid)+"</span>":"")+(seg.sub?"<strong>"+esc(seg.sub)+"</strong>":"")+"</div>"+
+    "<div class='regular-cell'>"+gfFlyerTuitionCell(annualMain,annualPost)+"</div>"+
+    "<div class='regular-cell'>"+firstCell+"</div>"+
+    "<div class='regular-cell'>"+gfFlyerTuitionCell(p12Main,p12Post)+"</div>"+
+    "<div class='regular-cell'>"+gfFlyerTuitionCell(p11Main,p11Post)+"</div>"+
+    "</div></div><p class='regular-table-note'>A primeira parcela será paga no ato da adesão à matrícula e as parcelas restantes de acordo com o vencimento.</p></section>";
 }
 function gfOptions(sel){return GF_SERIES.map(function(s){return "<option "+(s===sel?"selected":"")+">"+esc(s)+"</option>"}).join("")}
 function gfStageButtons(){return GF_STAGES.map(function(s,i){return "<button type='button' data-stage='"+esc(s)+"'><i>"+(i+1)+"</i><span>"+esc(s)+"</span></button>"}).join("")+"<button type='button' class='loss' data-stage='Não converteu'><i>×</i><span>Não converteu</span></button>"}
