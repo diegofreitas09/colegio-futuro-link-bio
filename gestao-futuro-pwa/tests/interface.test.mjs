@@ -746,3 +746,51 @@ test('operational plan requires explicit annual first and recurring products fro
   assert.equal(p.recurringBase,500);
  }finally{x.dom.window.close()}
 });
+
+
+test('campaign helper applies segment discount and installment conditions',()=>{
+ const x=setup();try{
+  x.w.__products=[
+   {ID_PRODUTO:'PRI-INF-2027',ANO_LETIVO:2027,ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Sim',CATEGORIA:'Mensalidade',SUBCATEGORIA:'1ª Parcela',PRODUTO:'1ª Parcela','SEGMENTO_SÉRIE':'Infantil 2 ao 5',VALOR_BASE:500},
+   {ID_PRODUTO:'CAMP-INF-2027',ANO_LETIVO:2027,ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Sim',CATEGORIA:'Campanha',SUBCATEGORIA:'1ª Parcela',PRODUTO:'Campanha Matrículas 2027','SEGMENTO_SÉRIE':'Infantil 2 ao 5',VALOR_BASE:30,QTD_PARCELAS:3,OBSERVACAO_INTERNA:JSON.stringify({name:'Campanha Matrículas 2027',discount:30,cardInstallments:3,paymentMethod:'Cartão',studentType:'Todos',showFlyer:true,autoApply:true,noInterest:true})}
+  ];
+  const campaign=x.run('gfCampaignFor(window.__products,2027,"Infantil 2","Novato",false)');
+  assert.equal(campaign.ID_PRODUTO,'CAMP-INF-2027');
+  x.w.__campaign=campaign;
+  const result=x.run('gfCampaignResult(500,window.__campaign)');
+  assert.equal(result.final,350);
+  assert.match(x.run('gfCampaignConditionText(window.__campaign)'),/30% de desconto/);
+  assert.match(x.run('gfCampaignConditionText(window.__campaign)'),/3x no cartão sem juros/);
+ }finally{x.dom.window.close()}
+});
+
+test('flyer campaign highlights official and promotional first installment',()=>{
+ const x=setup();try{
+  x.w.__list=[
+   {ID_PRODUTO:'PRI-INF-2027',ANO_LETIVO:2027,ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Sim',CATEGORIA:'Mensalidade',SUBCATEGORIA:'1ª Parcela',PRODUTO:'1ª Parcela','SEGMENTO_SÉRIE':'Infantil 2 ao 5',VALOR_BASE:500},
+   {ID_PRODUTO:'CAMP-INF-2027',ANO_LETIVO:2027,ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Sim',CATEGORIA:'Campanha',SUBCATEGORIA:'1ª Parcela',PRODUTO:'Matrícula Antecipada','SEGMENTO_SÉRIE':'Infantil 2 ao 5',VALOR_BASE:30,QTD_PARCELAS:3,OBSERVACAO_INTERNA:JSON.stringify({name:'Matrícula Antecipada',discount:30,cardInstallments:3,paymentMethod:'Cartão',studentType:'Todos',showFlyer:true,autoApply:true,noInterest:true})}
+  ];
+  const html=x.run('gfFlyerCampaignMarkup(window.__list,2027,"Infantil 2","Novato")');
+  assert.match(html,/CAMPANHA DE MATRÍCULA/);
+  assert.match(html,/Matrícula Antecipada/);
+  assert.match(html,/R\$\s*500,00/);
+  assert.match(html,/R\$\s*350,00/);
+ }finally{x.dom.window.close()}
+});
+
+test('management campaign editor is separated from bulk price adjustments',()=>{
+ const src=read('app/gestao.js');
+ assert.match(src,/Campanha da 1ª parcela/);
+ assert.match(src,/data-campaign-field="discount"/);
+ assert.match(src,/Parcelamento máximo da 1ª parcela/);
+ assert.match(src,/!gfIsCampaignProduct\(p\)/);
+ assert.match(src,/campaignSaveAll/);
+});
+
+test('secretaria matrícula displays campaign policy and records its condition',()=>{
+ const src=read('app/secretaria.js');
+ assert.match(src,/id="matCampaignInfo"/);
+ assert.match(src,/gfCampaignFor\(available,year,serie,studentType,false\)/);
+ assert.match(src,/1ª parcela com campanha/);
+ assert.match(src,/campaignNote/);
+});
