@@ -616,3 +616,27 @@ test('bulk adjustment target matching is idempotent',()=>{
   assert.equal(x.run('prodPreviewValue(524.34,10)'),576.77);
  }finally{x.dom.window.close()}
 });
+
+
+test('bulk adjustment recognizes destination id when source id has no year',()=>{
+ const x=setup();try{
+  x.w.__list=[
+   {ID_PRODUTO:'FAR-CAMISA',ANO_LETIVO:2026,CATEGORIA:'Fardamento',SUBCATEGORIA:'Uniforme',PRODUTO:'Camisa escolar','SEGMENTO_SÉRIE':'Todos',VALOR_BASE:100,QTD_PARCELAS:1},
+   {ID_PRODUTO:'FAR-OUTRO-2027',ANO_LETIVO:2027,CATEGORIA:'Fardamento',SUBCATEGORIA:'Uniforme',PRODUTO:'Outro uniforme','SEGMENTO_SÉRIE':'Todos',VALOR_BASE:99,QTD_PARCELAS:1},
+   {ID_PRODUTO:'FAR-CAMISA-2027',ANO_LETIVO:2027,CATEGORIA:'Fardamento',SUBCATEGORIA:'Uniforme',PRODUTO:'Camisa escolar','SEGMENTO_SÉRIE':'Todos',VALOR_BASE:110,QTD_PARCELAS:1}
+  ];
+  const found=x.run('prodTargetMatch(window.__list,window.__list[0],2027)');
+  assert.equal(found.ID_PRODUTO,'FAR-CAMISA-2027');
+ }finally{x.dom.window.close()}
+});
+
+test('bulk adjustment reports every unresolved product, not only request errors',()=>{
+ const src=read('app/gestao.js');
+ const start=src.indexOf('function openSchoolYearForm(years,list)');
+ const end=src.indexOf('function openIndividualAdjustment(',start);
+ const block=src.slice(start,end);
+ assert.match(block,/unresolvedRows\.length/);
+ assert.match(block,/targetIds\.set/);
+ assert.match(block,/for\(let attempt=0;attempt<3;attempt\+\+\)/);
+ assert.doesNotMatch(block,/confirmed\+" de "\+sourceRows\.length\+" produto\(s\) confirmados\. "\+failed\.length/);
+});
