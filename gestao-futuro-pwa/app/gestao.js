@@ -449,32 +449,94 @@ async function renderProdutos(){
   };
 
   $("#prodSearch").oninput=drawCatalog;$("#prodYear").onchange=drawCatalog;
-  $("#newSchoolYear").onclick=()=>openSchoolYearForm(years);
+  $("#newSchoolYear").onclick=()=>openSchoolYearForm(years,list);
   $("#individualAdjustment").onclick=()=>openIndividualAdjustment(list,years);
   $("#newProductService").onclick=()=>openNewProductService();
   drawWizard();drawCatalog();
 }
-function openSchoolYearForm(years){
+function openSchoolYearForm(years,list){
   const origem=Number(state.productYear||years[0]||2026),destino=origem+1;
+  const categories=[...new Set((list||[]).filter(p=>prodInferYear(p)===origem&&String(p.ATIVO||"Sim")!=="Não").map(p=>String(p.CATEGORIA||"").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
   modal(`<div class="modal-head"><h3>Reajuste em lote</h3><button class="icon-btn" data-close>✕</button></div>
-  <div class="modal-body"><div class="notice">A Gestão define o percentual uma vez e a plataforma cria/atualiza os valores do ano seguinte sem apagar o histórico.</div>
+  <div class="modal-body"><div class="notice">O reajuste será salvo produto por produto para evitar timeout do Apps Script. Se houver oscilação de conexão, a plataforma confere o que já foi gravado antes de continuar.</div>
   <form id="yearForm" class="form-grid">
     <div class="field"><label>Ano de origem</label><select name="anoOrigem">${years.map(y=>`<option value="${y}" ${y===origem?"selected":""}>${y}</option>`).join("")}</select></div>
     <div class="field"><label>Ano de destino</label><input type="number" name="anoDestino" value="${destino}" min="2026" max="2100" required></div>
-    <div class="field"><label>Reajuste (%)</label><input type="number" step="0.01" name="percentual" value="0" required></div>
-    <div class="field"><label>Categoria</label><select name="categoria"><option>Todas</option><option>Mensalidade</option><option>Material Didático</option><option>Fardamento</option><option>Adicional</option><option>Serviço</option><option>Taxa</option><option>Outros</option></select></div>
+    <div class="field"><label>Reajuste (%)</label><input type="number" step="0.01" name="percentual" value="8" required></div>
+    <div class="field"><label>Categoria</label><select name="categoria"><option value="">Todas</option>${categories.map(x=>`<option>${esc(x)}</option>`).join("")}</select></div>
     <div class="field"><label>Publicar no Atendimento, Panfleto e Secretaria</label><select name="publicar"><option>Sim</option><option>Não</option></select></div>
-    <div class="field span-3"><label>Regra</label><div class="muted">Ex.: 2026 → 2027, 8%. O sistema calcula todos os itens selecionados; depois você pode ajustar qualquer produto individualmente.</div></div>
-  </form></div>
+    <div class="field span-3"><label>Regra</label><span class="muted">Cada produto do ano de origem será criado/atualizado no ano de destino. O histórico não é apagado.</span></div>
+  </form>
+  <div id="bulkProgress" class="bulk-progress" hidden><div class="bulk-progress-bar"><i id="bulkProgressFill"></i></div><b id="bulkProgressTitle">Preparando…</b><span id="bulkProgressDetail"></span></div></div>
   <div class="modal-foot"><button class="btn btn-soft" data-close>Cancelar</button><button class="btn btn-primary" id="createYear">Aplicar reajuste</button></div>`);
-  $$('[data-close]').forEach(x=>x.onclick=closeModal);
+  $$("[data-close]").forEach(x=>x.onclick=closeModal);
+
+  const findVerifiedTarget=(rows,source,targetYear,expected)=>{
+    const target=prodTargetMatch(rows,source,targetYear);
+    if(!target)return null;
+    const actual=Number(target.VALOR_BASE||0);
+    return Math.abs(actual-expected)<=0.02?target:null;
+  };
+
   $("#createYear").onclick=async()=>{
-    const f=$("#yearForm");if(!f.reportValidity())return;const data=Object.fromEntries(new FormData(f).entries());
-    const btn=$("#createYear");btn.disabled=true;btn.textContent="Aplicando…";
-    try{const res=await api("aplicarReajusteCatalogo",{token:state.adminToken,data});state.productYear=Number(data.anoDestino);clearApiCache();closeModal();setNotice(`Reajuste aplicado em ${res.quantidade||0} produto(s). O catálogo ${data.anoDestino} está ${data.publicar==="Sim"?"publicado":"em rascunho"} para o Atendimento.`,"ok");await renderProdutos()}catch(e){alert(e.message);btn.disabled=false;btn.textContent="Aplicar reajuste"}
+    const form=$("#yearForm"),data=Object.fromEntries(new FormData(form).entries()),btn=$("#createYear");
+    const sourceYear=Number(data.anoOrigem),targetYear=Number(data.anoDestino),pct=Number(data.percentual||0),category=String(data.categoria||"").trim();
+    if(!sourceYear||!targetYear||sourceYear===targetYear){showToast("Ano de origem e destino precisam ser diferentes.","error");return}
+    const sourceRows=(list||[]).filter(p=>prodInferYear(p)===sourceYear&&String(p.ATIVO||"Sim")!=="Não"&&(!category||String(p.CATEGORIA||"")===category));
+    if(!sourceRows.length){showToast("Nenhum produto ativo encontrado para o filtro escolhido.","error");return}
+
+    btn.disabled=true;form.querySelectorAll("input,select").forEach(el=>el.disabled=true);
+    $("#bulkProgress").hidden=false;
+    const fill=$("#bulkProgressFill"),title=$("#bulkProgressTitle"),detail=$("#bulkProgressDetail");
+    let saved=0,verifiedAfterError=0,failed=[];
+
+    for(let i=0;i<sourceRows.length;i++){
+      const p=sourceRows[i],expected=prodPreviewValue(Number(p.VALOR_BASE||0),pct);
+      const label=String(p.PRODUTO||p.ID_PRODUTO||"Produto");
+      const progress=Math.round((i/sourceRows.length)*100);
+      fill.style.width=progress+"%";
+      title.textContent="Salvando "+(i+1)+" de "+sourceRows.length+"…";
+      detail.textContent=label;
+      btn.textContent="Aplicando "+(i+1)+"/"+sourceRows.length+"…";
+      try{
+        await api("aplicarReajusteIndividual",{token:state.adminToken,data:{
+          anoOrigem:sourceYear,anoDestino:targetYear,idProduto:p.ID_PRODUTO,modo:"percentual",valor:pct,publicar:data.publicar||"Sim",
+          observacao:"Reajuste em lote seguro • "+(category||"Todas as categorias")+" • "+sourceYear+"→"+targetYear
+        }});
+        saved++;
+      }catch(err){
+        // Em erro de comunicação, o Apps Script pode ter concluído a gravação.
+        // Confere o catálogo antes de repetir ou declarar falha.
+        try{
+          clearApiCache();
+          const fresh=await api("listarProdutosGestao",{token:state.adminToken});
+          if(findVerifiedTarget(fresh,p,targetYear,expected)){saved++;verifiedAfterError++;continue}
+        }catch(_verifyErr){}
+        failed.push({produto:label,error:String(err&&err.message||err)});
+      }
+    }
+
+    fill.style.width="100%";
+    clearApiCache();
+    let fresh=[];
+    try{fresh=await api("listarProdutosGestao",{token:state.adminToken})}catch(e){}
+    const confirmed=sourceRows.filter(p=>findVerifiedTarget(fresh,p,targetYear,prodPreviewValue(Number(p.VALOR_BASE||0),pct))).length;
+
+    if(confirmed===sourceRows.length){
+      state.productYear=targetYear;
+      closeModal();
+      setNotice("Reajuste concluído: "+confirmed+" de "+sourceRows.length+" produto(s) confirmados no catálogo "+targetYear+". Os novos valores estão disponíveis para os módulos integrados.","ok");
+      await renderProdutos();
+      return;
+    }
+
+    title.textContent="Concluído com pendências";
+    detail.textContent=confirmed+" de "+sourceRows.length+" produto(s) confirmados. "+failed.length+" item(ns) precisam ser reenviados.";
+    btn.disabled=false;btn.textContent="Tentar somente pendentes";
+    form.querySelectorAll("input,select").forEach(el=>el.disabled=false);
+    showToast("Alguns valores não foram confirmados. Nenhum item já salvo será perdido; tente novamente para completar apenas os pendentes.","error");
   };
 }
-
 function openIndividualAdjustment(list,years){
   const origem=Number(state.productYear||years[0]||2026),destino=origem+1;
   const source=list.filter(p=>Number(p.ANO_LETIVO)===origem);
