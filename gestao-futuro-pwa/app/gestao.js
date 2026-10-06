@@ -279,7 +279,7 @@ function campaignTitle(segment){
   return segment||"Segmento";
 }
 function campaignCardHtml(first,campaign,year,i){
-  var base=Number(first.VALOR_BASE||0),m=campaign?gfCampaignMeta(campaign):{name:"Campanha Matrículas "+year,discount:30,cardInstallments:3,paymentMethod:"Cartão",studentType:"Todos",start:"",end:"",showFlyer:true,autoApply:true,noInterest:true,note:""},final=Math.round(base*(1-m.discount/100)*100)/100,active=!campaign||String(campaign.ATIVO||"Sim")!=="Não";
+  var base=Number(first.VALOR_BASE||0),m=campaign?gfCampaignMeta(campaign):{name:"Campanha Matrículas "+year,discount:30,cardInstallments:3,paymentMethod:"Cartão",studentType:"Todos",start:"",end:"",showFlyer:true,autoApply:true,noInterest:true,note:""},final=campaign?gfCampaignResult(base,campaign).final:Math.round(base*(1-m.discount/100)*100)/100,active=!campaign||String(campaign.ATIVO||"Sim")!=="Não";
   var opts=Array.from({length:12},function(_,i){return i+1}).map(function(n){return '<option value="'+n+'" '+(Number(m.cardInstallments)===n?"selected":"")+'>'+n+'x</option>'}).join("");
   var pay=["Cartão","Pix","Cartão ou Pix","Qualquer forma"].map(function(v){return '<option '+(m.paymentMethod===v?"selected":"")+'>'+v+'</option>'}).join("");
   var pub=["Todos","Novato","Veterano"].map(function(v){return '<option '+(m.studentType===v?"selected":"")+'>'+v+'</option>'}).join("");
