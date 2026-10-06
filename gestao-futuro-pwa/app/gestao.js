@@ -375,7 +375,7 @@ async function renderProdutos(){
   const drawCatalog=()=>{
     const q=$("#prodSearch").value.toLowerCase(),year=Number($("#prodYear").value);
     state.productYear=year;$("#yearLabel").textContent=year;
-    const yearRows=list.filter(p=>inferYear(p)===year);
+    const yearRows=list.filter(p=>inferYear(p)===year&&!gfIsCampaignProduct(p));
     const arr=yearRows.filter(p=>[p.PRODUTO,p.CATEGORIA,p["SEGMENTO_SÉRIE"]].join(" ").toLowerCase().includes(q));
     $("#prodMetrics").innerHTML=prodMetricsHtml(yearRows,year);
     $("#prodTable").innerHTML=`<div class="table-wrap"><table><thead><tr><th>ID</th><th>Ano</th><th>Produto</th><th>Série</th><th>Valor base</th><th>Pós-vencimento</th><th>Parcelas</th><th>Reajuste</th><th>Publicado</th><th>Ativo</th><th></th></tr></thead><tbody>${arr.map(p=>`<tr><td>${esc(p.ID_PRODUTO)}</td><td><strong>${esc(inferYear(p)||"")}</strong></td><td><strong>${esc(p.PRODUTO)}</strong><br><span class="muted">${esc(p.CATEGORIA||"")}</span></td><td>${esc(p["SEGMENTO_SÉRIE"]||"")}</td><td class="money">${money(p.VALOR_BASE)}</td><td class="money">${money(p["VALOR_PÓS_VENCIMENTO"])}</td><td>${esc(p.QTD_PARCELAS||"")}</td><td>${prodAdjustmentBadge(p)}</td><td>${pill(p.PUBLICADO_ATENDIMENTO||"Sim")}</td><td>${pill(p.ATIVO||"")}</td><td><button class="icon-btn" data-prod="${esc(p.ID_PRODUTO)}">Editar</button></td></tr>`).join("")||`<tr><td colspan="11" class="empty">Nenhum produto cadastrado para ${year}.</td></tr>`}</tbody></table></div>`;
