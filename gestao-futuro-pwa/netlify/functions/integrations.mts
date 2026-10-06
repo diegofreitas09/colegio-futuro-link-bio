@@ -109,7 +109,22 @@ const aliases:Record<string,Record<string,string>>={
     ID:"ID_PRODUTO",ID_PRODUTO:"ID_PRODUTO",ANO:"ANO_LETIVO",ANO_LETIVO:"ANO_LETIVO",CATEGORIA:"CATEGORIA",
     SUBCATEGORIA:"SUBCATEGORIA",PRODUTO:"PRODUTO",NOME:"PRODUTO",SERIE:"SEGMENTO_SÉRIE",
     SEGMENTO_SERIE:"SEGMENTO_SÉRIE",DESCRICAO:"DESCRIÇÃO",VALOR:"VALOR_BASE",VALOR_BASE:"VALOR_BASE",
-    PARCELAS:"QTD_PARCELAS",QTD_PARCELAS:"QTD_PARCELAS",TIPO_COBRANCA:"TIPO_COBRANCA",ATIVO:"ATIVO"
+    PARCELAS:"QTD_PARCELAS",QTD_PARCELAS:"QTD_PARCELAS",TIPO_COBRANCA:"TIPO_COBRANCA",ATIVO:"ATIVO",
+    PUBLICADO_ATENDIMENTO:"PUBLICADO_ATENDIMENTO",DISPONIVEL_MATRICULA:"DISPONIVEL_MATRICULA",
+    OBSERVACAO:"OBSERVAÇÃO",OBSERVACAO_INTERNA:"OBSERVACAO_INTERNA",ORDEM_EXIBICAO:"ORDEM_EXIBICAO"
+  },
+  campanhas:{
+    ID:"ID_PRODUTO",ID_PRODUTO:"ID_PRODUTO",ANO:"ANO_LETIVO",ANO_LETIVO:"ANO_LETIVO",
+    NOME:"NOME_CAMPANHA",NOME_CAMPANHA:"NOME_CAMPANHA",CAMPANHA:"NOME_CAMPANHA",
+    SERIE:"SEGMENTO_SÉRIE",SEGMENTO:"SEGMENTO_SÉRIE",SEGMENTO_SERIE:"SEGMENTO_SÉRIE",
+    DESCONTO:"DESCONTO_PRIMEIRA",DESCONTO_PRIMEIRA:"DESCONTO_PRIMEIRA",DESCONTO_PRIMEIRA_PCT:"DESCONTO_PRIMEIRA",
+    PERCENTUAL:"DESCONTO_PRIMEIRA",PERCENTUAL_DESCONTO:"DESCONTO_PRIMEIRA",
+    PARCELAS:"PARCELAMENTO_MAXIMO",PARCELAMENTO:"PARCELAMENTO_MAXIMO",PARCELAMENTO_MAXIMO:"PARCELAMENTO_MAXIMO",
+    FORMA:"FORMA_PAGAMENTO",FORMA_PAGAMENTO:"FORMA_PAGAMENTO",SEM_JUROS:"SEM_JUROS",
+    PUBLICO:"PUBLICO",TIPO_ALUNO:"PUBLICO",DATA_INICIO:"DATA_INICIO",INICIO:"DATA_INICIO",
+    DATA_FIM:"DATA_FIM",FIM:"DATA_FIM",APLICAR_AUTOMATICAMENTE:"APLICAR_AUTOMATICAMENTE",
+    APLICACAO_AUTOMATICA:"APLICAR_AUTOMATICAMENTE",EXIBIR_PANFLETO:"EXIBIR_PANFLETO",
+    PANFLETO:"EXIBIR_PANFLETO",ATIVO:"ATIVO",OBSERVACAO:"OBSERVAÇÃO"
   },
   atendimentos:{
     ID:"ID_ATENDIMENTO",ID_ATENDIMENTO:"ID_ATENDIMENTO",ID_ALUNO:"ID_ALUNO",NOME:"NOME_ALUNO",NOME_ALUNO:"NOME_ALUNO",
@@ -135,6 +150,84 @@ function normalizeRows(entity:string,rows:Row[]){
   return {rows:out,warnings};
 }
 
+function boolish(v:any,defaultValue=true){
+  if(v===undefined||v===null||String(v).trim()==="")return defaultValue;
+  const s=String(v).trim().toLowerCase();
+  return !["0","nao","não","false","n","off","inativo"].includes(s);
+}
+function num(v:any,def=0){
+  if(typeof v==="number"&&Number.isFinite(v))return v;
+  const raw=String(v??"").trim().replace(/\s/g,"");
+  if(!raw)return def;
+  const normalized=raw.includes(",")?raw.replace(/\./g,"").replace(",","."):raw;
+  const n=Number(normalized.replace(/[^0-9.-]/g,""));
+  return Number.isFinite(n)?n:def;
+}
+function campaignToProduct(row:Row){
+  const year=Math.trunc(num(row.ANO_LETIVO,new Date().getFullYear()));
+  const discount=Math.max(0,Math.min(100,num(row.DESCONTO_PRIMEIRA??row.VALOR_BASE,0)));
+  const installments=Math.max(1,Math.min(12,Math.trunc(num(row.PARCELAMENTO_MAXIMO??row.QTD_PARCELAS,1))));
+  const payment=String(row.FORMA_PAGAMENTO||"Cartão").trim()||"Cartão";
+  const meta={
+    name:String(row.NOME_CAMPANHA||row.PRODUTO||("Campanha Matrículas "+year)).trim(),
+    discount,
+    cardInstallments:installments,
+    paymentMethod:payment,
+    studentType:String(row.PUBLICO||"Todos").trim()||"Todos",
+    start:String(row.DATA_INICIO||"").slice(0,10),
+    end:String(row.DATA_FIM||"").slice(0,10),
+    showFlyer:boolish(row.EXIBIR_PANFLETO,true),
+    autoApply:boolish(row.APLICAR_AUTOMATICAMENTE,true),
+    noInterest:boolish(row.SEM_JUROS,true),
+    note:String(row["OBSERVAÇÃO"]||row.OBSERVACAO||"").trim()
+  };
+  const publicNote=(discount?discount.toLocaleString("pt-BR",{maximumFractionDigits:2})+"% de desconto na 1ª parcela":"Sem desconto")+
+    (installments>1?" • até "+installments+"x no "+payment.toLowerCase()+(meta.noInterest?" sem juros":""):"");
+  return {
+    ID_PRODUTO:row.ID_PRODUTO||"",
+    ANO_LETIVO:year,CATEGORIA:"Campanha",SUBCATEGORIA:"1ª Parcela",PRODUTO:meta.name,
+    "SEGMENTO_SÉRIE":row["SEGMENTO_SÉRIE"]||"Todos","DESCRIÇÃO":publicNote,
+    VALOR_BASE:discount,"VALOR_PÓS_VENCIMENTO":0,"VALOR_CRÉDITO":0,QTD_PARCELAS:installments,VALOR_PARCELA:0,
+    VENCIMENTO_PADRÃO:meta.end||"",ATIVO:boolish(row.ATIVO,true)?"Sim":"Não","OBSERVAÇÃO":meta.note||publicNote,
+    TIPO_COBRANCA:"Campanha",DISPONIVEL_MATRICULA:"Não",ORDEM_EXIBICAO:1,
+    OBSERVACAO_INTERNA:JSON.stringify(meta),PUBLICADO_ATENDIMENTO:"Sim"
+  };
+}
+function campaignPublicView(p:Row){
+  let meta:any={};try{meta=JSON.parse(String(p.OBSERVACAO_INTERNA||"{}"))}catch{}
+  const discount=num(p.VALOR_BASE??meta.discount,0);
+  return {
+    id:String(p.ID_PRODUTO||""),year:Math.trunc(num(p.ANO_LETIVO,0)),name:String(meta.name||p.PRODUTO||"Campanha"),
+    segment:String(p["SEGMENTO_SÉRIE"]||"Todos"),discount,cardInstallments:Math.max(1,Math.trunc(num(p.QTD_PARCELAS??meta.cardInstallments,1))),
+    paymentMethod:String(meta.paymentMethod||"Cartão"),studentType:String(meta.studentType||"Todos"),
+    start:String(meta.start||""),end:String(meta.end||""),showFlyer:meta.showFlyer!==false,autoApply:meta.autoApply!==false,
+    noInterest:meta.noInterest!==false,note:String(meta.note||p["OBSERVAÇÃO"]||""),active:String(p.ATIVO||"Sim")!=="Não"
+  };
+}
+async function fetchPublishedCatalog(){
+  const gatewayKey=Netlify.env.get("FUTURO_PWA_GATEWAY_KEY");
+  if(!gatewayKey)throw new Error("Gateway da PWA não configurado.");
+  const r=await fetch(APPS_SCRIPT_URL,{
+    method:"POST",headers:{"content-type":"application/json"},redirect:"follow",signal:AbortSignal.timeout(20000),
+    body:JSON.stringify({action:"listarProdutosPublicos",gatewayKey})
+  });
+  const out=await r.json() as any;
+  if(!r.ok||!out?.ok)throw new Error(out?.error||"Não foi possível ler o catálogo oficial.");
+  const all=Array.isArray(out.data)?out.data:[];
+  const campaigns=all.filter((p:Row)=>String(p.CATEGORIA||"").toLowerCase()==="campanha").map(campaignPublicView);
+  const products=all.filter((p:Row)=>String(p.CATEGORIA||"").toLowerCase()!=="campanha");
+  return {updatedAt:new Date().toISOString(),products,campaigns,all};
+}
+function catalogFilter(data:any,year?:any,series?:any){
+  const y=Math.trunc(num(year,0)),s=String(series||"").trim().toLowerCase();
+  const matches=(v:any)=>!s||String(v||"").toLowerCase().includes(s)||s.includes(String(v||"").toLowerCase());
+  return {
+    updatedAt:data.updatedAt,
+    products:(data.products||[]).filter((p:Row)=>(!y||num(p.ANO_LETIVO,0)===y)&&matches(p["SEGMENTO_SÉRIE"])),
+    campaigns:(data.campaigns||[]).filter((p:any)=>(!y||Number(p.year)===y)&&matches(p.segment))
+  };
+}
+
 function parseWorkbook(buffer:ArrayBuffer,filename:string){
   const wb=XLSX.read(Buffer.from(buffer),{type:"buffer",cellDates:false});
   const name=wb.SheetNames[0];
@@ -153,7 +246,7 @@ function safeRemoteUrl(raw:string){
 
 async function stageJob(input:{source:string,entity:string,mode?:string,environment?:string,channel:string,createdBy:string,records:Row[]}){
   const entity=String(input.entity||"").toLowerCase();
-  if(!["alunos","responsaveis","matriculas","produtos","atendimentos"].includes(entity))throw new Error("Entidade não suportada.");
+  if(!["alunos","responsaveis","matriculas","produtos","campanhas","atendimentos"].includes(entity))throw new Error("Entidade não suportada.");
   const normalized=normalizeRows(entity,input.records||[]);
   if(!normalized.rows.length)throw new Error("Nenhum registro válido encontrado.");
   if(normalized.rows.length>5000)throw new Error("Limite por importação: 5.000 registros.");
@@ -182,7 +275,7 @@ async function commitJob(job:Job,token:string){
     body:JSON.stringify({
       action:"importarLoteIntegracao",token,gatewayKey,
       modo:job.environment,sessaoTeste:job.environment==="TESTE"?job.id:"",
-      data:{jobId:job.id,source:job.source,entity:job.entity,mode:job.mode,records:chunk}
+      data:{jobId:job.id,source:job.source,entity:job.entity==="campanhas"?"produtos":job.entity,mode:job.mode,records:job.entity==="campanhas"?chunk.map(campaignToProduct):chunk}
     })
   });
   const out=await r.json() as any;
@@ -242,6 +335,10 @@ export default async(req:Request,_context:Context)=>{
 
       if(action==="admin:list-jobs"){
         return json({ok:true,data:(await readJobIndex()).slice(0,100)});
+      }
+      if(action==="admin:catalog-snapshot"){
+        const catalog=await fetchPublishedCatalog();
+        return json({ok:true,data:catalogFilter(catalog,body.year,body.series)});
       }
       if(action==="admin:get-job"){
         const job=await loadJob(String(body.jobId||""));
@@ -310,6 +407,10 @@ export default async(req:Request,_context:Context)=>{
         records:Array.isArray(body.records)?body.records:[]
       });
       return json({ok:true,data:{jobId:job.id,status:job.status,recordCount:job.recordCount,warnings:job.warnings}},202);
+    }
+    if(action==="catalog"){
+      const catalog=await fetchPublishedCatalog();
+      return json({ok:true,data:catalogFilter(catalog,body.year,body.series)});
     }
     return json({ok:false,error:"Ação não reconhecida."},400);
   }catch(e:any){
