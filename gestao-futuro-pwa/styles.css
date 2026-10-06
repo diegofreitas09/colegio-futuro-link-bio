@@ -952,3 +952,11 @@ body.home-active .shell{filter:blur(2px) saturate(.8);pointer-events:none;user-s
 .series-products-title b{font-size:11px;color:#153f74}.series-products-title span{font-size:8.5px;color:#788697}
 @media(max-width:1050px){.series-adjust-controls.plan-aware{grid-template-columns:1fr 1fr}.tuition-adjust-inputs,.tuition-result-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:620px){.series-adjust-controls.plan-aware,.tuition-adjust-inputs,.tuition-result-grid{grid-template-columns:1fr}.tuition-plan-head,.series-products-title{flex-direction:column;align-items:flex-start}.plan-formula-badge{white-space:normal}}
+
+/* Progresso do reajuste em lote */
+.bulk-progress{margin-top:14px;padding:12px;border:1px solid #d7e3f0;border-radius:12px;background:#f8fbff}
+.bulk-progress[hidden]{display:none!important}
+.bulk-progress-bar{height:8px;border-radius:999px;background:#e5edf6;overflow:hidden}
+.bulk-progress-bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#1e6bd6,#1f9d68);transition:width .2s ease}
+.bulk-progress b{display:block;margin-top:8px;font-size:10px;color:#173f72}
+.bulk-progress span{display:block;margin-top:2px;font-size:8.5px;color:#738195;line-height:1.35}
