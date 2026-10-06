@@ -222,19 +222,17 @@ function prodTuitionBundle(list,year,serie){
   const p11=rows.find(p=>prodIsRegularTuitionPlan(p,11))||null;
   return {annual,first,p12,p11};
 }
-function prodTuitionPlanCalc(bundle,annualPct,firstPct){
+function prodTuitionPlanCalc(bundle,annualPct,firstPct,p12Pct,p11Pct){
   const annualBase=Number(bundle&&bundle.annual&&bundle.annual.VALOR_BASE||0);
-  let firstBase=Number(bundle&&bundle.first&&bundle.first.VALOR_BASE||0);
-  if(!firstBase&&annualBase&&bundle&&bundle.p12)firstBase=Math.max(0,annualBase-(Number(bundle.p12.VALOR_PARCELA||bundle.p12.VALOR_BASE||0)*12));
-  const annual=prodPreviewValue(annualBase,annualPct);
-  const first=prodPreviewValue(firstBase,firstPct);
-  const remaining=Math.max(0,annual-first);
+  const firstBase=Number(bundle&&bundle.first&&bundle.first.VALOR_BASE||0);
+  const p12Base=Number(bundle&&bundle.p12&&(bundle.p12.VALOR_PARCELA||bundle.p12.VALOR_BASE)||0);
+  const p11Base=Number(bundle&&bundle.p11&&(bundle.p11.VALOR_PARCELA||bundle.p11.VALOR_BASE)||0);
   return {
-    annualBase,firstBase,annual,first,
-    p12:Math.round((remaining/12+Number.EPSILON)*100)/100,
-    p11:Math.round((remaining/11+Number.EPSILON)*100)/100,
-    check12:Math.round((first+(remaining/12)*12+Number.EPSILON)*100)/100,
-    check11:Math.round((first+(remaining/11)*11+Number.EPSILON)*100)/100
+    annualBase,firstBase,p12Base,p11Base,
+    annual:prodPreviewValue(annualBase,annualPct),
+    first:prodPreviewValue(firstBase,firstPct),
+    p12:prodPreviewValue(p12Base,p12Pct),
+    p11:prodPreviewValue(p11Base,p11Pct)
   };
 }
 function prodIsTuitionCore(p){
@@ -289,7 +287,7 @@ function campaignCardHtml(first,campaign,year,i){
     '<div class="campaign-card-head"><div><small>SEGMENTO</small><h4>'+esc(campaignTitle(first["SEGMENTO_SÉRIE"]))+'</h4><span>'+esc(first["SEGMENTO_SÉRIE"]||"")+'</span></div><span class="campaign-status '+(active?"on":"off")+'">'+(active?"ATIVA":"INATIVA")+'</span></div>'+
     '<div class="campaign-price-preview"><div><small>1ª PARCELA OFICIAL</small><b>'+money(base)+'</b></div><div class="discount"><small>COM CAMPANHA</small><b data-campaign-final>'+money(final)+'</b><span data-campaign-saving>'+m.discount+'% de desconto</span></div></div>'+
     '<div class="campaign-fields"><div class="field span-2"><label>Nome da campanha</label><input data-campaign-field="name" value="'+esc(m.name)+'"></div>'+
-    '<div class="field"><label>Desconto na 1ª parcela (%)</label><input data-campaign-field="discount" type="number" min="0" max="100" step="0.01" value="'+esc(m.discount)+'"></div>'+
+    '<div class="field"><label>Desconto na 1ª parcela (%)</label><input data-campaign-field="discount" type="number" min="0" max="100" step="0.0001" value="'+esc(Math.round(Number(m.discount||0)*10000)/10000)+'"></div>'+
     '<div class="field"><label>Parcelamento máximo da 1ª parcela</label><select data-campaign-field="cardInstallments">'+opts+'</select></div>'+
     '<div class="field"><label>Forma de pagamento</label><select data-campaign-field="paymentMethod">'+pay+'</select></div>'+
     '<div class="field"><label>Público</label><select data-campaign-field="studentType">'+pub+'</select></div>'+
@@ -313,23 +311,22 @@ async function renderProdutos(){
   const list=await api("listarProdutosGestao",{token:state.adminToken});
   const inferYear=prodInferYear;
   const years=[...new Set(list.map(inferYear).filter(Boolean))].sort((a,b)=>b-a);
-  const current=state.productYear&&years.includes(Number(state.productYear))?Number(state.productYear):(years[0]||new Date().getFullYear());
-  const targetDefault=current;
-  const sourceDefault=years.includes(targetDefault-1)?targetDefault-1:(years.find(y=>y<targetDefault)||years[0]||targetDefault-1);
-  const futureYear=Math.max(...years,targetDefault)+1;
-  const targetYears=[...new Set([futureYear,...years])].sort((a,b)=>b-a);
-  const campaignDefaultYear=years.find(y=>campaignFirstProducts(list,y).length)||targetDefault;
+  const targetDefault=years.includes(2027)?2027:(years.find(y=>y>=2027)||years[0]||2027);
+  const sourceDefault=years.includes(2026)?2026:(years.find(y=>y<targetDefault)||targetDefault-1);
+  const current=targetDefault;
+  const targetYears=[...years].sort((a,b)=>b-a);
+  const campaignDefaultYear=campaignFirstProducts(list,2027).length?2027:targetDefault;
   state.productYear=targetDefault;
 
   $("#view").innerHTML=`
-    <div class="section-head"><div><h2>Valores e reajustes</h2><span class="muted">Escolha a série, o plano e o ano-base. A anuidade fecha exatamente com a 1ª parcela + o número de parcelas do plano.</span></div><div class="toolbar">
+    <div class="section-head"><div><h2>Valores e reajustes</h2><span class="muted">A tabela oficial prevalece: Anuidade, 12x e 11x são valores independentes; a 1ª parcela promocional é definida na campanha.</span></div><div class="toolbar">
       <button class="btn btn-soft" id="newProductService">+ Produto/serviço</button>
       <button class="btn btn-gold" id="individualAdjustment">Ajuste avançado</button>
     </div></div>
 
     <section class="series-adjust-wizard">
       <div class="series-adjust-head">
-        <div><small>ASSISTENTE DE REAJUSTE POR SÉRIE</small><h3>Do valor anterior ao novo ano-base</h3><p>O plano escolhido controla o cálculo: <b>Anuidade = 1ª parcela + 12x</b> ou <b>Anuidade = 1ª parcela + 11x</b>. Os dois planos são recalculados e publicados juntos para a família poder escolher depois.</p></div>
+        <div><small>ASSISTENTE DE REAJUSTE POR SÉRIE</small><h3>2026 → 2027 • tabela oficial</h3><p>Cada campo financeiro mantém o valor definido pela escola. <b>Anuidade, 12 parcelas e 11 parcelas não são recalculadas a partir da campanha.</b></p></div>
         <div class="series-sync-icons"><span>✓ Atendimento</span><span>✓ Secretaria</span><span>✓ Panfletos</span><span>✓ Matrícula</span></div>
       </div>
       <div class="series-adjust-controls plan-aware">
@@ -343,7 +340,7 @@ async function renderProdutos(){
       <section class="tuition-plan-engine" id="tuitionPlanEngine">
         <div class="tuition-plan-head">
           <div><small>MENSALIDADE REGULAR</small><h4>Anuidade e planos vinculados</h4><span>Altere a anuidade e a 1ª parcela; as parcelas 12x e 11x são recalculadas automaticamente.</span></div>
-          <span class="plan-formula-badge" id="planFormulaBadge">1ª + 12x = anuidade</span>
+          <span class="plan-formula-badge" id="planFormulaBadge">Tabela oficial independente</span>
         </div>
         <div id="tuitionPlanBody"></div>
       </section>
@@ -396,7 +393,7 @@ async function renderProdutos(){
   const saveAllCampaigns=async()=>{const year=Number($("#campaignYear")?.value||campaignDefaultYear),cards=$("[data-campaign-card]"),btn=$("#campaignSaveAll");if(!cards.length)return;btn.disabled=true;try{for(let i=0;i<cards.length;i++){btn.textContent="Salvando "+(i+1)+"/"+cards.length+"…";const d=campaignCardData(cards[i],year);if(d.id)await api("atualizarProduto",{token:state.adminToken,id:d.id,data:d.payload});else await api("criarProdutoServico",{token:state.adminToken,data:d.payload})}clearApiCache();setNotice("Campanhas da 1ª parcela salvas e sincronizadas com Atendimento, Secretaria, Panfletos e Matrícula.","ok");await renderProdutos()}catch(e){showToast(e.message||"Não foi possível salvar todas as campanhas.","error");btn.disabled=false;btn.textContent="Salvar todas as campanhas"}};
 
   let wizardRows=[],tuitionBundle=null;
-  const tuitionCalc=()=>prodTuitionPlanCalc(tuitionBundle,Number($("#tuitionAnnualPct")?.value||0),Number($("#tuitionFirstPct")?.value||0));
+  const tuitionCalc=()=>prodTuitionPlanCalc(tuitionBundle,Number($("#tuitionAnnualPct")?.value||0),Number($("#tuitionFirstPct")?.value||0),Number($("#tuitionP12Pct")?.value||0),Number($("#tuitionP11Pct")?.value||0));
 
   const renderTuitionBody=()=>{
     const source=Number($("#seriesAdjSource").value),target=Number($("#seriesAdjTarget").value),planN=Number($("#seriesAdjPlan").value||12);
@@ -410,24 +407,30 @@ async function renderProdutos(){
     const annualPct=Number($("#tuitionPlanBody").dataset.annualPct||0),firstPct=Number($("#tuitionPlanBody").dataset.firstPct||0);
     $("#tuitionPlanBody").innerHTML=`
       <div class="tuition-adjust-inputs">
-        <div><label>Anuidade ${source}</label><b>${money(tuitionBundle.annual.VALOR_BASE)}</b><span>valor total do plano</span></div>
+        <div><label>Anuidade ${source}</label><b>${money(tuitionBundle.annual.VALOR_BASE)}</b><span>valor oficial</span></div>
         <div><label>Reajuste da anuidade (%)</label><input id="tuitionAnnualPct" type="number" step="0.01" value="${annualPct}"></div>
-        <div><label>1ª parcela ${source}</label><b>${money(tuitionBundle.first.VALOR_BASE)}</b><span>paga no ato</span></div>
-        <div><label>Reajuste da 1ª parcela (%)</label><input id="tuitionFirstPct" type="number" step="0.01" value="${firstPct}"></div>
+        <div><label>1ª parcela-base ${source}</label><b>${money(tuitionBundle.first.VALOR_BASE)}</b><span>antes da campanha</span></div>
+        <div><label>Reajuste da 1ª parcela-base (%)</label><input id="tuitionFirstPct" type="number" step="0.01" value="${firstPct}"></div>
+        <div><label>12 parcelas ${source}</label><b>${money(tuitionBundle.p12.VALOR_PARCELA||tuitionBundle.p12.VALOR_BASE)}</b><span>janeiro a dezembro</span></div>
+        <div><label>Reajuste do plano 12x (%)</label><input id="tuitionP12Pct" type="number" step="0.01" value="${Number($("#tuitionPlanBody").dataset.p12Pct||0)}"></div>
+        <div><label>11 parcelas ${source}</label><b>${money(tuitionBundle.p11.VALOR_PARCELA||tuitionBundle.p11.VALOR_BASE)}</b><span>fevereiro a dezembro</span></div>
+        <div><label>Reajuste do plano 11x (%)</label><input id="tuitionP11Pct" type="number" step="0.01" value="${Number($("#tuitionPlanBody").dataset.p11Pct||0)}"></div>
       </div>
       <div class="tuition-result-grid">
-        <div><small>NOVA ANUIDADE • ${target}</small><strong id="tuitionAnnualNew">—</strong><span>Anuidade reajustada</span></div>
-        <div><small>NOVA 1ª PARCELA</small><strong id="tuitionFirstNew">—</strong><span>À vista ou até 3x no cartão</span></div>
-        <div class="${planN===12?"selected":""}"><small>PLANO A • 1ª + 12x</small><strong id="tuitionPlan12New">—</strong><span id="tuitionPlan12Check">—</span></div>
-        <div class="${planN===11?"selected":""}"><small>PLANO B • 1ª + 11x</small><strong id="tuitionPlan11New">—</strong><span id="tuitionPlan11Check">—</span></div>
+        <div><small>NOVA ANUIDADE • ${target}</small><strong id="tuitionAnnualNew">—</strong><span>tabela oficial</span></div>
+        <div><small>1ª PARCELA-BASE</small><strong id="tuitionFirstNew">—</strong><span>campanha aplicada separadamente</span></div>
+        <div class="${planN===12?"selected":""}"><small>12 PARCELAS</small><strong id="tuitionPlan12New">—</strong><span id="tuitionPlan12Check">janeiro a dezembro</span></div>
+        <div class="${planN===11?"selected":""}"><small>11 PARCELAS</small><strong id="tuitionPlan11New">—</strong><span id="tuitionPlan11Check">fevereiro a dezembro</span></div>
       </div>
       <div class="tuition-selected-plan" id="tuitionSelectedPlan"></div>`;
     const onPct=()=>{
       $("#tuitionPlanBody").dataset.annualPct=$("#tuitionAnnualPct").value;
       $("#tuitionPlanBody").dataset.firstPct=$("#tuitionFirstPct").value;
+      $("#tuitionPlanBody").dataset.p12Pct=$("#tuitionP12Pct").value;
+      $("#tuitionPlanBody").dataset.p11Pct=$("#tuitionP11Pct").value;
       refreshPreview();
     };
-    $("#tuitionAnnualPct").oninput=onPct;$("#tuitionFirstPct").oninput=onPct;
+    ["#tuitionAnnualPct","#tuitionFirstPct","#tuitionP12Pct","#tuitionP11Pct"].forEach(sel=>{$(sel).oninput=onPct});
   };
 
   const refreshPreview=()=>{
@@ -435,14 +438,14 @@ async function renderProdutos(){
       const calc=tuitionCalc(),planN=Number($("#seriesAdjPlan").value||12);
       $("#tuitionAnnualNew").textContent=money(calc.annual);
       $("#tuitionFirstNew").textContent=money(calc.first);
-      $("#tuitionPlan12New").textContent="12x de "+money(calc.p12);
-      $("#tuitionPlan11New").textContent="11x de "+money(calc.p11);
-      $("#tuitionPlan12Check").textContent=money(calc.first)+" + 12x = "+money(calc.annual);
-      $("#tuitionPlan11Check").textContent=money(calc.first)+" + 11x = "+money(calc.annual);
-      $("#planFormulaBadge").textContent=planN===12?"Plano A • 1ª + 12x = anuidade":"Plano B • 1ª + 11x = anuidade";
+      $("#tuitionPlan12New").textContent=money(calc.p12);
+      $("#tuitionPlan11New").textContent=money(calc.p11);
+      $("#tuitionPlan12Check").textContent="valor oficial mensal • 12 parcelas";
+      $("#tuitionPlan11Check").textContent="valor oficial mensal • 11 parcelas";
+      $("#planFormulaBadge").textContent="Tabela oficial independente";
       $("#tuitionSelectedPlan").innerHTML=planN===12
-        ? "<b>Plano A selecionado para conferência:</b> 1ª parcela de "+money(calc.first)+" + 12x de "+money(calc.p12)+" = <strong>"+money(calc.annual)+"</strong>"
-        : "<b>Plano B selecionado para conferência:</b> 1ª parcela de "+money(calc.first)+" + 11x de "+money(calc.p11)+" = <strong>"+money(calc.annual)+"</strong>";
+        ? "<b>Conferência 12x:</b> "+money(calc.p12)+" por parcela. A campanha da 1ª parcela é tratada separadamente."
+        : "<b>Conferência 11x:</b> "+money(calc.p11)+" por parcela. A campanha da 1ª parcela é tratada separadamente.";
     }
     $$("[data-series-pct]").forEach(inp=>{
       const p=wizardRows.find(x=>String(x.ID_PRODUTO)===String(inp.dataset.seriesPct));if(!p)return;
@@ -455,13 +458,15 @@ async function renderProdutos(){
     const serie=$("#seriesAdjSeries").value,source=Number($("#seriesAdjSource").value),target=Number($("#seriesAdjTarget").value);
     tuitionBundle=prodTuitionBundle(list,source,serie);
     wizardRows=prodSeriesWizardRows(list,source,serie).filter(p=>!prodIsTuitionCore(p)&&!gfIsCampaignProduct(p));
-    const targetAnnual=prodTargetMatch(list,tuitionBundle.annual,target),targetFirst=prodTargetMatch(list,tuitionBundle.first,target);
+    const targetAnnual=prodTargetMatch(list,tuitionBundle.annual,target),targetFirst=prodTargetMatch(list,tuitionBundle.first,target),targetP12=prodTargetMatch(list,tuitionBundle.p12,target),targetP11=prodTargetMatch(list,tuitionBundle.p11,target);
     $("#tuitionPlanBody").dataset.annualPct=String(prodExistingAdjustment(tuitionBundle.annual,targetAnnual));
     $("#tuitionPlanBody").dataset.firstPct=String(prodExistingAdjustment(tuitionBundle.first,targetFirst));
+    $("#tuitionPlanBody").dataset.p12Pct=String(prodExistingAdjustment(tuitionBundle.p12,targetP12));
+    $("#tuitionPlanBody").dataset.p11Pct=String(prodExistingAdjustment(tuitionBundle.p11,targetP11));
     $("#seriesAdjCount").textContent=(wizardRows.length+4)+" item(ns) de valor";
     $("#seriesAdjustNote").innerHTML=source===target
       ? "<b>Atenção:</b> o ano de origem e o novo ano-base precisam ser diferentes."
-      : "Comparando <b>"+esc(serie)+"</b>: "+source+" → <b>"+target+"</b>. A mensalidade não recebe um percentual solto: ela é calculada para fechar exatamente a anuidade no plano 1+12 e no plano 1+11.";
+      : "Comparando <b>"+esc(serie)+"</b>: "+source+" → <b>"+target+"</b>. Os valores de Anuidade, 12x e 11x seguem a tabela oficial; a campanha da 1ª parcela é aplicada depois, sem alterar esses valores.";
     renderTuitionBody();
     $("#publishSeriesAdjustment").disabled=!wizardRows.length&&(!tuitionBundle||!tuitionBundle.annual);
     if(source===target)$("#publishSeriesAdjustment").disabled=true;
@@ -479,7 +484,9 @@ async function renderProdutos(){
     const v=Number($("#seriesAdjGlobal").value||0);
     if($("#tuitionAnnualPct")){$("#tuitionAnnualPct").value=String(v);$("#tuitionPlanBody").dataset.annualPct=String(v)}
     if($("#tuitionFirstPct")){$("#tuitionFirstPct").value=String(v);$("#tuitionPlanBody").dataset.firstPct=String(v)}
-    $$("[data-series-pct]").forEach(inp=>inp.value=String(v));
+    if($("#tuitionP12Pct")){$("#tuitionP12Pct").value=String(v);$("#tuitionPlanBody").dataset.p12Pct=String(v)}
+    if($("#tuitionP11Pct")){$("#tuitionP11Pct").value=String(v);$("#tuitionPlanBody").dataset.p11Pct=String(v)}
+    $("[data-series-pct]").forEach(inp=>inp.value=String(v));
     refreshPreview();
   };
   $("#seriesAdjSeries").onchange=drawWizard;
@@ -534,7 +541,7 @@ async function renderProdutos(){
   drawCampaignManager();drawWizard();drawCatalog();
 }
 function openSchoolYearForm(years,list){
-  const origem=Number(state.productYear||years[0]||2026),destino=origem+1;
+  const origem=years.includes(2026)?2026:Number(state.productYear||years[0]||2026),destino=years.includes(2027)?2027:origem+1;
   const categories=[...new Set((list||[]).filter(p=>prodInferYear(p)===origem&&String(p.ATIVO||"Sim")!=="Não"&&!gfIsCampaignProduct(p)).map(p=>String(p.CATEGORIA||"").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
   modal(`<div class="modal-head"><h3>Reajuste em lote</h3><button class="icon-btn" data-close>✕</button></div>
   <div class="modal-body"><div class="notice">O reajuste será salvo produto por produto para evitar timeout do Apps Script. Se houver oscilação de conexão, a plataforma confere o que já foi gravado antes de continuar.</div>
@@ -639,7 +646,7 @@ function openSchoolYearForm(years,list){
   };
 }
 function openIndividualAdjustment(list,years){
-  const origem=Number(state.productYear||years[0]||2026),destino=origem+1;
+  const origem=years.includes(2026)?2026:Number(state.productYear||years[0]||2026),destino=years.includes(2027)?2027:origem+1;
   const source=list.filter(p=>Number(p.ANO_LETIVO)===origem);
   modal(`<div class="modal-head"><h3>Reajuste individual</h3><button class="icon-btn" data-close>✕</button></div>
   <div class="modal-body"><div class="notice">Escolha um único produto ou serviço. Você pode aplicar percentual ou definir diretamente o novo valor para o ano de destino.</div>
