@@ -818,12 +818,6 @@ const GF_TUITION_HISTORY = Object.freeze({
   }
 });
 function dashRound2(v){return Math.round((Number(v||0)+Number.EPSILON)*100)/100}
-function dashPlanFromAnnual(annual,n){
-  const cents=Math.round(Number(annual||0)*100);n=Math.max(1,Math.trunc(Number(n||0)));
-  if(!cents||!n)return {first:0,recurring:0};
-  const recurringCents=Math.round(cents/(n+1)),firstCents=cents-(recurringCents*n);
-  return {first:firstCents/100,recurring:recurringCents/100};
-}
 function dashTuitionFromCatalog(products,year){
   const specs=[
     {key:"infantil",label:"Educação Infantil",series:"Infantil 2 ao 5"},
@@ -1058,7 +1052,8 @@ function dashTuitionDownloadModal(products,currentView){
         {key:"primeira",label:"1ª parcela",width:1.2,align:"right"},{key:"p12",label:"12 parcelas",width:1.2,align:"right"},{key:"p12pos",label:"12x após venc.",width:1.2,align:"right"},
         {key:"p11",label:"11 parcelas",width:1.2,align:"right"},{key:"p11pos",label:"11x após venc.",width:1.2,align:"right"}
       ];
-      rows=arr.map(r=>({segmento:r.label+" • "+r.series,anuidade:money(r.annual),anuidadePos:money(r.annualPost),primeira:money(r.first||GF_FIRST_REFERENCE[year]?.[r.key]||0),p12:money(r.plan12),p12pos:money(r.plan12Post),p11:money(r.plan11),p11pos:money(r.plan11Post)}));
+      const price=v=>Number(v||0)>0?money(v):"—";
+      rows=arr.map(r=>({segmento:r.label+" • "+r.series,anuidade:price(r.annual),anuidadePos:price(r.annualPost),primeira:price(r.first||GF_FIRST_REFERENCE[year]?.[r.key]||0),p12:price(r.plan12),p12pos:price(r.plan12Post),p11:price(r.plan11),p11pos:price(r.plan11Post)}));
     }else if(scope==="history"){
       const history=dashTuitionHistoryRows(products);
       title="Comparativo de Anuidades 2024–2027";subtitle="Colégio Futuro • valores até o vencimento";
