@@ -108,10 +108,10 @@ test('dashboard tuition table derives exact installment values and preserves his
   const rows=x.run('dashTuitionFromCatalog(window.__products,2027)');
   assert.equal(rows.length,3);
   assert.equal(rows[0].annual,6386.52);
-  assert.equal(rows[0].first12,491.28);
-  assert.equal(rows[0].plan12,491.27);
-  assert.equal(rows[2].first12,516.83);
-  assert.equal(rows[2].plan12,516.85);
+  assert.equal(rows[0].first12,0);
+  assert.equal(rows[0].plan12,0);
+  assert.equal(rows[2].first12,0);
+  assert.equal(rows[2].plan12,0);
   assert.equal(x.run('GF_TUITION_HISTORY[2024].infantil.annual'),5053.68);
   assert.equal(x.run('GF_TUITION_HISTORY[2025].finais.annual'),5740.80);
  }finally{x.dom.window.close()}
@@ -122,6 +122,7 @@ test('commercial plan uses official first payment and catalog recurring value',(
  const x=setup();try{
   x.w.__products=[
    {ID_PRODUTO:'ANU-INF-2027',ANO_LETIVO:2027,PRODUTO:'Anuidade 2027 - Educação Infantil',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Anuidade',ATIVO:'Sim',VALOR_BASE:6270.40,QTD_PARCELAS:1,'SEGMENTO_SÉRIE':'Infantil 2 ao 5'},
+   {ID_PRODUTO:'PRI-INF-2027',ANO_LETIVO:2027,PRODUTO:'1ª Parcela regular - Educação Infantil',CATEGORIA:'Mensalidade',SUBCATEGORIA:'1ª Parcela',ATIVO:'Sim',VALOR_BASE:484.92,VALOR_PARCELA:484.92,QTD_PARCELAS:1,'SEGMENTO_SÉRIE':'Infantil 2 ao 5'},
    {ID_PRODUTO:'MEN-INF-12-2027',ANO_LETIVO:2027,PRODUTO:'Mensalidade regular - Infantil',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Plano 12 parcelas',ATIVO:'Sim',VALOR_BASE:482.12,VALOR_PARCELA:482.12,QTD_PARCELAS:12,'SEGMENTO_SÉRIE':'Infantil 2 ao 5'},
    {ID_PRODUTO:'MEN-INF-11-2027',ANO_LETIVO:2027,PRODUTO:'Mensalidade regular - Infantil',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Plano 11 parcelas',ATIVO:'Sim',VALOR_BASE:525.95,VALOR_PARCELA:525.95,QTD_PARCELAS:11,'SEGMENTO_SÉRIE':'Infantil 2 ao 5'}
   ];
@@ -137,6 +138,7 @@ test('dashboard prefers explicit official installment values when catalog has th
  const x=setup();try{
   x.w.__products=[
    {ID_PRODUTO:'ANU-INF-2026',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Anuidade',PRODUTO:'Anuidade 2026 - Educação Infantil','SEGMENTO_SÉRIE':'Infantil 2 ao 5',VALOR_BASE:5805.93,'VALOR_PÓS_VENCIMENTO':6111.57,ANO_LETIVO:2026,ATIVO:'Sim'},
+   {ID_PRODUTO:'PRI-INF-2026',CATEGORIA:'Mensalidade',SUBCATEGORIA:'1ª Parcela',PRODUTO:'1ª Parcela regular - Educação Infantil','SEGMENTO_SÉRIE':'Infantil 2 ao 5',VALOR_BASE:449,VALOR_PARCELA:449,QTD_PARCELAS:1,ANO_LETIVO:2026,ATIVO:'Sim'},
    {ID_PRODUTO:'MEN-INF-12-2026',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Plano 12 parcelas',PRODUTO:'Mensalidade regular - Infantil','SEGMENTO_SÉRIE':'Infantil 2 ao 5',VALOR_BASE:446.41,VALOR_PARCELA:446.41,'VALOR_PÓS_VENCIMENTO':471.05,QTD_PARCELAS:12,ANO_LETIVO:2026,ATIVO:'Sim'},
    {ID_PRODUTO:'MEN-INF-11-2026',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Plano 11 parcelas',PRODUTO:'Mensalidade regular - Infantil','SEGMENTO_SÉRIE':'Infantil 2 ao 5',VALOR_BASE:487.90,VALOR_PARCELA:487.90,'VALOR_PÓS_VENCIMENTO':513.87,QTD_PARCELAS:11,ANO_LETIVO:2026,ATIVO:'Sim'}
   ];
@@ -154,12 +156,15 @@ test('2027 audited values follow 8 percent annual and first-payment rule',()=>{
  const x=setup();try{
   x.w.__products=[
    {ID_PRODUTO:'ANU-INF-2027',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Anuidade',PRODUTO:'Anuidade 2027 - Educação Infantil','SEGMENTO_SÉRIE':'Infantil 2 ao 5',VALOR_BASE:6270.40,'VALOR_PÓS_VENCIMENTO':6600.50,ANO_LETIVO:2027,ATIVO:'Sim'},
+   {ID_PRODUTO:'PRI-INF-2027',CATEGORIA:'Mensalidade',SUBCATEGORIA:'1ª Parcela',PRODUTO:'1ª Parcela regular - Educação Infantil','SEGMENTO_SÉRIE':'Infantil 2 ao 5',VALOR_BASE:484.92,VALOR_PARCELA:484.92,QTD_PARCELAS:1,ANO_LETIVO:2027,ATIVO:'Sim'},
    {ID_PRODUTO:'MEN-INF-12-2027',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Plano 12 parcelas',PRODUTO:'Mensalidade regular - Infantil','SEGMENTO_SÉRIE':'Infantil 2 ao 5',VALOR_BASE:482.12,VALOR_PARCELA:482.12,'VALOR_PÓS_VENCIMENTO':509.63,QTD_PARCELAS:12,ANO_LETIVO:2027,ATIVO:'Sim'},
    {ID_PRODUTO:'MEN-INF-11-2027',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Plano 11 parcelas',PRODUTO:'Mensalidade regular - Infantil','SEGMENTO_SÉRIE':'Infantil 2 ao 5',VALOR_BASE:525.95,VALOR_PARCELA:525.95,'VALOR_PÓS_VENCIMENTO':555.96,QTD_PARCELAS:11,ANO_LETIVO:2027,ATIVO:'Sim'},
    {ID_PRODUTO:'ANU-AI-2027',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Anuidade',PRODUTO:'Anuidade 2027 - Anos Iniciais','SEGMENTO_SÉRIE':'1º ao 5º Ano',VALOR_BASE:6433.59,'VALOR_PÓS_VENCIMENTO':6772.20,ANO_LETIVO:2027,ATIVO:'Sim'},
+   {ID_PRODUTO:'PRI-AI-2027',CATEGORIA:'Mensalidade',SUBCATEGORIA:'1ª Parcela',PRODUTO:'1ª Parcela regular - Anos Iniciais','SEGMENTO_SÉRIE':'1º ao 5º Ano',VALOR_BASE:495.72,VALOR_PARCELA:495.72,QTD_PARCELAS:1,ANO_LETIVO:2027,ATIVO:'Sim'},
    {ID_PRODUTO:'MEN-AI-12-2027',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Plano 12 parcelas',PRODUTO:'Mensalidade regular - Anos Iniciais','SEGMENTO_SÉRIE':'1º ao 5º Ano',VALOR_BASE:494.82,VALOR_PARCELA:494.82,'VALOR_PÓS_VENCIMENTO':523.04,QTD_PARCELAS:12,ANO_LETIVO:2027,ATIVO:'Sim'},
    {ID_PRODUTO:'MEN-AI-11-2027',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Plano 11 parcelas',PRODUTO:'Mensalidade regular - Anos Iniciais','SEGMENTO_SÉRIE':'1º ao 5º Ano',VALOR_BASE:539.81,VALOR_PARCELA:539.81,'VALOR_PÓS_VENCIMENTO':570.59,QTD_PARCELAS:11,ANO_LETIVO:2027,ATIVO:'Sim'},
    {ID_PRODUTO:'ANU-AF-2027',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Anuidade',PRODUTO:'Anuidade 2027 - Anos Finais','SEGMENTO_SÉRIE':'6º ao 9º Ano',VALOR_BASE:6596.87,'VALOR_PÓS_VENCIMENTO':6943.88,ANO_LETIVO:2027,ATIVO:'Sim'},
+   {ID_PRODUTO:'PRI-AF-2027',CATEGORIA:'Mensalidade',SUBCATEGORIA:'1ª Parcela',PRODUTO:'1ª Parcela regular - Anos Finais','SEGMENTO_SÉRIE':'6º ao 9º Ano',VALOR_BASE:506.52,VALOR_PARCELA:506.52,QTD_PARCELAS:1,ANO_LETIVO:2027,ATIVO:'Sim'},
    {ID_PRODUTO:'MEN-AF-12-2027',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Plano 12 parcelas',PRODUTO:'Mensalidade regular - Anos Finais','SEGMENTO_SÉRIE':'6º ao 9º Ano',VALOR_BASE:507.53,VALOR_PARCELA:507.53,'VALOR_PÓS_VENCIMENTO':536.45,QTD_PARCELAS:12,ANO_LETIVO:2027,ATIVO:'Sim'},
    {ID_PRODUTO:'MEN-AF-11-2027',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Plano 11 parcelas',PRODUTO:'Mensalidade regular - Anos Finais','SEGMENTO_SÉRIE':'6º ao 9º Ano',VALOR_BASE:553.67,VALOR_PARCELA:553.67,'VALOR_PÓS_VENCIMENTO':585.21,QTD_PARCELAS:11,ANO_LETIVO:2027,ATIVO:'Sim'}
   ];
@@ -689,5 +694,47 @@ test('flyer plan values are calculated dynamically from the current catalog',()=
   assert.match(html,/R\$\s*500,00/);
   assert.match(html,/R\$\s*545,45/);
   assert.doesNotMatch(html,/Total da anuidade/);
+ }finally{x.dom.window.close()}
+});
+
+
+test('current demonstratives never invent missing management values',()=>{
+ const x=setup();try{
+  x.w.__products=[
+   {ID_PRODUTO:'ANU-INF-2027',ANO_LETIVO:2027,ATIVO:'Sim',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Anuidade',PRODUTO:'Anuidade','SEGMENTO_SÉRIE':'Infantil 2 ao 5',VALOR_BASE:7000}
+  ];
+  const r=x.run('dashTuitionRowsForYear(window.__products,2027)[0]');
+  assert.equal(r.annual,7000);
+  assert.equal(r.first,0);
+  assert.equal(r.plan12,0);
+  assert.equal(r.plan11,0);
+  assert.equal(r.catalogComplete,false);
+ }finally{x.dom.window.close()}
+});
+
+test('management dashboard demonstratives use the same published catalog route as Secretaria and flyers',()=>{
+ const src=read('app/core.js');
+ const start=src.indexOf('async function renderDashboard()');
+ const block=src.slice(start,start+9000);
+ assert.match(block,/loadCatalogProducts\(true\)/);
+ assert.doesNotMatch(block,/listarProdutosGestao/);
+ assert.match(src,/gfApplyCatalogToBootstrap/);
+ assert.match(src,/state\.bootstrap\.produtos=list/);
+});
+
+test('operational plan requires explicit annual first and recurring products from management',()=>{
+ const x=setup();try{
+  x.w.__incomplete=[
+   {ANO_LETIVO:2027,CATEGORIA:'Mensalidade',SUBCATEGORIA:'Anuidade',PRODUTO:'Anuidade',VALOR_BASE:7000,'SEGMENTO_SÉRIE':'Todos'},
+   {ANO_LETIVO:2027,CATEGORIA:'Mensalidade',SUBCATEGORIA:'Plano 12 parcelas',PRODUTO:'Mensalidade',VALOR_PARCELA:500,QTD_PARCELAS:12,'SEGMENTO_SÉRIE':'Todos'}
+  ];
+  let p=x.run('gfPlanCalc(window.__incomplete,12,0,0)');
+  assert.equal(p.complete,false);
+  assert.equal(p.firstBase,0);
+  x.w.__complete=window.__incomplete.concat([{ANO_LETIVO:2027,CATEGORIA:'Mensalidade',SUBCATEGORIA:'1ª Parcela',PRODUTO:'1ª Parcela',VALOR_BASE:1000,QTD_PARCELAS:1,'SEGMENTO_SÉRIE':'Todos'}]);
+  p=x.run('gfPlanCalc(window.__complete,12,0,0)');
+  assert.equal(p.complete,true);
+  assert.equal(p.firstBase,1000);
+  assert.equal(p.recurringBase,500);
  }finally{x.dom.window.close()}
 });
