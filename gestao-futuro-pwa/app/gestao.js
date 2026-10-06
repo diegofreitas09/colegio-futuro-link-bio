@@ -282,7 +282,7 @@ function campaignTitle(segment){
 }
 function campaignCardHtml(first,campaign,year,i){
   var base=Number(first.VALOR_BASE||0),m=campaign?gfCampaignMeta(campaign):{name:"Campanha Matrículas "+year,discount:30,cardInstallments:3,paymentMethod:"Cartão",studentType:"Todos",start:"",end:"",showFlyer:true,autoApply:true,noInterest:true,note:""},final=Math.round(base*(1-m.discount/100)*100)/100,active=!campaign||String(campaign.ATIVO||"Sim")!=="Não";
-  var opts=[1,2,3,4,5,6,10,12].map(function(n){return '<option value="'+n+'" '+(Number(m.cardInstallments)===n?"selected":"")+'>'+n+'x</option>'}).join("");
+  var opts=Array.from({length:12},function(_,i){return i+1}).map(function(n){return '<option value="'+n+'" '+(Number(m.cardInstallments)===n?"selected":"")+'>'+n+'x</option>'}).join("");
   var pay=["Cartão","Pix","Cartão ou Pix","Qualquer forma"].map(function(v){return '<option '+(m.paymentMethod===v?"selected":"")+'>'+v+'</option>'}).join("");
   var pub=["Todos","Novato","Veterano"].map(function(v){return '<option '+(m.studentType===v?"selected":"")+'>'+v+'</option>'}).join("");
   return '<article class="campaign-segment-card" data-campaign-card="'+i+'" data-campaign-id="'+esc(campaign&&campaign.ID_PRODUTO||"")+'" data-segment="'+esc(first["SEGMENTO_SÉRIE"]||"")+'" data-first-base="'+base+'">'+
@@ -290,7 +290,7 @@ function campaignCardHtml(first,campaign,year,i){
     '<div class="campaign-price-preview"><div><small>1ª PARCELA OFICIAL</small><b>'+money(base)+'</b></div><div class="discount"><small>COM CAMPANHA</small><b data-campaign-final>'+money(final)+'</b><span data-campaign-saving>'+m.discount+'% de desconto</span></div></div>'+
     '<div class="campaign-fields"><div class="field span-2"><label>Nome da campanha</label><input data-campaign-field="name" value="'+esc(m.name)+'"></div>'+
     '<div class="field"><label>Desconto na 1ª parcela (%)</label><input data-campaign-field="discount" type="number" min="0" max="100" step="0.01" value="'+esc(m.discount)+'"></div>'+
-    '<div class="field"><label>Parcelamento máximo</label><select data-campaign-field="cardInstallments">'+opts+'</select></div>'+
+    '<div class="field"><label>Parcelamento máximo da 1ª parcela</label><select data-campaign-field="cardInstallments">'+opts+'</select></div>'+
     '<div class="field"><label>Forma de pagamento</label><select data-campaign-field="paymentMethod">'+pay+'</select></div>'+
     '<div class="field"><label>Público</label><select data-campaign-field="studentType">'+pub+'</select></div>'+
     '<div class="field"><label>Início</label><input data-campaign-field="start" type="date" value="'+esc(m.start||"")+'"></div>'+
@@ -453,7 +453,7 @@ async function renderProdutos(){
   const drawWizard=()=>{
     const serie=$("#seriesAdjSeries").value,source=Number($("#seriesAdjSource").value),target=Number($("#seriesAdjTarget").value);
     tuitionBundle=prodTuitionBundle(list,source,serie);
-    wizardRows=prodSeriesWizardRows(list,source,serie).filter(p=>!prodIsTuitionCore(p));
+    wizardRows=prodSeriesWizardRows(list,source,serie).filter(p=>!prodIsTuitionCore(p)&&!gfIsCampaignProduct(p));
     const targetAnnual=prodTargetMatch(list,tuitionBundle.annual,target),targetFirst=prodTargetMatch(list,tuitionBundle.first,target);
     $("#tuitionPlanBody").dataset.annualPct=String(prodExistingAdjustment(tuitionBundle.annual,targetAnnual));
     $("#tuitionPlanBody").dataset.firstPct=String(prodExistingAdjustment(tuitionBundle.first,targetFirst));
@@ -534,7 +534,7 @@ async function renderProdutos(){
 }
 function openSchoolYearForm(years,list){
   const origem=Number(state.productYear||years[0]||2026),destino=origem+1;
-  const categories=[...new Set((list||[]).filter(p=>prodInferYear(p)===origem&&String(p.ATIVO||"Sim")!=="Não").map(p=>String(p.CATEGORIA||"").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
+  const categories=[...new Set((list||[]).filter(p=>prodInferYear(p)===origem&&String(p.ATIVO||"Sim")!=="Não"&&!gfIsCampaignProduct(p)).map(p=>String(p.CATEGORIA||"").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
   modal(`<div class="modal-head"><h3>Reajuste em lote</h3><button class="icon-btn" data-close>✕</button></div>
   <div class="modal-body"><div class="notice">O reajuste será salvo produto por produto para evitar timeout do Apps Script. Se houver oscilação de conexão, a plataforma confere o que já foi gravado antes de continuar.</div>
   <form id="yearForm" class="form-grid">
@@ -561,7 +561,7 @@ function openSchoolYearForm(years,list){
     const form=$("#yearForm"),data=Object.fromEntries(new FormData(form).entries()),btn=$("#createYear");
     const sourceYear=Number(data.anoOrigem),targetYear=Number(data.anoDestino),pct=Number(data.percentual||0),category=String(data.categoria||"").trim();
     if(!sourceYear||!targetYear||sourceYear===targetYear){showToast("Ano de origem e destino precisam ser diferentes.","error");return}
-    const sourceRows=(list||[]).filter(p=>prodInferYear(p)===sourceYear&&String(p.ATIVO||"Sim")!=="Não"&&(!category||String(p.CATEGORIA||"")===category));
+    const sourceRows=(list||[]).filter(p=>prodInferYear(p)===sourceYear&&String(p.ATIVO||"Sim")!=="Não"&&!gfIsCampaignProduct(p)&&(!category||String(p.CATEGORIA||"")===category));
     if(!sourceRows.length){showToast("Nenhum produto ativo encontrado para o filtro escolhido.","error");return}
 
     btn.disabled=true;form.querySelectorAll("input,select").forEach(el=>el.disabled=true);
