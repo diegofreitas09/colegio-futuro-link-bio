@@ -766,17 +766,18 @@ test('campaign helper applies segment discount and installment conditions',()=>{
  }finally{x.dom.window.close()}
 });
 
-test('flyer campaign highlights official and promotional first installment',()=>{
+test('flyer campaign uses the 12-installment after-due value as campaign base',()=>{
  const x=setup();try{
   x.w.__list=[
-   {ID_PRODUTO:'PRI-INF-2027',ANO_LETIVO:2027,ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Sim',CATEGORIA:'Mensalidade',SUBCATEGORIA:'1ª Parcela',PRODUTO:'1ª Parcela','SEGMENTO_SÉRIE':'Infantil 2 ao 5',VALOR_BASE:500},
+   {ID_PRODUTO:'PRI-INF-2027',ANO_LETIVO:2027,ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Sim',CATEGORIA:'Mensalidade',SUBCATEGORIA:'1ª Parcela',PRODUTO:'1ª Parcela','SEGMENTO_SÉRIE':'Infantil 2 ao 5',VALOR_BASE:491.24},
+   {ID_PRODUTO:'MEN-INF-12-2027',ANO_LETIVO:2027,ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Sim',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Plano 12 parcelas',PRODUTO:'Mensalidade','SEGMENTO_SÉRIE':'Infantil 2 ao 5',VALOR_BASE:491.24,VALOR_PARCELA:491.24,'VALOR_PÓS_VENCIMENTO':517.09,QTD_PARCELAS:12},
    {ID_PRODUTO:'CAMP-INF-2027',ANO_LETIVO:2027,ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Sim',CATEGORIA:'Campanha',SUBCATEGORIA:'1ª Parcela',PRODUTO:'Matrícula Antecipada','SEGMENTO_SÉRIE':'Infantil 2 ao 5',VALOR_BASE:30,QTD_PARCELAS:3,OBSERVACAO_INTERNA:JSON.stringify({name:'Matrícula Antecipada',discount:30,cardInstallments:3,paymentMethod:'Cartão',studentType:'Todos',showFlyer:true,autoApply:true,noInterest:true})}
   ];
   const html=x.run('gfFlyerCampaignMarkup(window.__list,2027,"Infantil 2","Novato")');
   assert.match(html,/CAMPANHA DE MATRÍCULA/);
   assert.match(html,/Matrícula Antecipada/);
-  assert.match(html,/R\$\s*500,00/);
-  assert.match(html,/R\$\s*350,00/);
+  assert.match(html,/R\$\s*517,09/);
+  assert.match(html,/R\$\s*361,96/);
  }finally{x.dom.window.close()}
 });
 
@@ -844,13 +845,14 @@ test('values screen starts on the operational cycle 2026 to 2027 even when 2028 
  assert.match(bulk,/years\.includes\(2027\)\?2027/);
 });
 
-test('official 2027 campaign reproduces the first installment values from the school table',()=>{
+test('official 2027 campaign applies 30 percent to the 12x after-due values and truncates cents',()=>{
  const x=setup();try{
-  x.w.__campaign={CATEGORIA:'Campanha',SUBCATEGORIA:'1ª Parcela',PRODUTO:'Campanha Matrículas 2027',ANO_LETIVO:2027,ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Sim',VALOR_BASE:26.317075156746196,QTD_PARCELAS:3,'SEGMENTO_SÉRIE':'Infantil 2 ao 5',OBSERVACAO_INTERNA:JSON.stringify({name:'Campanha Matrículas 2027',discount:26.317075156746196,finalValue:361.96,cardInstallments:3,paymentMethod:'Cartão',studentType:'Todos',showFlyer:true,autoApply:true,noInterest:true})};
+  x.w.__campaign={CATEGORIA:'Campanha',SUBCATEGORIA:'1ª Parcela',PRODUTO:'Campanha Matrículas 2027',ANO_LETIVO:2027,ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Sim',VALOR_BASE:30,QTD_PARCELAS:3,'SEGMENTO_SÉRIE':'Infantil 2 ao 5',OBSERVACAO_INTERNA:JSON.stringify({name:'Campanha Matrículas 2027',discount:30,cardInstallments:3,paymentMethod:'Cartão',studentType:'Todos',showFlyer:true,autoApply:true,noInterest:true})};
   x.w.__c=x.w.__campaign;
-  const r=x.run('gfCampaignResult(491.24,window.__c)');
-  assert.equal(r.final,361.96);
-  assert.equal(r.meta.cardInstallments,3);
+  assert.equal(x.run('gfCampaignResult(517.09,window.__c).final'),361.96);
+  assert.equal(x.run('gfCampaignResult(530.58,window.__c).final'),371.40);
+  assert.equal(x.run('gfCampaignResult(544.05,window.__c).final'),380.83);
+  assert.equal(x.run('gfCampaignResult(517.09,window.__c).meta.cardInstallments'),3);
  }finally{x.dom.window.close()}
 });
 
@@ -876,4 +878,15 @@ test('STI demonstrative can follow the official regular-plan reference per segme
   assert.equal(rows[1].total,1261.06);
   assert.equal(rows[1].totalPost,1289.80);
  }finally{x.dom.window.close()}
+});
+
+
+test('operational year selectors ignore 2028 and open on the 2026 to 2027 cycle',()=>{
+ const gestao=read('app/gestao.js'),comercial=read('app/comercial.js'),secretaria=read('app/secretaria.js');
+ assert.match(gestao,/flowYears=\[2026,2027\]/);
+ assert.match(gestao,/openSchoolYearForm\(targetYears,list\)/);
+ assert.match(comercial,/flowYears=\[2026,2027\]/);
+ assert.match(comercial,/years\.includes\(2027\)\?2027/);
+ assert.match(secretaria,/flowYears=\[2026,2027\]/);
+ assert.match(secretaria,/currentYear=years\.includes\(2027\)\?2027/);
 });
