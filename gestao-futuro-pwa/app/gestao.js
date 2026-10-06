@@ -263,6 +263,52 @@ function prodExistingAdjustment(source,target){
 }
 
 
+
+function campaignFirstProducts(list,year){
+  return (list||[]).filter(function(p){
+    var t=String(p.SUBCATEGORIA||"")+" "+String(p.PRODUTO||"");t=t.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+    return Number(prodInferYear(p))===Number(year)&&p.CATEGORIA==="Mensalidade"&&String(p.ATIVO||"Sim")!=="Não"&&(t.indexOf("1ª parcela")>=0||t.indexOf("1a parcela")>=0||t.indexOf("primeira parcela")>=0);
+  });
+}
+function campaignForSegment(list,year,segment){
+  return (list||[]).find(function(p){return gfIsCampaignProduct(p)&&Number(prodInferYear(p))===Number(year)&&String(p["SEGMENTO_SÉRIE"]||"")===String(segment||"")})||null;
+}
+function campaignTitle(segment){
+  var s=String(segment||"").toLowerCase();
+  if(s.indexOf("infantil")>=0)return "Educação Infantil";
+  if(s.indexOf("1º ao 5º")>=0||s.indexOf("1o ao 5o")>=0)return "Anos Iniciais";
+  if(s.indexOf("6º ao 9º")>=0||s.indexOf("6o ao 9o")>=0)return "Anos Finais";
+  return segment||"Segmento";
+}
+function campaignCardHtml(first,campaign,year,i){
+  var base=Number(first.VALOR_BASE||0),m=campaign?gfCampaignMeta(campaign):{name:"Campanha Matrículas "+year,discount:30,cardInstallments:3,paymentMethod:"Cartão",studentType:"Todos",start:"",end:"",showFlyer:true,autoApply:true,noInterest:true,note:""},final=Math.round(base*(1-m.discount/100)*100)/100,active=!campaign||String(campaign.ATIVO||"Sim")!=="Não";
+  var opts=[1,2,3,4,5,6,10,12].map(function(n){return '<option value="'+n+'" '+(Number(m.cardInstallments)===n?"selected":"")+'>'+n+'x</option>'}).join("");
+  var pay=["Cartão","Pix","Cartão ou Pix","Qualquer forma"].map(function(v){return '<option '+(m.paymentMethod===v?"selected":"")+'>'+v+'</option>'}).join("");
+  var pub=["Todos","Novato","Veterano"].map(function(v){return '<option '+(m.studentType===v?"selected":"")+'>'+v+'</option>'}).join("");
+  return '<article class="campaign-segment-card" data-campaign-card="'+i+'" data-campaign-id="'+esc(campaign&&campaign.ID_PRODUTO||"")+'" data-segment="'+esc(first["SEGMENTO_SÉRIE"]||"")+'" data-first-base="'+base+'">'+
+    '<div class="campaign-card-head"><div><small>SEGMENTO</small><h4>'+esc(campaignTitle(first["SEGMENTO_SÉRIE"]))+'</h4><span>'+esc(first["SEGMENTO_SÉRIE"]||"")+'</span></div><span class="campaign-status '+(active?"on":"off")+'">'+(active?"ATIVA":"INATIVA")+'</span></div>'+
+    '<div class="campaign-price-preview"><div><small>1ª PARCELA OFICIAL</small><b>'+money(base)+'</b></div><div class="discount"><small>COM CAMPANHA</small><b data-campaign-final>'+money(final)+'</b><span data-campaign-saving>'+m.discount+'% de desconto</span></div></div>'+
+    '<div class="campaign-fields"><div class="field span-2"><label>Nome da campanha</label><input data-campaign-field="name" value="'+esc(m.name)+'"></div>'+
+    '<div class="field"><label>Desconto na 1ª parcela (%)</label><input data-campaign-field="discount" type="number" min="0" max="100" step="0.01" value="'+esc(m.discount)+'"></div>'+
+    '<div class="field"><label>Parcelamento máximo</label><select data-campaign-field="cardInstallments">'+opts+'</select></div>'+
+    '<div class="field"><label>Forma de pagamento</label><select data-campaign-field="paymentMethod">'+pay+'</select></div>'+
+    '<div class="field"><label>Público</label><select data-campaign-field="studentType">'+pub+'</select></div>'+
+    '<div class="field"><label>Início</label><input data-campaign-field="start" type="date" value="'+esc(m.start||"")+'"></div>'+
+    '<div class="field"><label>Fim</label><input data-campaign-field="end" type="date" value="'+esc(m.end||"")+'"></div>'+
+    '<label class="campaign-check"><input data-campaign-field="active" type="checkbox" '+(active?"checked":"")+'><span>Ativa</span></label>'+
+    '<label class="campaign-check"><input data-campaign-field="showFlyer" type="checkbox" '+(m.showFlyer!==false?"checked":"")+'><span>Exibir no panfleto</span></label>'+
+    '<label class="campaign-check"><input data-campaign-field="autoApply" type="checkbox" '+(m.autoApply!==false?"checked":"")+'><span>Aplicar automaticamente</span></label>'+
+    '<label class="campaign-check"><input data-campaign-field="noInterest" type="checkbox" '+(m.noInterest!==false?"checked":"")+'><span>Sem juros</span></label>'+
+    '<div class="field span-2"><label>Observação pública</label><input data-campaign-field="note" value="'+esc(m.note||"")+'"></div></div>'+
+    '<div class="campaign-card-foot"><span data-campaign-condition>'+esc(gfCampaignConditionText(campaign||{VALOR_BASE:m.discount,QTD_PARCELAS:m.cardInstallments,OBSERVACAO_INTERNA:JSON.stringify(m)}))+'</span><button class="btn btn-primary btn-sm" data-save-campaign>Salvar segmento</button></div></article>';
+}
+function campaignCardData(card,year){
+  var g=function(k){return card.querySelector('[data-campaign-field="'+k+'"]')},base=Number(card.dataset.firstBase||0);
+  var meta={name:g("name").value.trim()||("Campanha Matrículas "+year),discount:Math.max(0,Math.min(100,Number(g("discount").value||0))),cardInstallments:Math.max(1,Number(g("cardInstallments").value||1)),paymentMethod:g("paymentMethod").value||"Cartão",studentType:g("studentType").value||"Todos",start:g("start").value||"",end:g("end").value||"",showFlyer:g("showFlyer").checked,autoApply:g("autoApply").checked,noInterest:g("noInterest").checked,note:g("note").value.trim()};
+  var final=Math.round(base*(1-meta.discount/100)*100)/100,note=(meta.discount?meta.discount+"% de desconto na 1ª parcela":"Sem desconto")+(meta.cardInstallments>1?" • até "+meta.cardInstallments+"x no "+meta.paymentMethod.toLowerCase()+(meta.noInterest?" sem juros":""):"");
+  return {id:card.dataset.campaignId||"",segment:card.dataset.segment||"",base:base,final:final,meta:meta,payload:{ANO_LETIVO:Number(year),CATEGORIA:"Campanha",SUBCATEGORIA:"1ª Parcela",PRODUTO:meta.name,"SEGMENTO_SÉRIE":card.dataset.segment||"","DESCRIÇÃO":note,VALOR_BASE:meta.discount,"VALOR_PÓS_VENCIMENTO":0,"VALOR_CRÉDITO":0,QTD_PARCELAS:meta.cardInstallments,VALOR_PARCELA:0,VENCIMENTO_PADRÃO:meta.end||"",ATIVO:g("active").checked?"Sim":"Não","OBSERVAÇÃO":meta.note||note,TIPO_COBRANCA:"Campanha",DISPONIVEL_MATRICULA:"Não",ORDEM_EXIBICAO:1,OBSERVACAO_INTERNA:JSON.stringify(meta),PUBLICADO_ATENDIMENTO:"Sim"}};
+}
+
 async function renderProdutos(){
   const list=await api("listarProdutosGestao",{token:state.adminToken});
   const inferYear=prodInferYear;
@@ -309,6 +355,13 @@ async function renderProdutos(){
       </div>
     </section>
 
+    <section class="campaign-manager">
+      <div class="campaign-manager-head"><div><small>POLÍTICA COMERCIAL</small><h3>Campanha da 1ª parcela</h3><p>Edite por segmento o desconto promocional, parcelamento, público e validade sem alterar o valor oficial.</p></div><div class="series-sync-icons"><span>✓ Atendimento</span><span>✓ Secretaria</span><span>✓ Panfletos</span><span>✓ Matrícula</span></div></div>
+      <div class="campaign-toolbar"><div class="field"><label>Ano da campanha</label><select id="campaignYear" class="search">${targetYears.map(y=>'<option value="'+y+'" '+(y===targetDefault?'selected':'')+'>'+y+'</option>').join('')}</select></div><button class="btn btn-soft" id="campaignCopyAll" type="button">Copiar condição para todos</button><button class="btn btn-primary" id="campaignSaveAll" type="button">Salvar todas as campanhas</button></div>
+      <div id="campaignCards" class="campaign-segment-grid"></div>
+      <div class="campaign-manager-note"><b>Regra:</b> a campanha afeta somente a 1ª parcela. Anuidade e planos 11x/12x permanecem como valores oficiais.</div>
+    </section>
+
     <div class="section-head catalog-after-wizard"><div><h3>Catálogo publicado</h3><span class="muted">Consulta e edição individual dos valores já existentes.</span></div><div class="toolbar">
       <select id="prodYear" class="search" style="max-width:160px">${years.map(y=>`<option value="${y}" ${y===current?"selected":""}>${y}</option>`).join("")}</select>
       <input class="search" id="prodSearch" placeholder="Buscar produto, série…">
@@ -327,6 +380,19 @@ async function renderProdutos(){
     $("#prodTable").innerHTML=`<div class="table-wrap"><table><thead><tr><th>ID</th><th>Ano</th><th>Produto</th><th>Série</th><th>Valor base</th><th>Pós-vencimento</th><th>Parcelas</th><th>Reajuste</th><th>Publicado</th><th>Ativo</th><th></th></tr></thead><tbody>${arr.map(p=>`<tr><td>${esc(p.ID_PRODUTO)}</td><td><strong>${esc(inferYear(p)||"")}</strong></td><td><strong>${esc(p.PRODUTO)}</strong><br><span class="muted">${esc(p.CATEGORIA||"")}</span></td><td>${esc(p["SEGMENTO_SÉRIE"]||"")}</td><td class="money">${money(p.VALOR_BASE)}</td><td class="money">${money(p["VALOR_PÓS_VENCIMENTO"])}</td><td>${esc(p.QTD_PARCELAS||"")}</td><td>${prodAdjustmentBadge(p)}</td><td>${pill(p.PUBLICADO_ATENDIMENTO||"Sim")}</td><td>${pill(p.ATIVO||"")}</td><td><button class="icon-btn" data-prod="${esc(p.ID_PRODUTO)}">Editar</button></td></tr>`).join("")||`<tr><td colspan="11" class="empty">Nenhum produto cadastrado para ${year}.</td></tr>`}</tbody></table></div>`;
     $$('[data-prod]').forEach(x=>x.onclick=()=>openProductForm(list.find(p=>p.ID_PRODUTO===x.dataset.prod)));
   };
+
+
+  const drawCampaignManager=()=>{
+    const year=Number($("#campaignYear")?.value||targetDefault),firsts=campaignFirstProducts(list,year),root=$("#campaignCards");if(!root)return;
+    if(!firsts.length){root.innerHTML="<div class='notice warn'>Cadastre primeiro as 1ª parcelas oficiais deste ano.</div>";return}
+    root.innerHTML=firsts.map(function(first,i){return campaignCardHtml(first,campaignForSegment(list,year,first["SEGMENTO_SÉRIE"]),year,i)}).join("");
+    $("[data-campaign-card]").forEach(function(card){
+      const refresh=()=>{const d=campaignCardData(card,year),fake={VALOR_BASE:d.meta.discount,QTD_PARCELAS:d.meta.cardInstallments,OBSERVACAO_INTERNA:JSON.stringify(d.meta)};card.querySelector("[data-campaign-final]").textContent=money(d.final);card.querySelector("[data-campaign-saving]").textContent=d.meta.discount+"% de desconto";card.querySelector("[data-campaign-condition]").textContent=gfCampaignConditionText(fake)};
+      card.querySelectorAll("[data-campaign-field]").forEach(function(el){el.oninput=refresh;el.onchange=refresh});
+      card.querySelector("[data-save-campaign]").onclick=async function(){const d=campaignCardData(card,year),btn=this;btn.disabled=true;btn.textContent="Salvando…";try{if(d.id)await api("atualizarProduto",{token:state.adminToken,id:d.id,data:d.payload});else await api("criarProdutoServico",{token:state.adminToken,data:d.payload});clearApiCache();setNotice("Campanha de "+esc(d.segment)+" salva e sincronizada.","ok");await renderProdutos()}catch(e){showToast(e.message||"Não foi possível salvar a campanha.","error");btn.disabled=false;btn.textContent="Salvar segmento"}};
+    });
+  };
+  const saveAllCampaigns=async()=>{const year=Number($("#campaignYear")?.value||targetDefault),cards=$("[data-campaign-card]"),btn=$("#campaignSaveAll");if(!cards.length)return;btn.disabled=true;try{for(let i=0;i<cards.length;i++){btn.textContent="Salvando "+(i+1)+"/"+cards.length+"…";const d=campaignCardData(cards[i],year);if(d.id)await api("atualizarProduto",{token:state.adminToken,id:d.id,data:d.payload});else await api("criarProdutoServico",{token:state.adminToken,data:d.payload})}clearApiCache();setNotice("Campanhas da 1ª parcela salvas e sincronizadas com Atendimento, Secretaria, Panfletos e Matrícula.","ok");await renderProdutos()}catch(e){showToast(e.message||"Não foi possível salvar todas as campanhas.","error");btn.disabled=false;btn.textContent="Salvar todas as campanhas"}};
 
   let wizardRows=[],tuitionBundle=null;
   const tuitionCalc=()=>prodTuitionPlanCalc(tuitionBundle,Number($("#tuitionAnnualPct")?.value||0),Number($("#tuitionFirstPct")?.value||0));
@@ -461,7 +527,10 @@ async function renderProdutos(){
   $("#newSchoolYear").onclick=()=>openSchoolYearForm(years,list);
   $("#individualAdjustment").onclick=()=>openIndividualAdjustment(list,years);
   $("#newProductService").onclick=()=>openNewProductService();
-  drawWizard();drawCatalog();
+  $("#campaignYear").onchange=drawCampaignManager;
+  $("#campaignSaveAll").onclick=saveAllCampaigns;
+  $("#campaignCopyAll").onclick=()=>{const cards=$("[data-campaign-card]");if(cards.length<2)return;const src=campaignCardData(cards[0],Number($("#campaignYear").value)).meta;cards.slice(1).forEach(function(card){["name","discount","cardInstallments","paymentMethod","studentType","start","end","note"].forEach(function(k){const el=card.querySelector('[data-campaign-field="'+k+'"]');if(el)el.value=src[k]??""});["showFlyer","autoApply","noInterest"].forEach(function(k){const el=card.querySelector('[data-campaign-field="'+k+'"]');if(el)el.checked=!!src[k]});card.querySelector('[data-campaign-field="active"]').checked=cards[0].querySelector('[data-campaign-field="active"]').checked;card.querySelector('[data-campaign-field="discount"]').dispatchEvent(new Event("input"))});showToast("Condição copiada. Confira e salve todas as campanhas.","ok")};
+  drawCampaignManager();drawWizard();drawCatalog();
 }
 function openSchoolYearForm(years,list){
   const origem=Number(state.productYear||years[0]||2026),destino=origem+1;
