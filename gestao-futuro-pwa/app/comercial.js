@@ -735,6 +735,7 @@ async function renderAtendimento(){
 
     function updatePlanAndTotal(){
       var n=Number($("#planCount")?.value||disc.n||12),d1=Number($("#planDiscFirst")?.value||0),dr=Number($("#planDiscRecurring")?.value||0),calc=gfPlanCalc(monthly,n,d1,dr);
+      state.attendancePlanComplete=calc.complete;
       setHidden("PLANO_PARCELAS",calc.n);setHidden("VALOR_ANUIDADE",calc.annualValue);setHidden("VALOR_PRIMEIRA_BASE",calc.firstBase);setHidden("DESCONTO_PRIMEIRA_%",calc.discFirst);setHidden("VALOR_PRIMEIRA_FINAL",calc.firstFinal);setHidden("VALOR_PARCELA_BASE",calc.recurringBase);setHidden("DESCONTO_PARCELAS_%",calc.discRecurring);setHidden("VALOR_PARCELA_FINAL",calc.recurringFinal);setHidden("TOTAL_PLANO",calc.total);setHidden("ECONOMIA_PLANO",calc.economy);
       if($("#planFirstBase"))$("#planFirstBase").textContent=money(calc.firstBase);
       if($("#planFirstFinal"))$("#planFirstFinal").textContent=money(calc.firstFinal);
@@ -846,6 +847,7 @@ async function renderAtendimento(){
     }catch(e){setNotice("Ainda não foi possível sincronizar: "+esc(e.message)+". O atendimento continua salvo neste dispositivo.","error");btn.disabled=false;btn.textContent="Sincronizar"}
   }});
   $("#downloadAttendancePdf").onclick=async function(){
+    if(state.attendancePlanComplete===false)return alert("A Gestão ainda não publicou todos os valores do plano escolhido. Complete Anuidade, 1ª parcela e parcelas antes de gerar o PDF.");
     if(!state.currentAttendanceId)return alert("Salve o atendimento antes de gerar o PDF.");
     if(String(state.currentAttendanceId).startsWith("LOCAL-")&&currentRunMode()!=="TESTE")return alert("Sincronize o atendimento antes de gerar o PDF.");
     var btn=$("#downloadAttendancePdf");btn.disabled=true;var old=btn.textContent;btn.textContent="Gerando PDF…";
@@ -857,6 +859,7 @@ async function renderAtendimento(){
     btn.disabled=false;btn.textContent=old;
   };
   $("#saveAttendance").onclick=async function(){
+    if(state.attendancePlanComplete===false){setNotice("A Gestão ainda não publicou todos os valores do plano escolhido. Complete Anuidade, 1ª parcela e parcelas antes de salvar a proposta.","error");return;}
     if(gfLocalAttendances().some(x=>x.id===state.currentAttendanceId)){setNotice("Sincronize a versão pendente antes de salvar novas alterações.","error");return;}
     var f=$("#attForm");if(!f.reportValidity())return;
     var snap=gfCurrentAttendanceSnapshot(products);if(!snap)return;
