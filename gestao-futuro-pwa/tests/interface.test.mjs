@@ -794,3 +794,18 @@ test('secretaria matrícula displays campaign policy and records its condition',
  assert.match(src,/1ª parcela com campanha/);
  assert.match(src,/campaignNote/);
 });
+
+
+test('management demonstrative shows configured first-installment campaign by segment',()=>{
+ const x=setup();try{
+  x.w.__products=[
+   {ID_PRODUTO:'PRI-INF-2027',ANO_LETIVO:2027,ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Sim',CATEGORIA:'Mensalidade',SUBCATEGORIA:'1ª Parcela',PRODUTO:'1ª Parcela','SEGMENTO_SÉRIE':'Infantil 2 ao 5',VALOR_BASE:500},
+   {ID_PRODUTO:'CAMP-INF-2027',ANO_LETIVO:2027,ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Sim',CATEGORIA:'Campanha',SUBCATEGORIA:'1ª Parcela',PRODUTO:'Campanha Matrículas','SEGMENTO_SÉRIE':'Infantil 2 ao 5',VALOR_BASE:30,QTD_PARCELAS:3,OBSERVACAO_INTERNA:JSON.stringify({name:'Campanha Matrículas',discount:30,cardInstallments:3,paymentMethod:'Cartão',studentType:'Todos',noInterest:true})}
+  ];
+  const html=x.run('dashCampaignPolicyHtml(window.__products,2027)');
+  assert.match(html,/CAMPANHA DA 1ª PARCELA/);
+  assert.match(html,/30%/);
+  assert.match(html,/R\$\s*350,00/);
+  assert.match(html,/3x/);
+ }finally{x.dom.window.close()}
+});
