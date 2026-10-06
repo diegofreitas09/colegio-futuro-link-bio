@@ -522,34 +522,43 @@ async function renderProdutos(){
     if(source===target||!tuitionBundle||!tuitionBundle.annual||!tuitionBundle.first||!tuitionBundle.p12||!tuitionBundle.p11)return;
     const calc=tuitionCalc();
     const tuitionUpdates=[
-      {p:tuitionBundle.annual,value:calc.annual,label:"Anuidade"},
-      {p:tuitionBundle.first,value:calc.first,label:"1ª Parcela"},
-      {p:tuitionBundle.p12,value:calc.p12,label:"Plano 1+12"},
-      {p:tuitionBundle.p11,value:calc.p11,label:"Plano 1+11"}
+      {p:tuitionBundle.annual,base:calc.annual,post:calc.annualPost,parcel:0,label:"Anuidade"},
+      {p:tuitionBundle.first,base:calc.first,post:calc.first,parcel:calc.first,label:"Base da 1ª parcela"},
+      {p:tuitionBundle.p12,base:calc.p12,post:calc.p12Post,parcel:calc.p12,label:"Plano 1ª + 12"},
+      {p:tuitionBundle.p11,base:calc.p11,post:calc.p11Post,parcel:calc.p11,label:"Plano 1ª + 11"}
     ];
     const extras=wizardRows.map(p=>({p,pct:Number($('[data-series-pct="'+CSS.escape(String(p.ID_PRODUTO))+'"]')?.value||0)}));
     const total=tuitionUpdates.length+extras.length,btn=$("#publishSeriesAdjustment");btn.disabled=true;
     try{
       let done=0;
       for(const row of tuitionUpdates){
-        btn.textContent="Publicando "+(++done)+" de "+total+"…";
-        await api("aplicarReajusteIndividual",{token:state.adminToken,data:{
-          anoOrigem:source,anoDestino:target,idProduto:row.p.ID_PRODUTO,modo:"valor",valor:row.value,publicar:"Sim",
-          observacao:"Plano escolar • "+serie+" • "+row.label+" • "+source+"→"+target
+        btn.textContent="Sincronizando "+(++done)+" de "+total+"…";
+        const result=await api("aplicarReajusteIndividual",{token:state.adminToken,data:{
+          anoOrigem:source,anoDestino:target,idProduto:row.p.ID_PRODUTO,modo:"valor",valor:row.base,publicar:"Sim",
+          observacao:"Tabela derivada da anuidade • "+serie+" • "+row.label+" • "+source+"→"+target
         }});
+        if(result&&result.id){
+          await api("atualizarProduto",{token:state.adminToken,id:result.id,data:{
+            VALOR_BASE:row.base,
+            "VALOR_PÓS_VENCIMENTO":row.post,
+            VALOR_PARCELA:row.parcel,
+            PUBLICADO_ATENDIMENTO:"Sim",
+            OBSERVACAO_INTERNA:"Regra automática: anuidade ÷ 13 para plano 12x e 1ª parcela; anuidade ÷ 12 para plano 11x."
+          }});
+        }
       }
       for(const row of extras){
-        btn.textContent="Publicando "+(++done)+" de "+total+"…";
+        btn.textContent="Sincronizando "+(++done)+" de "+total+"…";
         await api("aplicarReajusteIndividual",{token:state.adminToken,data:{
           anoOrigem:source,anoDestino:target,idProduto:row.p.ID_PRODUTO,modo:"percentual",valor:row.pct,publicar:"Sim",
           observacao:"Reajuste por série • "+serie+" • "+source+"→"+target
         }});
       }
       state.productYear=target;clearApiCache();
-      setNotice("Ano-base "+target+" publicado para "+serie+". Anuidade, 12x, 11x e campanha da 1ª parcela foram sincronizados com Atendimento, Secretaria, Panfletos e Matrícula.","ok");
+      setNotice("Tabela "+target+" sincronizada para "+serie+": anuidade → 12x/11x → base da 1ª parcela → campanha. Atendimento, Secretaria, Panfletos e Matrícula usam a mesma regra.","ok");
       await renderProdutos();
     }catch(e){
-      showToast(e.message||"Não foi possível concluir o reajuste da série.","error");
+      showToast(e.message||"Não foi possível concluir a sincronização da série.","error");
       btn.disabled=false;btn.textContent="Publicar novos valores e sincronizar";
     }
   };
