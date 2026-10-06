@@ -654,14 +654,21 @@ test('flyer shows official annuality and both payment plans from catalog',()=>{
   const list=x.run('gfCatalog(window.__products,2027,"Infantil 2")');
   x.w.__list=list;
   const html=x.run('gfFlyerMarkup(2027,"Infantil 2",{},window.__list,"Novato")');
-  assert.match(html,/Planos de mensalidade/);
-  assert.match(html,/PLANO A/);
-  assert.match(html,/1ª \+ 12x/);
-  assert.match(html,/PLANO B/);
-  assert.match(html,/1ª \+ 11x/);
+  assert.match(html,/Tempo regular/);
+  assert.match(html,/ANUIDADE/);
+  assert.match(html,/1ª PARCELA/);
+  assert.match(html,/12 PARCELAS/);
+  assert.match(html,/janeiro a dezembro/);
+  assert.match(html,/11 PARCELAS/);
+  assert.match(html,/fevereiro a dezembro/);
+  assert.match(html,/EDUCAÇÃO INFANTIL/);
   assert.match(html,/R\$\s*6\.270,40/);
-  assert.match(html,/12x de R\$\s*482,12/);
-  assert.match(html,/11x de R\$\s*525,95/);
+  assert.match(html,/R\$\s*6\.600,50/);
+  assert.match(html,/R\$\s*484,92/);
+  assert.match(html,/R\$\s*482,12/);
+  assert.match(html,/R\$\s*509,63/);
+  assert.match(html,/R\$\s*525,95/);
+  assert.match(html,/R\$\s*555,96/);
   assert.match(html,/R\$\s*524,34/);
   assert.equal((html.match(/<h3>Mensalidade<\/h3>/g)||[]).length,0);
  }finally{x.dom.window.close()}
@@ -676,8 +683,11 @@ test('flyer plan values are calculated dynamically from the current catalog',()=
    {ANO_LETIVO:2027,ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Sim',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Plano 11 parcelas',PRODUTO:'Mensalidade','SEGMENTO_SÉRIE':'Todos',VALOR_BASE:545.45,VALOR_PARCELA:545.45,QTD_PARCELAS:11}
   ];
   const html=x.run('gfFlyerTuitionPlansMarkup(window.__list,2027)');
+  assert.match(html,/Tempo regular/);
   assert.match(html,/R\$\s*6\.600,00/);
-  assert.match(html,/12x de R\$\s*500,00/);
-  assert.match(html,/11x de R\$\s*545,45/);
+  assert.match(html,/R\$\s*600,00/);
+  assert.match(html,/R\$\s*500,00/);
+  assert.match(html,/R\$\s*545,45/);
+  assert.doesNotMatch(html,/Total da anuidade/);
  }finally{x.dom.window.close()}
 });
