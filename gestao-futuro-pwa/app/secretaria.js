@@ -169,6 +169,7 @@ function openMatForm(b){
     <div class="field span-2"><label>Plano / produto principal</label><select name="ID_PRODUTO_PLANO" id="matPlano"><option value="">Definir manualmente</option></select></div>
     <div class="field"><label>Parcelas</label><input type="number" name="PLANO_PARCELAS" id="matPlanCount" value="12" min="1"></div>
     <div class="field"><label>Valor contratado</label><input type="number" step="0.01" name="VALOR_ANUIDADE_CONTRATADO" id="matAnnualValue" value="0"></div>
+    <div class="field span-3"><div id="matCampaignInfo" class="mat-campaign-info"><span class="muted">Selecione ano e série para consultar a campanha vigente da 1ª parcela.</span></div></div>
     <div class="field"><label>Dia vencimento</label><input type="number" name="DIA_VENCIMENTO" id="matDueDay" value="5" min="1" max="31"></div>
     <div class="field"><label>Primeiro vencimento</label><input type="date" name="PRIMEIRO_VENCIMENTO" id="matFirstDue" value="${firstDue}"></div>
     <div class="field span-2"><label>Responsável financeiro</label><select name="ID_RESP_FINANCEIRO" id="matResp"><option value="">Selecione o aluno primeiro</option></select></div>
@@ -183,10 +184,28 @@ function openMatForm(b){
     const available=prods.filter(p=>inferYear(p)===year&&p.ATIVO==="Sim"&&(!serie||typeof gfApplies!=="function"||gfApplies(p,serie)));
     const filtered=available.filter(p=>p.CATEGORIA==="Mensalidade");
     $("#matPlano").innerHTML=`<option value="">Definir manualmente</option>${filtered.map(p=>`<option value="${esc(p.ID_PRODUTO)}">${esc(p.PRODUTO)} — ${esc(p.SUBCATEGORIA||p.QTD_PARCELAS+" parcela(s)")} — ${money(p.VALOR_BASE)}</option>`).join("")}`;
-    const services=available.filter(p=>p.CATEGORIA!=="Mensalidade"&&p.DISPONIVEL_MATRICULA!=="Não");
+    const services=available.filter(p=>p.CATEGORIA!=="Mensalidade"&&!gfIsCampaignProduct(p)&&p.DISPONIVEL_MATRICULA!=="Não");
     $("#matServices").innerHTML=services.length?services.map(p=>`<label class="service-option"><input type="checkbox" data-mat-service="${esc(p.ID_PRODUTO)}"><span><b>${esc(p.PRODUTO)}</b><small>${esc(p.CATEGORIA||"")} • ${esc(p["DESCRIÇÃO"]||p["OBSERVAÇÃO"]||"")}</small></span><strong>${money(p.VALOR_BASE)}</strong></label>`).join(""):`<span class="muted">Nenhum produto ou serviço adicional disponível para esta série.</span>`;
-    $$("[data-mat-service]").forEach(x=>x.onchange=refreshServiceTotal);
+    $("[data-mat-service]").forEach(x=>x.onchange=refreshServiceTotal);
     refreshServiceTotal();
+    refreshCampaign();
+  };
+  const refreshCampaign=()=>{
+    const box=$("#matCampaignInfo");if(!box)return null;
+    const year=Number($("#matYear").value),serie=$("#matSerie").value||"",studentType=$("#matType").value||"Todos";
+    const available=prods.filter(p=>inferYear(p)===year&&p.ATIVO==="Sim"&&(!serie||typeof gfApplies!=="function"||gfApplies(p,serie)));
+    const campaign=typeof gfCampaignFor==="function"?gfCampaignFor(available,year,serie,studentType,false):null;
+    const first=available.find(p=>p.CATEGORIA==="Mensalidade"&&/1ª parcela|1a parcela|primeira parcela/i.test(String(p.SUBCATEGORIA||"")+" "+String(p.PRODUTO||"")));
+    if(!campaign||!first){
+      box.dataset.campaignNote="";
+      box.innerHTML="<span class='muted'>Nenhuma campanha ativa da 1ª parcela para este segmento e público.</span>";
+      return null;
+    }
+    const meta=gfCampaignMeta(campaign),r=gfCampaignResult(Number(first.VALOR_BASE||first.VALOR_PARCELA||0),campaign),condition=gfCampaignConditionText(campaign);
+    box.dataset.campaignNote="Campanha da 1ª parcela: "+meta.name+" | base "+money(r.base)+" | desconto "+meta.discount+"% | valor final "+money(r.final)+" | "+condition;
+    box.innerHTML="<div class='mat-campaign-head'><div><small>CAMPANHA VIGENTE</small><b>"+esc(meta.name)+"</b><span>"+esc(condition)+"</span></div><span class='pill ok'>Pré-autorizada</span></div>"+
+      "<div class='mat-campaign-values'><div><small>1ª parcela oficial</small><b>"+money(r.base)+"</b></div><div><small>1ª parcela com campanha</small><b>"+money(r.final)+"</b></div></div>";
+    return {campaign:campaign,meta:meta,result:r};
   };
   const refreshServiceTotal=()=>{
     const ids=$$("[data-mat-service]:checked").map(x=>x.dataset.matService);
@@ -254,6 +273,7 @@ function openMatForm(b){
     $("#matConfirmedSeriesView").textContent=$("#matSerie").value||"A confirmar";refreshPlans();
   };
   $("#matPlano").onchange=syncSelectedPlan;
+  $("#matType").onchange=refreshCampaign;
   $("#matDueDay").onchange=syncFirstDue;
   $("#matAluno").onchange=()=>{const a=selectedMatStudent();if(a)$("#matAlunoSearch").value=a.NOME_COMPLETO+" — "+(a["SÉRIE"]||"")+" — "+(a.MATRICULA_ORIGEM||a.ID_ALUNO||"");resolveMatStudent();};
   $("#matAlunoSearch").onchange=resolveMatStudent;
@@ -270,6 +290,8 @@ function openMatForm(b){
     const serviceInfo=refreshServiceTotal(),selectedServices=prods.filter(p=>serviceInfo.ids.includes(String(p.ID_PRODUTO)));
     data.SERVICOS_ADICIONAIS=JSON.stringify(selectedServices.map(p=>({ID_PRODUTO:p.ID_PRODUTO,PRODUTO:p.PRODUTO,CATEGORIA:p.CATEGORIA,VALOR:Number(p.VALOR_BASE||0)})));
     data.VALOR_SERVICOS_ADICIONAIS=serviceInfo.total;
+    const campaignNote=$("#matCampaignInfo")?.dataset.campaignNote||"";
+    if(campaignNote)data["OBSERVAÇÃO"]=(data["OBSERVAÇÃO"]?data["OBSERVAÇÃO"]+"\n":"")+campaignNote;
     if(selectedServices.length){
       const resumo="Produtos/serviços adicionais: "+selectedServices.map(p=>p.PRODUTO+" ("+money(p.VALOR_BASE)+")").join("; ")+". Total adicionais: "+money(serviceInfo.total)+".";
       data["OBSERVAÇÃO"]=(data["OBSERVAÇÃO"]?data["OBSERVAÇÃO"]+"\n":"")+resumo;
