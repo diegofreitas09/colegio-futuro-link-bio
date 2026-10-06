@@ -557,7 +557,7 @@ test('series adjustment wizard publishes the new base year to all operational mo
 });
 
 
-test('tuition plan calculator closes annuality for 1+12 and 1+11',()=>{
+test('tuition table calculator keeps annuality 12x and 11x as independent official values',()=>{
  const x=setup();try{
   x.w.__bundle={
     annual:{VALOR_BASE:5805.93},
@@ -565,13 +565,13 @@ test('tuition plan calculator closes annuality for 1+12 and 1+11',()=>{
     p12:{VALOR_BASE:446.41,VALOR_PARCELA:446.41},
     p11:{VALOR_BASE:487.90,VALOR_PARCELA:487.90}
   };
-  const calc=x.run('prodTuitionPlanCalc(window.__bundle,8,8)');
-  assert.equal(calc.annual,6270.40);
-  assert.equal(calc.first,484.92);
-  assert.equal(calc.p12,482.12);
-  assert.equal(calc.p11,525.95);
-  assert.equal(calc.check12,6270.40);
-  assert.equal(calc.check11,6270.40);
+  const calc=x.run('prodTuitionPlanCalc(window.__bundle,9.9936,9.4076,10.0423,9.0736)');
+  assert.equal(calc.annual,6386.15);
+  assert.equal(calc.first,491.24);
+  assert.equal(calc.p12,491.24);
+  assert.equal(calc.p11,532.17);
+  assert.equal(calc.check12,undefined);
+  assert.equal(calc.check11,undefined);
  }finally{x.dom.window.close()}
 });
 
@@ -590,13 +590,15 @@ test('plan calculation uses official first installment product when available',(
  }finally{x.dom.window.close()}
 });
 
-test('values wizard exposes both payment plans and exact annuality formula',()=>{
+test('values wizard follows official independent tariff fields instead of forcing annuality formula',()=>{
  const src=read('app/gestao.js');
- assert.match(src,/Plano A • 1ª \+ 12x/);
- assert.match(src,/Plano B • 1ª \+ 11x/);
- assert.match(src,/Anuidade = 1ª parcela \+ 12x/);
- assert.match(src,/Anuidade = 1ª parcela \+ 11x/);
- assert.match(src,/prodTuitionPlanCalc/);
+ assert.match(src,/Tabela oficial independente/);
+ assert.match(src,/12 PARCELAS/);
+ assert.match(src,/11 PARCELAS/);
+ assert.match(src,/tuitionP12Pct/);
+ assert.match(src,/tuitionP11Pct/);
+ assert.doesNotMatch(src,/Anuidade = 1ª parcela \+ 12x/);
+ assert.doesNotMatch(src,/Anuidade = 1ª parcela \+ 11x/);
  assert.match(src,/modo:"valor",valor:row\.value/);
 });
 
@@ -829,4 +831,49 @@ test('integration source supports catalog pull and campaign upsert without dupli
  assert.match(src,/campaignToProduct/);
  assert.match(src,/existing\?\.id/);
  assert.match(src,/outboundEntity="produtos"/);
+});
+
+
+test('values screen starts on the operational cycle 2026 to 2027 even when 2028 exists',()=>{
+ const src=read('app/gestao.js');
+ assert.match(src,/targetDefault=years\.includes\(2027\)\?2027/);
+ assert.match(src,/sourceDefault=years\.includes\(2026\)\?2026/);
+ assert.doesNotMatch(src,/futureYear=Math\.max/);
+ const bulk=src.slice(src.indexOf('function openSchoolYearForm'),src.indexOf('function openIndividualAdjustment'));
+ assert.match(bulk,/years\.includes\(2026\)\?2026/);
+ assert.match(bulk,/years\.includes\(2027\)\?2027/);
+});
+
+test('official 2027 campaign reproduces the first installment values from the school table',()=>{
+ const x=setup();try{
+  x.w.__campaign={CATEGORIA:'Campanha',SUBCATEGORIA:'1ª Parcela',PRODUTO:'Campanha Matrículas 2027',ANO_LETIVO:2027,ATIVO:'Sim',PUBLICADO_ATENDIMENTO:'Sim',VALOR_BASE:26.317075156746196,QTD_PARCELAS:3,'SEGMENTO_SÉRIE':'Infantil 2 ao 5',OBSERVACAO_INTERNA:JSON.stringify({name:'Campanha Matrículas 2027',discount:26.317075156746196,finalValue:361.96,cardInstallments:3,paymentMethod:'Cartão',studentType:'Todos',showFlyer:true,autoApply:true,noInterest:true})};
+  x.w.__c=x.w.__campaign;
+  const r=x.run('gfCampaignResult(491.24,window.__c)');
+  assert.equal(r.final,361.96);
+  assert.equal(r.meta.cardInstallments,3);
+ }finally{x.dom.window.close()}
+});
+
+test('STI demonstrative can follow the official regular-plan reference per segment',()=>{
+ const x=setup();try{
+  x.w.__products=[
+   {ID_PRODUTO:'ANU-INF-2027',ANO_LETIVO:2027,ATIVO:'Sim',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Anuidade',PRODUTO:'Anuidade','SEGMENTO_SÉRIE':'Infantil 2 ao 5',VALOR_BASE:6386.15},
+   {ID_PRODUTO:'PRI-INF-2027',ANO_LETIVO:2027,ATIVO:'Sim',CATEGORIA:'Mensalidade',SUBCATEGORIA:'1ª Parcela',PRODUTO:'1ª Parcela','SEGMENTO_SÉRIE':'Infantil 2 ao 5',VALOR_BASE:491.24},
+   {ID_PRODUTO:'MEN-INF-12-2027',ANO_LETIVO:2027,ATIVO:'Sim',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Plano 12 parcelas',PRODUTO:'Mensalidade','SEGMENTO_SÉRIE':'Infantil 2 ao 5',VALOR_BASE:491.24,VALOR_PARCELA:491.24,'VALOR_PÓS_VENCIMENTO':517.09,QTD_PARCELAS:12},
+   {ID_PRODUTO:'MEN-INF-11-2027',ANO_LETIVO:2027,ATIVO:'Sim',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Plano 11 parcelas',PRODUTO:'Mensalidade','SEGMENTO_SÉRIE':'Infantil 2 ao 5',VALOR_BASE:532.17,VALOR_PARCELA:532.17,'VALOR_PÓS_VENCIMENTO':560.18,QTD_PARCELAS:11},
+   {ID_PRODUTO:'STI-INF-2027',ANO_LETIVO:2027,ATIVO:'Sim',CATEGORIA:'Adicional',SUBCATEGORIA:'S.T.I.',PRODUTO:'Sistema de Tempo Integral','SEGMENTO_SÉRIE':'Infantil 2 ao 5',VALOR_BASE:715,VALOR_PARCELA:715,QTD_PARCELAS:12,OBSERVACAO_INTERNA:JSON.stringify({regularPlan:12})},
+   {ID_PRODUTO:'ANU-AI-2027',ANO_LETIVO:2027,ATIVO:'Sim',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Anuidade',PRODUTO:'Anuidade','SEGMENTO_SÉRIE':'1º ao 5º Ano',VALOR_BASE:6552.72},
+   {ID_PRODUTO:'PRI-AI-2027',ANO_LETIVO:2027,ATIVO:'Sim',CATEGORIA:'Mensalidade',SUBCATEGORIA:'1ª Parcela',PRODUTO:'1ª Parcela','SEGMENTO_SÉRIE':'1º ao 5º Ano',VALOR_BASE:504.05},
+   {ID_PRODUTO:'MEN-AI-12-2027',ANO_LETIVO:2027,ATIVO:'Sim',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Plano 12 parcelas',PRODUTO:'Mensalidade','SEGMENTO_SÉRIE':'1º ao 5º Ano',VALOR_BASE:504.05,VALOR_PARCELA:504.05,'VALOR_PÓS_VENCIMENTO':530.58,QTD_PARCELAS:12},
+   {ID_PRODUTO:'MEN-AI-11-2027',ANO_LETIVO:2027,ATIVO:'Sim',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Plano 11 parcelas',PRODUTO:'Mensalidade','SEGMENTO_SÉRIE':'1º ao 5º Ano',VALOR_BASE:546.06,VALOR_PARCELA:546.06,'VALOR_PÓS_VENCIMENTO':574.80,QTD_PARCELAS:11},
+   {ID_PRODUTO:'STI-AI-2027',ANO_LETIVO:2027,ATIVO:'Sim',CATEGORIA:'Adicional',SUBCATEGORIA:'S.T.I.',PRODUTO:'Sistema de Tempo Integral','SEGMENTO_SÉRIE':'1º ao 5º Ano',VALOR_BASE:715,VALOR_PARCELA:715,QTD_PARCELAS:12,OBSERVACAO_INTERNA:JSON.stringify({regularPlan:11})}
+  ];
+  const rows=x.run('dashStiFromCatalog(window.__products,2027)');
+  assert.equal(rows[0].regular,491.24);
+  assert.equal(rows[0].total,1206.24);
+  assert.equal(rows[0].totalPost,1232.09);
+  assert.equal(rows[1].regular,546.06);
+  assert.equal(rows[1].total,1261.06);
+  assert.equal(rows[1].totalPost,1289.80);
+ }finally{x.dom.window.close()}
 });
