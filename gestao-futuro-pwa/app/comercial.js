@@ -59,16 +59,13 @@ function gfFirstProduct(list){return (list||[]).find(function(p){var t=gfNorm([p
 function gfRecurringProduct(list,n){return (list||[]).find(function(p){return p.CATEGORIA==="Mensalidade"&&Number(p.QTD_PARCELAS)===Number(n)})||null}
 function gfPlanCalc(list,n,discFirst,discRecurring){
   n=Math.max(1,Math.trunc(Number(n||12)));discFirst=Math.max(0,Math.min(100,Number(discFirst||0)));discRecurring=Math.max(0,Math.min(100,Number(discRecurring||0)));
-  var annual=gfAnnualProduct(list),firstProduct=gfFirstProduct(list),monthly=gfRecurringProduct(list,n),campaignBaseProduct=gfRecurringProduct(list,12);
-  var annualCents=Math.round(parseMoney(annual&&annual.VALOR_BASE)*100),annualValue=annualCents/100;
-  var firstBaseValue=parseMoney(campaignBaseProduct&&campaignBaseProduct["VALOR_PÓS_VENCIMENTO"])||parseMoney(firstProduct&&((firstProduct.VALOR_BASE!==""&&firstProduct.VALOR_BASE!=null)?firstProduct.VALOR_BASE:firstProduct.VALOR_PARCELA));
-  var firstCents=Math.round(firstBaseValue*100);
-  var recurringCents=Math.round(parseMoney(monthly&&((monthly.VALOR_PARCELA!==""&&monthly.VALOR_PARCELA!=null)?monthly.VALOR_PARCELA:monthly.VALOR_BASE))*100);
-  var complete=!!(annual&&monthly&&campaignBaseProduct&&annualCents>0&&firstCents>0&&recurringCents>0);
-  var firstBase=firstCents/100,recurringBase=recurringCents/100,tableTotalCents=firstCents+(recurringCents*n);
-  var firstFinalCents=Math.floor((firstCents*(100-discFirst)/100)+1e-9),recurringFinalCents=Math.round(recurringCents*(100-discRecurring)/100);
-  var firstFinal=firstFinalCents/100,recurringFinal=recurringFinalCents/100,totalCents=firstFinalCents+(recurringFinalCents*n),total=totalCents/100,economy=Math.max(0,(annualCents-totalCents)/100);
-  return {n:n,annual:annual,firstProduct:firstProduct,campaignBaseProduct:campaignBaseProduct,annualValue:annualValue,monthly:monthly,firstBase:firstBase,recurringBase:recurringBase,discFirst:discFirst,discRecurring:discRecurring,firstFinal:firstFinal,recurringFinal:recurringFinal,total:total,economy:economy,tableTotal:tableTotalCents/100,complete:complete};
+  var annual=gfAnnualProduct(list),firstProduct=gfFirstProduct(list),monthly=gfRecurringProduct(list,n);
+  var annualValue=parseMoney(annual&&annual.VALOR_BASE),annualPost=parseMoney(annual&&annual["VALOR_PÓS_VENCIMENTO"]),model=gfTuitionModelFromAnnual(annualValue,annualPost);
+  var firstBase=model.firstBase,recurringBase=n===11?model.plan11:model.plan12;
+  var firstFinal=gfMoneyFloor2(firstBase*(1-discFirst/100)),recurringFinal=gfMoneyFloor2(recurringBase*(1-discRecurring/100));
+  var total=gfMoneyFloor2(firstFinal+(recurringFinal*n)),economy=Math.max(0,gfMoneyFloor2(annualValue-total));
+  var complete=!!(annual&&monthly&&annualValue>0&&annualPost>0&&firstBase>0&&recurringBase>0);
+  return {n:n,annual:annual,firstProduct:firstProduct,annualValue:annualValue,annualPost:annualPost,monthly:monthly,model:model,firstBase:firstBase,recurringBase:recurringBase,discFirst:discFirst,discRecurring:discRecurring,firstFinal:firstFinal,recurringFinal:recurringFinal,total:total,economy:economy,tableTotal:gfMoneyFloor2(firstBase+(recurringBase*n)),complete:complete};
 }
 function gfPlanSummary(plan){return "1ª parcela "+money(plan.firstFinal)+" + "+plan.n+"x de "+money(plan.recurringFinal)}
 function gfStiPlanSync(plan,stiValue){
@@ -130,11 +127,9 @@ function gfFlyerTuitionPlansMarkup(list,y){
   var annual=gfAnnualProduct(list),first=gfFirstProduct(list),p12=gfRecurringProduct(list,12),p11=gfRecurringProduct(list,11);
   if(!annual&&!first&&!p12&&!p11)return "";
   var ref=annual||first||p12||p11,seg=gfFlyerTuitionSegmentLabel(ref);
-  var annualMain=parseMoney(annual&&annual.VALOR_BASE),annualPost=gfFlyerAfterDue(annual);
-  var p12Main=parseMoney(p12&&((p12.VALOR_PARCELA!==""&&p12.VALOR_PARCELA!=null)?p12.VALOR_PARCELA:p12.VALOR_BASE)),p12Post=gfFlyerAfterDue(p12);
-  var p11Main=parseMoney(p11&&((p11.VALOR_PARCELA!==""&&p11.VALOR_PARCELA!=null)?p11.VALOR_PARCELA:p11.VALOR_BASE)),p11Post=gfFlyerAfterDue(p11);
-  var firstOfficial=parseMoney(first&&((first.VALOR_BASE!==""&&first.VALOR_BASE!=null)?first.VALOR_BASE:first.VALOR_PARCELA));
-  var campaign=gfCampaignFor(list,y,ref&&ref["SEGMENTO_SÉRIE"]||"", "Todos", false),campaignBase=p12Post||gfCampaignBaseAmount(list,y,ref&&ref["SEGMENTO_SÉRIE"]||"")||firstOfficial,firstMain=campaign?gfCampaignResult(campaignBase,campaign).final:firstOfficial;
+  var annualMain=parseMoney(annual&&annual.VALOR_BASE),annualPost=gfFlyerAfterDue(annual),model=gfTuitionModelFromAnnual(annualMain,annualPost);
+  var p12Main=model.plan12,p12Post=model.plan12Post,p11Main=model.plan11,p11Post=model.plan11Post;
+  var campaign=gfCampaignFor(list,y,ref&&ref["SEGMENTO_SÉRIE"]||"", "Todos", false),campaignBase=model.firstBase,firstMain=campaign?gfCampaignResult(campaignBase,campaign).final:campaignBase;
   var firstCell=gfFlyerTuitionCell(firstMain,0,"first");
   return "<section class='flyer-regular-table'><h3>Tempo regular</h3><div class='regular-table-scroll'><div class='regular-table-grid'>"+
     "<div class='regular-head'>SEGMENTO</div>"+
