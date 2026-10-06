@@ -240,12 +240,21 @@ function prodTuitionPlanCalc(bundle,annualPct,firstPct){
 function prodIsTuitionCore(p){
   return prodIsAnnualTuition(p)||prodIsFirstTuition(p)||prodIsRegularTuitionPlan(p,11)||prodIsRegularTuitionPlan(p,12);
 }
-function prodTargetMatch(list,source,targetYear){
+function prodTargetMatch(list,source,targetYear,preferredId){
   if(!source)return null;
-  const sid=String(source.ID_PRODUTO||""),sourceYear=prodInferYear(source),destId=sourceYear&&sid.includes(String(sourceYear))?sid.replace(String(sourceYear),String(targetYear)):"";
-  return (list||[]).find(p=>prodInferYear(p)===Number(targetYear)&&(
+  const sid=String(source.ID_PRODUTO||""),sourceYear=prodInferYear(source),year=Number(targetYear);
+  const generatedId=sid?(sourceYear&&sid.includes(String(sourceYear))?sid.replace(String(sourceYear),String(year)):sid+"-"+year):"";
+  const destId=String(preferredId||generatedId||"");
+  const expectedName=sourceYear?String(source.PRODUTO||"").replace(String(sourceYear),String(year)):String(source.PRODUTO||"");
+  return (list||[]).find(p=>prodInferYear(p)===year&&(
     (destId&&String(p.ID_PRODUTO||"")===destId)||
-    (p.CATEGORIA===source.CATEGORIA&&p["SEGMENTO_SÉRIE"]===source["SEGMENTO_SÉRIE"]&&Number(p.QTD_PARCELAS||0)===Number(source.QTD_PARCELAS||0)&&prodNorm(p.SUBCATEGORIA)===prodNorm(source.SUBCATEGORIA))
+    (
+      String(p.PRODUTO||"")===expectedName&&
+      String(p.CATEGORIA||"")===String(source.CATEGORIA||"")&&
+      String(p["SEGMENTO_SÉRIE"]||"")===String(source["SEGMENTO_SÉRIE"]||"")&&
+      String(p.SUBCATEGORIA||"")===String(source.SUBCATEGORIA||"")&&
+      Number(p.QTD_PARCELAS||0)===Number(source.QTD_PARCELAS||0)
+    )
   ))||null;
 }
 function prodExistingAdjustment(source,target){
@@ -471,12 +480,13 @@ function openSchoolYearForm(years,list){
   <div class="modal-foot"><button class="btn btn-soft" data-close>Cancelar</button><button class="btn btn-primary" id="createYear">Aplicar reajuste</button></div>`);
   $$("[data-close]").forEach(x=>x.onclick=closeModal);
 
-  const findVerifiedTarget=(rows,source,targetYear,expected)=>{
-    const target=prodTargetMatch(rows,source,targetYear);
+  const findVerifiedTarget=(rows,source,targetYear,expected,preferredId)=>{
+    const target=prodTargetMatch(rows,source,targetYear,preferredId);
     if(!target)return null;
     const actual=Number(target.VALOR_BASE||0);
     return Math.abs(actual-expected)<=0.02?target:null;
   };
+  const bulkWait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 
   $("#createYear").onclick=async()=>{
     const form=$("#yearForm"),data=Object.fromEntries(new FormData(form).entries()),btn=$("#createYear");
@@ -488,7 +498,7 @@ function openSchoolYearForm(years,list){
     btn.disabled=true;form.querySelectorAll("input,select").forEach(el=>el.disabled=true);
     $("#bulkProgress").hidden=false;
     const fill=$("#bulkProgressFill"),title=$("#bulkProgressTitle"),detail=$("#bulkProgressDetail");
-    let saved=0,verifiedAfterError=0,failed=[],baseline=[];
+    let saved=0,verifiedAfterError=0,failed=[],baseline=[],targetIds=new Map();
     try{clearApiCache();baseline=await api("listarProdutosGestao",{token:state.adminToken})}catch(e){}
     const pendingRows=sourceRows.filter(p=>!findVerifiedTarget(baseline,p,targetYear,prodPreviewValue(Number(p.VALOR_BASE||0),pct)));
     if(!pendingRows.length){
@@ -506,10 +516,11 @@ function openSchoolYearForm(years,list){
       detail.textContent=label;
       btn.textContent="Aplicando "+(i+1)+"/"+pendingRows.length+"…";
       try{
-        await api("aplicarReajusteIndividual",{token:state.adminToken,data:{
+        const result=await api("aplicarReajusteIndividual",{token:state.adminToken,data:{
           anoOrigem:sourceYear,anoDestino:targetYear,idProduto:p.ID_PRODUTO,modo:"percentual",valor:pct,publicar:data.publicar||"Sim",
           observacao:"Reajuste em lote seguro • "+(category||"Todas as categorias")+" • "+sourceYear+"→"+targetYear
         }});
+        if(result&&result.id)targetIds.set(String(p.ID_PRODUTO||""),String(result.id));
         saved++;
       }catch(err){
         // Em erro de comunicação, o Apps Script pode ter concluído a gravação.
@@ -519,15 +530,27 @@ function openSchoolYearForm(years,list){
           const fresh=await api("listarProdutosGestao",{token:state.adminToken});
           if(findVerifiedTarget(fresh,p,targetYear,expected)){saved++;verifiedAfterError++;continue}
         }catch(_verifyErr){}
-        failed.push({produto:label,error:String(err&&err.message||err)});
+        failed.push({id:String(p.ID_PRODUTO||""),produto:label,error:String(err&&err.message||err)});
       }
     }
 
     fill.style.width="100%";
-    clearApiCache();
-    let fresh=[];
-    try{fresh=await api("listarProdutosGestao",{token:state.adminToken})}catch(e){}
-    const confirmed=sourceRows.filter(p=>findVerifiedTarget(fresh,p,targetYear,prodPreviewValue(Number(p.VALOR_BASE||0),pct))).length;
+    let fresh=[],confirmedRows=[];
+    for(let attempt=0;attempt<3;attempt++){
+      clearApiCache();
+      try{fresh=await api("listarProdutosGestao",{token:state.adminToken})}catch(e){fresh=[]}
+      confirmedRows=sourceRows.filter(p=>findVerifiedTarget(
+        fresh,p,targetYear,prodPreviewValue(Number(p.VALOR_BASE||0),pct),targetIds.get(String(p.ID_PRODUTO||""))
+      ));
+      if(confirmedRows.length===sourceRows.length)break;
+      if(attempt<2)await bulkWait(500*(attempt+1));
+    }
+    const confirmed=confirmedRows.length;
+    const confirmedSourceIds=new Set(confirmedRows.map(p=>String(p.ID_PRODUTO||"")));
+    const unresolvedRows=sourceRows.filter(p=>!confirmedSourceIds.has(String(p.ID_PRODUTO||"")));
+    const failedIds=new Set(failed.map(x=>String(x.id||"")));
+    const hardFailed=unresolvedRows.filter(p=>failedIds.has(String(p.ID_PRODUTO||""))).length;
+    const awaitingConfirmation=Math.max(0,unresolvedRows.length-hardFailed);
 
     if(confirmed===sourceRows.length){
       state.productYear=targetYear;
@@ -538,10 +561,11 @@ function openSchoolYearForm(years,list){
     }
 
     title.textContent="Concluído com pendências";
-    detail.textContent=confirmed+" de "+sourceRows.length+" produto(s) confirmados. "+failed.length+" item(ns) precisam ser reenviados.";
+    detail.textContent=confirmed+" de "+sourceRows.length+" produto(s) confirmados. "+unresolvedRows.length+" pendente(s)"+
+      (hardFailed||awaitingConfirmation?" ("+hardFailed+" com erro de envio"+(awaitingConfirmation?", "+awaitingConfirmation+" aguardando confirmação":"")+")":"")+".";
     btn.disabled=false;btn.textContent="Tentar somente pendentes";
     form.querySelectorAll("input,select").forEach(el=>el.disabled=false);
-    showToast("Alguns valores não foram confirmados. Nenhum item já salvo será perdido; tente novamente para completar apenas os pendentes.","error");
+    showToast("Ainda há "+unresolvedRows.length+" valor(es) sem confirmação. O sistema vai reenviar somente o que continuar pendente.","error");
   };
 }
 function openIndividualAdjustment(list,years){
