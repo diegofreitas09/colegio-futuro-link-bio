@@ -733,7 +733,16 @@ function gfCampaignBaseAmount(products,year,serie){
   var model=gfTuitionModel(products,year,serie);
   if(model&&model.firstBase>0)return model.firstBase;
   var p=gfCampaignBaseProduct(products,year,serie);
-  return Number(p&&p["VALOR_PÓS_VENCIMENTO"]||p&&p.VALOR_PARCELA||p&&p.VALOR_BASE||0);
+  var v=Number(p&&p["VALOR_PÓS_VENCIMENTO"]||p&&p.VALOR_PARCELA||p&&p.VALOR_BASE||0);
+  if(v>0)return v;
+  var first=(products||[]).find(function(x){
+    if(Number(x&&x.ANO_LETIVO)!==Number(year)||String(x&&x.CATEGORIA||"")!=="Mensalidade")return false;
+    if(serie&&typeof gfApplies==="function"&&!gfApplies(x,serie))return false;
+    var txt=String(x&&x.SUBCATEGORIA||"")+" "+String(x&&x.PRODUTO||"");
+    txt=txt.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+    return txt.indexOf("1ª parcela")>=0||txt.indexOf("1a parcela")>=0||txt.indexOf("primeira parcela")>=0;
+  });
+  return Number(first&&first.VALOR_BASE||first&&first.VALOR_PARCELA||0);
 }
 function gfCampaignResult(firstBase,campaign){
   var base=Number(firstBase||0),meta=gfCampaignMeta(campaign);
@@ -932,7 +941,7 @@ function dashTuitionFromCatalog(products,year){
     const first=rows.find(p=>bySeries(p)&&(dashNorm(p.SUBCATEGORIA).includes("1ª parcela")||dashNorm(p.SUBCATEGORIA).includes("1a parcela")||dashNorm(p.PRODUTO).includes("primeira parcela")||dashNorm(p.PRODUTO).includes("1ª parcela")));
     const p12=rows.find(p=>bySeries(p)&&Number(p.QTD_PARCELAS)===12&&!dashNorm(p.SUBCATEGORIA).includes("1ª parcela"));
     const p11=rows.find(p=>bySeries(p)&&Number(p.QTD_PARCELAS)===11);
-    const anu=Number(annual?.VALOR_BASE||0),anuPost=Number(annual?.["VALOR_PÓS_VENCIMENTO"]||0),model=gfTuitionModelFromAnnual(anu,anuPost),useFormula=Number(year)>=2027;
+    const anu=Number(annual?.VALOR_BASE||0),anuPost=Number(annual?.["VALOR_PÓS_VENCIMENTO"]||0),model=gfTuitionModelFromAnnual(anu,anuPost),useFormula=Number(year)>=2027&&anu>0&&anuPost>0;
     const firstValue=useFormula?model.firstBase:Number(first?.VALOR_BASE||first?.VALOR_PARCELA||0),firstPost=useFormula?model.firstBase:Number(first?.["VALOR_PÓS_VENCIMENTO"]||0);
     const v12=useFormula?model.plan12:Number(p12?.VALOR_PARCELA||p12?.VALOR_BASE||0),v12Post=useFormula?model.plan12Post:Number(p12?.["VALOR_PÓS_VENCIMENTO"]||0);
     const v11=useFormula?model.plan11:Number(p11?.VALOR_PARCELA||p11?.VALOR_BASE||0),v11Post=useFormula?model.plan11Post:Number(p11?.["VALOR_PÓS_VENCIMENTO"]||0);
