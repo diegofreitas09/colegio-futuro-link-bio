@@ -10,10 +10,12 @@ function app(){
  const c=vm.createContext({localStorage,sessionStorage,console,setTimeout,clearTimeout,AbortController,AbortSignal,crypto:webcrypto,Response,document:{querySelector:()=>null,querySelectorAll:()=>[]},window:{},navigator:{},fetch:async()=>Response.json({ok:true,data:[]})});
  vm.runInContext(source('app/core.js')+'\n'+source('app/comercial.js'),c);return c;
 }
-test('Brazilian prices and 1st + 12 installments retain exact cents',()=>{
+test('Brazilian prices and official 1st + 12 installments retain exact cents',()=>{
  const c=app();assert.equal(vm.runInContext('parseMoney("R$ 12.345,67")',c),12345.67);
- assert.equal(vm.runInContext('gfPlanCalc([{CATEGORIA:"Mensalidade",SUBCATEGORIA:"Anuidade",VALOR_BASE:"7.788,00"}],12,0,0).total',c),7788);
- assert.equal(vm.runInContext('gfPlanCalc([{CATEGORIA:"Mensalidade",SUBCATEGORIA:"Anuidade",VALOR_BASE:7788}],12,25,0).total',c),7638.24);
+ const plan='[{CATEGORIA:"Mensalidade",SUBCATEGORIA:"Anuidade",VALOR_BASE:"7.788,00"},{CATEGORIA:"Mensalidade",SUBCATEGORIA:"1ª Parcela",VALOR_BASE:"599,04",QTD_PARCELAS:1},{CATEGORIA:"Mensalidade",SUBCATEGORIA:"Plano 12 parcelas",VALOR_PARCELA:"599,08",QTD_PARCELAS:12}]';
+ assert.equal(vm.runInContext('gfPlanCalc('+plan+',12,0,0).total',c),7788);
+ assert.equal(vm.runInContext('gfPlanCalc('+plan+',12,25,0).total',c),7638.24);
+ assert.equal(vm.runInContext('gfPlanCalc('+plan+',12,0,0).complete',c),true);
 });
 test('changing environment clears selected attendance and catalogue',()=>{
  const c=app();vm.runInContext('state.runMode="TESTE";state.currentAttendanceId="ATE-1";state.resumeAttendance={};state.catalogProducts=[1];setRunMode("PRODUCAO")',c);
