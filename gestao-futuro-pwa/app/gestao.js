@@ -475,18 +475,20 @@ async function renderProdutos(){
     const serie=$("#seriesAdjSeries").value,source=Number($("#seriesAdjSource").value),target=Number($("#seriesAdjTarget").value);
     tuitionBundle=prodTuitionBundle(list,source,serie);
     wizardRows=prodSeriesWizardRows(list,source,serie).filter(p=>!prodIsTuitionCore(p)&&!gfIsCampaignProduct(p));
-    const targetAnnual=prodTargetMatch(list,tuitionBundle.annual,target),targetFirst=prodTargetMatch(list,tuitionBundle.first,target),targetP12=prodTargetMatch(list,tuitionBundle.p12,target),targetP11=prodTargetMatch(list,tuitionBundle.p11,target);
-    $("#tuitionPlanBody").dataset.annualPct=String(prodExistingAdjustment(tuitionBundle.annual,targetAnnual));
-    $("#tuitionPlanBody").dataset.firstPct=String(prodExistingAdjustment(tuitionBundle.first,targetFirst));
-    $("#tuitionPlanBody").dataset.p12Pct=String(prodExistingAdjustment(tuitionBundle.p12,targetP12));
-    $("#tuitionPlanBody").dataset.p11Pct=String(prodExistingAdjustment(tuitionBundle.p11,targetP11));
+    targetAnnualProduct=tuitionBundle&&tuitionBundle.annual?prodTargetMatch(list,tuitionBundle.annual,target):null;
+    const annualPct=prodExistingAdjustment(tuitionBundle&&tuitionBundle.annual,targetAnnualProduct);
+    const sourceAnnual=Number(tuitionBundle&&tuitionBundle.annual&&tuitionBundle.annual.VALOR_BASE||0),sourcePost=Number(tuitionBundle&&tuitionBundle.annual&&tuitionBundle.annual["VALOR_PÓS_VENCIMENTO"]||0);
+    const targetAnnual=Number(targetAnnualProduct&&targetAnnualProduct.VALOR_BASE||0)||prodPreviewValue(sourceAnnual,annualPct);
+    const targetAnnualPost=Number(targetAnnualProduct&&targetAnnualProduct["VALOR_PÓS_VENCIMENTO"]||0)||prodPreviewValue(sourcePost,annualPct);
+    $("#tuitionPlanBody").dataset.annualPct=String(annualPct);
+    $("#tuitionPlanBody").dataset.targetAnnual=String(targetAnnual);
+    $("#tuitionPlanBody").dataset.targetAnnualPost=String(targetAnnualPost);
     $("#seriesAdjCount").textContent=(wizardRows.length+4)+" item(ns) de valor";
     $("#seriesAdjustNote").innerHTML=source===target
       ? "<b>Atenção:</b> o ano de origem e o novo ano-base precisam ser diferentes."
-      : "Comparando <b>"+esc(serie)+"</b>: "+source+" → <b>"+target+"</b>. Os valores de Anuidade, 12x e 11x seguem a tabela oficial; a campanha da 1ª parcela é aplicada depois, sem alterar esses valores.";
+      : "Comparando <b>"+esc(serie)+"</b>: "+source+" → <b>"+target+"</b>. A <b>anuidade é a fonte-mãe</b>: ÷13 gera 12x e a base da 1ª parcela; ÷12 gera 11x.";
     renderTuitionBody();
-    $("#publishSeriesAdjustment").disabled=!wizardRows.length&&(!tuitionBundle||!tuitionBundle.annual);
-    if(source===target)$("#publishSeriesAdjustment").disabled=true;
+    $("#publishSeriesAdjustment").disabled=!tuitionBundle||!tuitionBundle.annual||source===target;
     $("#seriesAdjustTable").innerHTML=`<div class="series-products-title"><b>Outros produtos da série</b><span>Material, fardamento, S.T.I. e demais itens continuam com reajuste individual ou geral.</span></div><div class="table-wrap series-adjust-table"><table><thead><tr><th>Produto oferecido</th><th>Valor do ano anterior</th><th>Reajuste %</th><th>Novo valor • ${target}</th><th>Integração</th></tr></thead><tbody>
       ${wizardRows.map(p=>{
         const targetProduct=prodTargetMatch(list,p,target),initialPct=prodExistingAdjustment(p,targetProduct),m=prodWizardMoneyBlock(p,initialPct);
@@ -499,13 +501,17 @@ async function renderProdutos(){
 
   $("#applyGlobalAdj").onclick=()=>{
     const v=Number($("#seriesAdjGlobal").value||0);
-    if($("#tuitionAnnualPct")){$("#tuitionAnnualPct").value=String(v);$("#tuitionPlanBody").dataset.annualPct=String(v)}
-    if($("#tuitionFirstPct")){$("#tuitionFirstPct").value=String(v);$("#tuitionPlanBody").dataset.firstPct=String(v)}
-    if($("#tuitionP12Pct")){$("#tuitionP12Pct").value=String(v);$("#tuitionPlanBody").dataset.p12Pct=String(v)}
-    if($("#tuitionP11Pct")){$("#tuitionP11Pct").value=String(v);$("#tuitionPlanBody").dataset.p11Pct=String(v)}
-    $("[data-series-pct]").forEach(inp=>inp.value=String(v));
+    if($("#tuitionAnnualPct")){
+      $("#tuitionAnnualPct").value=String(v);$("#tuitionPlanBody").dataset.annualPct=String(v);
+      const main=prodPreviewValue(Number(tuitionBundle&&tuitionBundle.annual&&tuitionBundle.annual.VALOR_BASE||0),v);
+      const post=prodPreviewValue(Number(tuitionBundle&&tuitionBundle.annual&&tuitionBundle.annual["VALOR_PÓS_VENCIMENTO"]||0),v);
+      $("#tuitionAnnualTarget").value=main.toFixed(2);$("#tuitionAnnualPostTarget").value=post.toFixed(2);
+      $("#tuitionPlanBody").dataset.targetAnnual=String(main);$("#tuitionPlanBody").dataset.targetAnnualPost=String(post);
+    }
+    $$("[data-series-pct]").forEach(inp=>inp.value=String(v));
     refreshPreview();
   };
+
   $("#seriesAdjSeries").onchange=drawWizard;
   $("#seriesAdjSource").onchange=drawWizard;
   $("#seriesAdjTarget").onchange=drawWizard;
