@@ -393,7 +393,7 @@ async function renderProdutos(){
   };
   const saveAllCampaigns=async()=>{const year=Number($("#campaignYear")?.value||campaignDefaultYear),cards=$("[data-campaign-card]"),btn=$("#campaignSaveAll");if(!cards.length)return;btn.disabled=true;try{for(let i=0;i<cards.length;i++){btn.textContent="Salvando "+(i+1)+"/"+cards.length+"…";const d=campaignCardData(cards[i],year);if(d.id)await api("atualizarProduto",{token:state.adminToken,id:d.id,data:d.payload});else await api("criarProdutoServico",{token:state.adminToken,data:d.payload})}clearApiCache();setNotice("Campanhas da 1ª parcela salvas e sincronizadas com Atendimento, Secretaria, Panfletos e Matrícula.","ok");await renderProdutos()}catch(e){showToast(e.message||"Não foi possível salvar todas as campanhas.","error");btn.disabled=false;btn.textContent="Salvar todas as campanhas"}};
 
-  let wizardRows=[],tuitionBundle=null;
+  let wizardRows=[],tuitionBundle=null,targetAnnualProduct=null;
   const tuitionCalc=()=>prodTuitionPlanCalc(
     tuitionBundle,
     Number($("#tuitionAnnualPct")?.value||0),
@@ -406,52 +406,63 @@ async function renderProdutos(){
     tuitionBundle=prodTuitionBundle(list,source,$("#seriesAdjSeries").value);
     const missing=!tuitionBundle.annual||!tuitionBundle.first||!tuitionBundle.p12||!tuitionBundle.p11;
     if(missing){
-      $("#tuitionPlanBody").innerHTML="<div class='notice'>Este ano de origem ainda não possui o conjunto completo: Anuidade + 1ª Parcela + Plano 12x + Plano 11x. Para publicar com cálculo fechado, complete esses quatro itens no catálogo.</div>";
+      $("#tuitionPlanBody").innerHTML="<div class='notice'>O ano de origem precisa possuir Anuidade, 1ª Parcela, Plano 12x e Plano 11x para sincronizar a nova tabela.</div>";
       $("#publishSeriesAdjustment").disabled=true;
       return;
     }
-    const annualPct=Number($("#tuitionPlanBody").dataset.annualPct||0),firstPct=Number($("#tuitionPlanBody").dataset.firstPct||0);
-    $("#tuitionPlanBody").innerHTML=`
-      <div class="tuition-adjust-inputs">
-        <div><label>Anuidade ${source}</label><b>${money(tuitionBundle.annual.VALOR_BASE)}</b><span>valor oficial</span></div>
-        <div><label>Reajuste da anuidade (%)</label><input id="tuitionAnnualPct" type="number" step="0.01" value="${annualPct}"></div>
-        <div><label>1ª parcela-base ${source}</label><b>${money(tuitionBundle.first.VALOR_BASE)}</b><span>antes da campanha</span></div>
-        <div><label>Reajuste da 1ª parcela-base (%)</label><input id="tuitionFirstPct" type="number" step="0.01" value="${firstPct}"></div>
-        <div><label>12 parcelas ${source}</label><b>${money(tuitionBundle.p12.VALOR_PARCELA||tuitionBundle.p12.VALOR_BASE)}</b><span>janeiro a dezembro</span></div>
-        <div><label>Reajuste do plano 12x (%)</label><input id="tuitionP12Pct" type="number" step="0.01" value="${Number($("#tuitionPlanBody").dataset.p12Pct||0)}"></div>
-        <div><label>11 parcelas ${source}</label><b>${money(tuitionBundle.p11.VALOR_PARCELA||tuitionBundle.p11.VALOR_BASE)}</b><span>fevereiro a dezembro</span></div>
-        <div><label>Reajuste do plano 11x (%)</label><input id="tuitionP11Pct" type="number" step="0.01" value="${Number($("#tuitionPlanBody").dataset.p11Pct||0)}"></div>
+    const body=$("#tuitionPlanBody"),annualPct=Number(body.dataset.annualPct||0);
+    const annualTarget=Number(body.dataset.targetAnnual||prodPreviewValue(Number(tuitionBundle.annual.VALOR_BASE||0),annualPct));
+    const annualPostTarget=Number(body.dataset.targetAnnualPost||prodPreviewValue(Number(tuitionBundle.annual["VALOR_PÓS_VENCIMENTO"]||0),annualPct));
+    body.innerHTML=`
+      <div class="tuition-adjust-inputs tuition-master-inputs">
+        <div><label>Anuidade ${source} • até vencimento</label><b>${money(tuitionBundle.annual.VALOR_BASE)}</b><span>origem</span></div>
+        <div><label>Anuidade ${source} • após vencimento</label><b>${money(tuitionBundle.annual["VALOR_PÓS_VENCIMENTO"])}</b><span>origem</span></div>
+        <div><label>Reajuste de referência (%)</label><input id="tuitionAnnualPct" type="number" step="0.01" value="${annualPct}"></div>
+        <div><label>Anuidade ${target} • até vencimento</label><input id="tuitionAnnualTarget" type="number" step="0.01" value="${annualTarget.toFixed(2)}"></div>
+        <div><label>Anuidade ${target} • após vencimento</label><input id="tuitionAnnualPostTarget" type="number" step="0.01" value="${annualPostTarget.toFixed(2)}"></div>
       </div>
+      <div class="tuition-formula-note"><b>Regra automática:</b> 12x = anuidade ÷ 13 • 11x = anuidade ÷ 12 • base da 1ª parcela = anuidade após vencimento ÷ 13.</div>
       <div class="tuition-result-grid">
-        <div><small>NOVA ANUIDADE • ${target}</small><strong id="tuitionAnnualNew">—</strong><span>tabela oficial</span></div>
-        <div><small>1ª PARCELA-BASE</small><strong id="tuitionFirstNew">—</strong><span>campanha aplicada separadamente</span></div>
-        <div class="${planN===12?"selected":""}"><small>12 PARCELAS</small><strong id="tuitionPlan12New">—</strong><span id="tuitionPlan12Check">janeiro a dezembro</span></div>
-        <div class="${planN===11?"selected":""}"><small>11 PARCELAS</small><strong id="tuitionPlan11New">—</strong><span id="tuitionPlan11Check">fevereiro a dezembro</span></div>
+        <div><small>1ª PARCELA • CAMPANHA</small><strong id="tuitionFirstNew">—</strong><span id="tuitionFirstRule">—</span></div>
+        <div class="${planN===12?"selected":""}"><small>12 PARCELAS</small><strong id="tuitionPlan12New">—</strong><span id="tuitionPlan12Check">—</span></div>
+        <div class="${planN===11?"selected":""}"><small>11 PARCELAS</small><strong id="tuitionPlan11New">—</strong><span id="tuitionPlan11Check">—</span></div>
+        <div><small>ANUIDADE • ${target}</small><strong id="tuitionAnnualNew">—</strong><span id="tuitionAnnualPostNew">—</span></div>
       </div>
       <div class="tuition-selected-plan" id="tuitionSelectedPlan"></div>`;
-    const onPct=()=>{
-      $("#tuitionPlanBody").dataset.annualPct=$("#tuitionAnnualPct").value;
-      $("#tuitionPlanBody").dataset.firstPct=$("#tuitionFirstPct").value;
-      $("#tuitionPlanBody").dataset.p12Pct=$("#tuitionP12Pct").value;
-      $("#tuitionPlanBody").dataset.p11Pct=$("#tuitionP11Pct").value;
-      refreshPreview();
+
+    $("#tuitionAnnualPct").oninput=function(){
+      const pct=Number(this.value||0);
+      body.dataset.annualPct=String(pct);
+      const main=prodPreviewValue(Number(tuitionBundle.annual.VALOR_BASE||0),pct),post=prodPreviewValue(Number(tuitionBundle.annual["VALOR_PÓS_VENCIMENTO"]||0),pct);
+      $("#tuitionAnnualTarget").value=main.toFixed(2);$("#tuitionAnnualPostTarget").value=post.toFixed(2);
+      body.dataset.targetAnnual=String(main);body.dataset.targetAnnualPost=String(post);refreshPreview();
     };
-    ["#tuitionAnnualPct","#tuitionFirstPct","#tuitionP12Pct","#tuitionP11Pct"].forEach(sel=>{$(sel).oninput=onPct});
+    ["#tuitionAnnualTarget","#tuitionAnnualPostTarget"].forEach(sel=>{$(sel).oninput=function(){
+      body.dataset.targetAnnual=String(Number($("#tuitionAnnualTarget").value||0));
+      body.dataset.targetAnnualPost=String(Number($("#tuitionAnnualPostTarget").value||0));
+      const sourceBase=Number(tuitionBundle.annual.VALOR_BASE||0),targetBase=Number($("#tuitionAnnualTarget").value||0);
+      if(sourceBase&&targetBase){const pct=Math.round((((targetBase/sourceBase)-1)*100+Number.EPSILON)*10000)/10000;$("#tuitionAnnualPct").value=String(pct);body.dataset.annualPct=String(pct)}
+      refreshPreview();
+    }});
   };
 
   const refreshPreview=()=>{
     if(tuitionBundle&&$("#tuitionAnnualPct")){
-      const calc=tuitionCalc(),planN=Number($("#seriesAdjPlan").value||12);
+      const calc=tuitionCalc(),planN=Number($("#seriesAdjPlan").value||12),target=Number($("#seriesAdjTarget").value),serie=$("#seriesAdjSeries").value;
+      const campaign=campaignForSegment(list,target,serie),discount=campaign?Number(gfCampaignMeta(campaign).discount||0):0;
+      const firstFinal=campaign?gfCampaignResult(calc.first,campaign).final:calc.first;
       $("#tuitionAnnualNew").textContent=money(calc.annual);
-      $("#tuitionFirstNew").textContent=money(calc.first);
+      $("#tuitionAnnualPostNew").textContent="Após vencimento: "+money(calc.annualPost);
+      $("#tuitionFirstNew").textContent=money(firstFinal);
+      $("#tuitionFirstRule").textContent="Base "+money(calc.first)+(campaign?" • "+discount.toLocaleString("pt-BR",{maximumFractionDigits:2})+"% de desconto":" • sem campanha");
       $("#tuitionPlan12New").textContent=money(calc.p12);
       $("#tuitionPlan11New").textContent=money(calc.p11);
-      $("#tuitionPlan12Check").textContent="valor oficial mensal • 12 parcelas";
-      $("#tuitionPlan11Check").textContent="valor oficial mensal • 11 parcelas";
-      $("#planFormulaBadge").textContent="Tabela oficial independente";
+      $("#tuitionPlan12Check").textContent="Após vencimento: "+money(calc.p12Post)+" • anuidade ÷ 13";
+      $("#tuitionPlan11Check").textContent="Após vencimento: "+money(calc.p11Post)+" • anuidade ÷ 12";
+      $("#planFormulaBadge").textContent="Anuidade = fonte-mãe";
       $("#tuitionSelectedPlan").innerHTML=planN===12
-        ? "<b>Conferência 12x:</b> "+money(calc.p12)+" por parcela. A campanha da 1ª parcela é tratada separadamente."
-        : "<b>Conferência 11x:</b> "+money(calc.p11)+" por parcela. A campanha da 1ª parcela é tratada separadamente.";
+        ? "<b>Plano 1ª + 12:</b> base regular "+money(calc.p12)+" • pós-vencimento "+money(calc.p12Post)+" • 1ª promocional "+money(firstFinal)
+        : "<b>Plano 1ª + 11:</b> base regular "+money(calc.p11)+" • pós-vencimento "+money(calc.p11Post)+" • 1ª promocional "+money(firstFinal);
     }
     $$("[data-series-pct]").forEach(inp=>{
       const p=wizardRows.find(x=>String(x.ID_PRODUTO)===String(inp.dataset.seriesPct));if(!p)return;
