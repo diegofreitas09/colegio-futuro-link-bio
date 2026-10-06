@@ -635,16 +635,35 @@ async function requireRole(view){
 }
 
 async function loadCatalogProducts(force=false){
-  const maxAge=300000,now=Date.now();
+  const maxAge=30000,now=Date.now();
   if(!force&&state.catalogProducts&&(now-Number(state.catalogLoadedAt||0))<maxAge)return state.catalogProducts;
   if(state.catalogPromise)return state.catalogPromise;
   if(force){state.apiCache.delete(apiCacheKey("listarProdutosPublicos",{}, {modo:currentRunMode()}));}
   const generation=state.cacheGeneration||0;
   state.catalogPromise=api("listarProdutosPublicos").then(function(rows){
-    if(generation===(state.cacheGeneration||0)){state.catalogProducts=rows||[];state.catalogLoadedAt=Date.now()}
-    return rows||[]
+    const list=Array.isArray(rows)?rows:[];
+    if(generation===(state.cacheGeneration||0)){
+      state.catalogProducts=list;state.catalogLoadedAt=Date.now();
+      if(state.bootstrap&&typeof state.bootstrap==="object")state.bootstrap.produtos=list;
+    }
+    return list
   }).finally(function(){if(generation===(state.cacheGeneration||0))state.catalogPromise=null});
   return state.catalogPromise;
+}
+function gfCatalogUpdatedAt(products){
+  const times=(products||[]).map(function(p){const d=new Date(p&&p.ATUALIZADO_EM||0).getTime();return Number.isFinite(d)?d:0}).filter(Boolean);
+  return times.length?new Date(Math.max.apply(null,times)):null;
+}
+function gfCatalogSourceLabel(products){
+  const d=gfCatalogUpdatedAt(products);
+  return d?"Gestão Futuro • atualizado "+d.toLocaleString("pt-BR"):"Gestão Futuro • catálogo oficial";
+}
+function gfApplyCatalogToBootstrap(bootstrap,products){
+  const b=bootstrap&&typeof bootstrap==="object"?bootstrap:{};
+  b.produtos=Array.isArray(products)?products:[];
+  b.catalogoFonte="Gestão Futuro";
+  b.catalogoSincronizadoEm=new Date().toISOString();
+  return b;
 }
 
 const GF_BOOTSTRAP_LOCAL_KEY="gestao_futuro_bootstrap_local_v1";
@@ -661,6 +680,10 @@ async function loadBootstrap(){
     if(generation!==(state.cacheGeneration||0))throw new Error("O ambiente mudou durante a consulta. Abra a tela novamente.");
     state.bootstrap=loaded;
     state.bootstrapOffline=false;
+    if(Array.isArray(loaded&&loaded.produtos)){
+      state.catalogProducts=loaded.produtos;state.catalogLoadedAt=Date.now();
+      gfApplyCatalogToBootstrap(state.bootstrap,loaded.produtos);
+    }
     gfWriteBootstrapLocal({mode,bootstrap:state.bootstrap});
     return state.bootstrap;
   }catch(e){
@@ -810,30 +833,24 @@ function dashTuitionFromCatalog(products,year){
   const rows=(products||[]).filter(p=>dashYear(p)===Number(year)&&p.ATIVO!=="Não"&&p.CATEGORIA==="Mensalidade");
   return specs.map(s=>{
     const bySeries=p=>dashNorm(p&&p["SEGMENTO_SÉRIE"])===dashNorm(s.series);
-    const annual=rows.find(p=>bySeries(p)&&dashNorm(p.SUBCATEGORIA).includes("anuidade"));
+    const annual=rows.find(p=>bySeries(p)&&dashNorm(p.SUBCATEGORIA+" "+p.PRODUTO).includes("anuidade"));
     const first=rows.find(p=>bySeries(p)&&(dashNorm(p.SUBCATEGORIA).includes("1ª parcela")||dashNorm(p.SUBCATEGORIA).includes("1a parcela")||dashNorm(p.PRODUTO).includes("primeira parcela")||dashNorm(p.PRODUTO).includes("1ª parcela")));
     const p12=rows.find(p=>bySeries(p)&&Number(p.QTD_PARCELAS)===12&&!dashNorm(p.SUBCATEGORIA).includes("1ª parcela"));
     const p11=rows.find(p=>bySeries(p)&&Number(p.QTD_PARCELAS)===11);
-    const anu=Number(annual?.VALOR_BASE||0),anuPost=Number(annual?.["VALOR_PÓS_VENCIMENTO"]||0),firstValue=Number(first?.VALOR_BASE||0);
-    const auto12=dashPlanFromAnnual(anu,12),auto11=dashPlanFromAnnual(anu,11),auto12Post=dashPlanFromAnnual(anuPost,12),auto11Post=dashPlanFromAnnual(anuPost,11);
-    const calc12={first:firstValue||auto12.first,recurring:anu&&firstValue?dashRound2((anu-firstValue)/12):auto12.recurring};
-    const calc11={first:firstValue||auto11.first,recurring:anu&&firstValue?dashRound2((anu-firstValue)/11):auto11.recurring};
-    const calc12Post={first:firstValue||auto12Post.first,recurring:anuPost&&firstValue?dashRound2((anuPost-firstValue)/12):auto12Post.recurring};
-    const calc11Post={first:firstValue||auto11Post.first,recurring:anuPost&&firstValue?dashRound2((anuPost-firstValue)/11):auto11Post.recurring};
-    const fallbackFirst=firstValue||calc12.first;
-    const v12=Number(p12?.VALOR_PARCELA||p12?.VALOR_BASE||0)||calc12.recurring,v12Post=Number(p12?.["VALOR_PÓS_VENCIMENTO"]||0)||calc12Post.recurring;
-    const v11=Number(p11?.VALOR_PARCELA||p11?.VALOR_BASE||0)||calc11.recurring,v11Post=Number(p11?.["VALOR_PÓS_VENCIMENTO"]||0)||calc11Post.recurring;
-    return {...s,year:Number(year),annual:anu,annualPost:anuPost,first:fallbackFirst,plan12:v12,plan12Post:v12Post,plan11:v11,plan11Post:v11Post,
-      first12:fallbackFirst,first12Post:fallbackFirst,first11:fallbackFirst,first11Post:fallbackFirst
+    const anu=Number(annual?.VALOR_BASE||0),anuPost=Number(annual?.["VALOR_PÓS_VENCIMENTO"]||0);
+    const firstValue=Number(first?.VALOR_BASE||first?.VALOR_PARCELA||0),firstPost=Number(first?.["VALOR_PÓS_VENCIMENTO"]||0);
+    const v12=Number(p12?.VALOR_PARCELA||p12?.VALOR_BASE||0),v12Post=Number(p12?.["VALOR_PÓS_VENCIMENTO"]||0);
+    const v11=Number(p11?.VALOR_PARCELA||p11?.VALOR_BASE||0),v11Post=Number(p11?.["VALOR_PÓS_VENCIMENTO"]||0);
+    return {...s,year:Number(year),annual:anu,annualPost:anuPost,first:firstValue,firstPost:firstPost,plan12:v12,plan12Post:v12Post,plan11:v11,plan11Post:v11Post,
+      first12:firstValue,first12Post:firstPost,first11:firstValue,first11Post:firstPost,
+      catalogComplete:!!(annual&&first&&p12&&p11)
     };
   });
 }
 
 const GF_FIRST_REFERENCE = Object.freeze({
   2024:{infantil:390,iniciais:399.60,finais:409.20},
-  2025:{infantil:420,iniciais:420,finais:420},
-  2026:{infantil:449,iniciais:459,finais:469},
-  2027:{infantil:484.92,iniciais:495.72,finais:506.52}
+  2025:{infantil:420,iniciais:420,finais:420}
 });
 
 function dashTuitionFromHistory(year){
@@ -851,19 +868,7 @@ function dashTuitionFromHistory(year){
 function dashTuitionRowsForYear(products,year){
   const y=Number(year);
   if(GF_TUITION_HISTORY[y])return dashTuitionFromHistory(y);
-  const rows=dashTuitionFromCatalog(products,y);
-  const refs=GF_FIRST_REFERENCE[y];
-  if(!refs)return rows;
-  return rows.map(r=>{
-    const first=Number(refs[r.key]||0);
-    if(!first||!r.annual)return {...r,first:r.first12||0};
-    return {...r,first:first,first12:first,first12Post:first,first11:first,first11Post:first,
-      plan12:Number(r.plan12||0)||dashRound2((Number(r.annual)-first)/12),
-      plan12Post:Number(r.plan12Post||0)||dashRound2((Number(r.annualPost)-first)/12),
-      plan11:Number(r.plan11||0)||dashRound2((Number(r.annual)-first)/11),
-      plan11Post:Number(r.plan11Post||0)||dashRound2((Number(r.annualPost)-first)/11)
-    };
-  });
+  return dashTuitionFromCatalog(products,y);
 }
 
 function dashTuitionRowsWithMetrics(products,year){
@@ -944,8 +949,7 @@ function dashStiFromCatalog(products,year){
 function dashStiRowsForYear(products,year){
   const y=Number(year),fallback=GF_STI_HISTORY[y]||{};
   if(y===2024||y===2025)return ["infantil","iniciais"].map(k=>({...fallback[k],year:y})).filter(x=>x&&x.sti);
-  const live=Object.fromEntries(dashStiFromCatalog(products,y).map(x=>[x.key,x]));
-  return ["infantil","iniciais"].map(k=>live[k]||({...fallback[k],year:y})).filter(x=>x&&x.sti);
+  return dashStiFromCatalog(products,y);
 }
 function dashStiYearTable(products,year){
   const rows=dashStiRowsForYear(products,year);
@@ -971,10 +975,10 @@ function dashTuitionYearTable(rows,year){
       (post?"<strong>"+money(post)+"</strong><small>(após o vencimento)</small>"+dashAdjustmentBadge(pctB):"")+"</div>";
   };
   const body=(rows||[]).map(r=>{
-    const first=Number(r.first||GF_FIRST_REFERENCE[Number(year)]?.[r.key]||r.first12||0);
+    const first=Number(r.first||r.first12||GF_FIRST_REFERENCE[Number(year)]?.[r.key]||0);
     return "<tr><td><b>"+esc(r.label)+"</b><small>"+esc(r.series)+"</small></td>"+
       "<td>"+valuePair(r.annual,r.annualPost,r.pctAnnual,r.pctAnnualPost)+"</td>"+
-      "<td><div class='school-first-payment'><strong>"+money(first)+"</strong><small>à vista ou<br>3x no cartão</small>"+dashAdjustmentBadge(r.pctFirst)+"</div></td>"+
+      "<td><div class='school-first-payment'><strong>"+(first?money(first):"—")+"</strong><small>"+(Number(year)<=2025?"referência histórica":"valor oficial da Gestão")+"</small>"+dashAdjustmentBadge(r.pctFirst)+"</div></td>"+
       "<td>"+valuePair(r.plan12,r.plan12Post,r.pct12,r.pct12Post)+"</td>"+
       "<td>"+valuePair(r.plan11,r.plan11Post,r.pct11,r.pct11Post)+"</td></tr>";
   }).join("");
@@ -1084,7 +1088,7 @@ function dashTuitionDownloadModal(products,currentView){
 }
 function dashMountTuitionDashboard(products){
   const selector="<div class='tuition-selector-bar'><div class='field'><label for='tuitionTableSelector'>Tabela em exibição</label><select id='tuitionTableSelector'><option value='2024'>Tabela 2024</option><option value='2025'>Tabela 2025</option><option value='2026'>Tabela 2026</option><option value='2027' selected>Tabela 2027</option><option value='history'>Comparativo 2024–2027</option></select></div><div class='tuition-selector-copy'><b id='tuitionSelectionTitle'>Tabela oficial 2027</b><span id='tuitionSelectionHint'>2024–2025 vêm do histórico oficial; 2026–2027 usam o catálogo da Gestão Futuro.</span></div></div>";
-  $("#view").insertAdjacentHTML("beforeend","<section class='card tuition-dashboard school-dashboard'><div class='tuition-dashboard-head school-dashboard-head'><div><small>COLÉGIO FUTURO • GESTÃO</small><h2>Tabela de Valores • Padrão da Escola</h2><p>Ano letivo 2024 • 2025 • 2026 • 2027</p></div><button class='btn btn-primary' id='downloadTuitionTable'>⬇ Baixar tabela</button></div>"+selector+"<div id='tuitionDashboardBody'></div>"+dashComparisonChartsHtml(products)+"</section>");
+  $("#view").insertAdjacentHTML("beforeend","<section class='card tuition-dashboard school-dashboard'><div class='tuition-dashboard-head school-dashboard-head'><div><small>COLÉGIO FUTURO • GESTÃO</small><h2>Tabela de Valores • Padrão da Escola</h2><p>Ano letivo 2024 • 2025 • 2026 • 2027</p><span class='catalog-sync-badge ok'>"+esc(gfCatalogSourceLabel(products))+" • Secretaria • Panfletos • Demonstrativos</span></div><button class='btn btn-primary' id='downloadTuitionTable'>⬇ Baixar tabela</button></div>"+selector+"<div id='tuitionDashboardBody'></div>"+dashComparisonChartsHtml(products)+"</section>");
   let current="2027";
   const draw=()=>{
     if(current==="history"){
@@ -1126,7 +1130,7 @@ async function renderDashboard(){
     try{
       const [d,products]=await Promise.all([
         api("dashboardGestao",{token:state.adminToken}).catch(()=>({})),
-        api("listarProdutosGestao",{token:state.adminToken}).catch(()=>([]))
+        loadCatalogProducts(true).catch(()=>([]))
       ]);
       if(dashboardSeq!==state.navSeq)return;
       const cards=Object.entries(d).slice(0,8).map(([k,v])=>`<div class="card metric"><div class="label">${esc(k)}</div><div class="value" style="font-size:22px">${esc(v)}</div><div class="hint">Gestão</div></div>`).join("");
