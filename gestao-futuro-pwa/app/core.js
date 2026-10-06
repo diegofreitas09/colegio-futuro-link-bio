@@ -1027,6 +1027,21 @@ function dashTuitionYearTable(rows,year){
     "<div class='tuition-table-wrap'><table class='tuition-table school-price-table'><thead><tr><th>SEGMENTO</th><th>ANUIDADE</th><th>1ª PARCELA</th><th>12 PARCELAS</th><th>11 PARCELAS</th></tr></thead><tbody>"+body+"</tbody></table></div>"+
     "<div class='school-important-note'><b>OBSERVAÇÃO IMPORTANTE</b><span>A primeira parcela será paga no ato da matrícula e as parcelas restantes no dia 5 de cada mês.</span></div>";
 }
+
+function dashCampaignPolicyHtml(products,year){
+  if(Number(year)<=2025)return "";
+  const campaigns=(products||[]).filter(p=>gfIsCampaignProduct(p)&&dashYear(p)===Number(year)&&String(p.ATIVO||"Sim")!=="Não");
+  if(!campaigns.length)return "";
+  const tuition=dashTuitionRowsForYear(products,year),firstMap=Object.fromEntries(tuition.map(r=>[dashNorm(r.series),Number(r.first||r.first12||0)]));
+  const rows=campaigns.map(p=>{
+    const m=gfCampaignMeta(p),base=firstMap[dashNorm(p["SEGMENTO_SÉRIE"]||"")]||0,r=gfCampaignResult(base,p);
+    const validity=(m.start||m.end)?((m.start?new Date(m.start+"T12:00:00").toLocaleDateString("pt-BR"):"—")+" → "+(m.end?new Date(m.end+"T12:00:00").toLocaleDateString("pt-BR"):"sem término")):"Sem período definido";
+    return "<tr><td><b>"+esc(p["SEGMENTO_SÉRIE"]||"")+"</b><small>"+esc(m.studentType||"Todos")+"</small></td><td><b>"+esc(m.name)+"</b></td><td>"+Number(m.discount||0).toLocaleString("pt-BR",{maximumFractionDigits:2})+"%</td><td>"+(base?money(base):"—")+"</td><td><b>"+(r.final?money(r.final):"—")+"</b></td><td>até "+Number(m.cardInstallments||1)+"x • "+esc(m.paymentMethod||"")+(m.noInterest?" • sem juros":"")+"</td><td>"+esc(validity)+"</td></tr>";
+  }).join("");
+  return "<div class='school-table-title campaign-policy-title'>CAMPANHA DA 1ª PARCELA • "+Number(year)+"</div>"+
+    "<div class='tuition-table-wrap'><table class='tuition-table campaign-policy-table'><thead><tr><th>SEGMENTO</th><th>CAMPANHA</th><th>DESCONTO</th><th>1ª OFICIAL</th><th>1ª CAMPANHA</th><th>CONDIÇÃO</th><th>VALIDADE</th></tr></thead><tbody>"+rows+"</tbody></table></div>";
+}
+
 function dashTuitionCompareTable(y26,y27){
   const b26=Object.fromEntries(y26.map(x=>[x.key,x])),b27=Object.fromEntries(y27.map(x=>[x.key,x]));
   return "<div class='tuition-year-caption'><div><b>COMPARATIVO • 2026 × 2027</b><span>Anuidade e planos regulares por segmento</span></div><span class='tuition-source'>Gestão Futuro</span></div>"+
@@ -1140,7 +1155,7 @@ function dashMountTuitionDashboard(products){
       $("#tuitionSelectionHint").textContent="Anuidades e S.T.I. lado a lado para leitura de evolução e tomada de decisão.";
     }else{
       const year=Number(current),rows=dashTuitionRowsWithMetrics(products,year);
-      $("#tuitionDashboardBody").innerHTML=dashTuitionYearTable(rows,year)+dashStiYearTable(products,year);
+      $("#tuitionDashboardBody").innerHTML=dashTuitionYearTable(rows,year)+dashCampaignPolicyHtml(products,year)+dashStiYearTable(products,year);
       $("#tuitionSelectionTitle").textContent="Tabela oficial "+year;
       $("#tuitionSelectionHint").textContent=year<=2025?"Histórico oficial do Colégio Futuro.":"Valores conectados ao catálogo oficial da Gestão Futuro, com referência visual do padrão da escola.";
     }
