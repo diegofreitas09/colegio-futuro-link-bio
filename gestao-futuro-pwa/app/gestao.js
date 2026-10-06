@@ -488,16 +488,23 @@ function openSchoolYearForm(years,list){
     btn.disabled=true;form.querySelectorAll("input,select").forEach(el=>el.disabled=true);
     $("#bulkProgress").hidden=false;
     const fill=$("#bulkProgressFill"),title=$("#bulkProgressTitle"),detail=$("#bulkProgressDetail");
-    let saved=0,verifiedAfterError=0,failed=[];
+    let saved=0,verifiedAfterError=0,failed=[],baseline=[];
+    try{clearApiCache();baseline=await api("listarProdutosGestao",{token:state.adminToken})}catch(e){}
+    const pendingRows=sourceRows.filter(p=>!findVerifiedTarget(baseline,p,targetYear,prodPreviewValue(Number(p.VALOR_BASE||0),pct)));
+    if(!pendingRows.length){
+      state.productYear=targetYear;closeModal();
+      setNotice("Os "+sourceRows.length+" produto(s) já estavam gravados corretamente no catálogo "+targetYear+". Nenhuma duplicação foi criada.","ok");
+      await renderProdutos();return;
+    }
 
-    for(let i=0;i<sourceRows.length;i++){
-      const p=sourceRows[i],expected=prodPreviewValue(Number(p.VALOR_BASE||0),pct);
+    for(let i=0;i<pendingRows.length;i++){
+      const p=pendingRows[i],expected=prodPreviewValue(Number(p.VALOR_BASE||0),pct);
       const label=String(p.PRODUTO||p.ID_PRODUTO||"Produto");
-      const progress=Math.round((i/sourceRows.length)*100);
+      const progress=Math.round((i/pendingRows.length)*100);
       fill.style.width=progress+"%";
-      title.textContent="Salvando "+(i+1)+" de "+sourceRows.length+"…";
+      title.textContent="Salvando "+(i+1)+" de "+pendingRows.length+"…";
       detail.textContent=label;
-      btn.textContent="Aplicando "+(i+1)+"/"+sourceRows.length+"…";
+      btn.textContent="Aplicando "+(i+1)+"/"+pendingRows.length+"…";
       try{
         await api("aplicarReajusteIndividual",{token:state.adminToken,data:{
           anoOrigem:sourceYear,anoDestino:targetYear,idProduto:p.ID_PRODUTO,modo:"percentual",valor:pct,publicar:data.publicar||"Sim",
