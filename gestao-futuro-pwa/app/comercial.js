@@ -130,7 +130,8 @@ function gfFlyerTuitionPlansMarkup(list,y){
   if(!annual&&!first&&!p12&&!p11)return "";
   var ref=annual||first||p12||p11,seg=gfFlyerTuitionSegmentLabel(ref);
   var annualMain=parseMoney(annual&&annual.VALOR_BASE),annualPost=gfFlyerAfterDue(annual);
-  var firstMain=parseMoney(first&&((first.VALOR_BASE!==""&&first.VALOR_BASE!=null)?first.VALOR_BASE:first.VALOR_PARCELA)),firstPost=gfFlyerAfterDue(first);
+  var firstBase=parseMoney(first&&((first.VALOR_BASE!==""&&first.VALOR_BASE!=null)?first.VALOR_BASE:first.VALOR_PARCELA)),firstPost=gfFlyerAfterDue(first);
+  var campaign=gfCampaignFor(list,y,ref&&ref["SEGMENTO_SÉRIE"]||"", "Todos", false),firstMain=campaign?gfCampaignResult(firstBase,campaign).final:firstBase;
   var p12Main=parseMoney(p12&&((p12.VALOR_PARCELA!==""&&p12.VALOR_PARCELA!=null)?p12.VALOR_PARCELA:p12.VALOR_BASE)),p12Post=gfFlyerAfterDue(p12);
   var p11Main=parseMoney(p11&&((p11.VALOR_PARCELA!==""&&p11.VALOR_PARCELA!=null)?p11.VALOR_PARCELA:p11.VALOR_BASE)),p11Post=gfFlyerAfterDue(p11);
   var firstCell=gfFlyerTuitionCell(firstMain,firstPost,"first");
