@@ -113,10 +113,12 @@ test('dashboard tuition table derives exact installment values and preserves his
   const rows=x.run('dashTuitionFromCatalog(window.__products,2027)');
   assert.equal(rows.length,3);
   assert.equal(rows[0].annual,6386.52);
-  assert.equal(rows[0].first12,0);
-  assert.equal(rows[0].plan12,0);
-  assert.equal(rows[2].first12,0);
-  assert.equal(rows[2].plan12,0);
+  assert.equal(rows[0].first12,517.13);
+  assert.equal(rows[0].plan12,491.27);
+  assert.equal(rows[0].plan11,532.21);
+  assert.equal(rows[2].first12,544.05);
+  assert.equal(rows[2].plan12,516.84);
+  assert.equal(rows[2].plan11,559.91);
   assert.equal(x.run('GF_TUITION_HISTORY[2024].infantil.annual'),5053.68);
   assert.equal(x.run('GF_TUITION_HISTORY[2025].finais.annual'),5740.80);
  }finally{x.dom.window.close()}
@@ -157,7 +159,7 @@ test('dashboard prefers explicit official installment values when catalog has th
 });
 
 
-test('2027 audited values follow 8 percent annual and first-payment rule',()=>{
+test('2027 audited values are derived from annuality using 13 and 12 divisors',()=>{
  const x=setup();try{
   x.w.__products=[
    {ID_PRODUTO:'ANU-INF-2027',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Anuidade',PRODUTO:'Anuidade 2027 - Educação Infantil','SEGMENTO_SÉRIE':'Infantil 2 ao 5',VALOR_BASE:6270.40,'VALOR_PÓS_VENCIMENTO':6600.50,ANO_LETIVO:2027,ATIVO:'Sim'},
@@ -174,15 +176,15 @@ test('2027 audited values follow 8 percent annual and first-payment rule',()=>{
    {ID_PRODUTO:'MEN-AF-11-2027',CATEGORIA:'Mensalidade',SUBCATEGORIA:'Plano 11 parcelas',PRODUTO:'Mensalidade regular - Anos Finais','SEGMENTO_SÉRIE':'6º ao 9º Ano',VALOR_BASE:553.67,VALOR_PARCELA:553.67,'VALOR_PÓS_VENCIMENTO':585.21,QTD_PARCELAS:11,ANO_LETIVO:2027,ATIVO:'Sim'}
   ];
   const rows=x.run('dashTuitionRowsForYear(window.__products,2027)');
-  assert.equal(rows[0].first,484.92);
+  assert.equal(rows[0].first,507.73);
   assert.equal(rows[0].annual,6270.40);
-  assert.equal(rows[0].plan12,482.12);
-  assert.equal(rows[0].plan11,525.95);
-  assert.equal(rows[1].first,495.72);
-  assert.equal(rows[2].first,506.52);
+  assert.equal(rows[0].plan12,482.33);
+  assert.equal(rows[0].plan11,522.53);
+  assert.equal(rows[1].first,520.93);
+  assert.equal(rows[2].first,534.14);
   assert.equal(rows[2].annualPost,6943.88);
-  assert.equal(rows[2].plan12Post,536.45);
-  assert.equal(rows[2].plan11Post,585.21);
+  assert.equal(rows[2].plan12Post,534.14);
+  assert.equal(rows[2].plan11Post,578.65);
  }finally{x.dom.window.close()}
 });
 
