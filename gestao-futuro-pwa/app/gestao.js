@@ -340,7 +340,7 @@ async function renderProdutos(){
 
       <section class="tuition-plan-engine" id="tuitionPlanEngine">
         <div class="tuition-plan-head">
-          <div><small>MENSALIDADE REGULAR</small><h4>Anuidade e planos vinculados</h4><span>Anuidade, 12x e 11x seguem a tabela oficial; a campanha usa como base o valor de 12x após o vencimento.</span></div>
+          <div><small>MENSALIDADE REGULAR</small><h4>Anuidade e planos vinculados</h4><span>A anuidade real (sem desconto) e a anuidade com desconto são editáveis. Os planos 12x, 11x e a 1ª parcela são recalculados automaticamente.</span></div>
           <span class="plan-formula-badge" id="planFormulaBadge">Anuidade = fonte-mãe</span>
         </div>
         <div id="tuitionPlanBody"></div>
@@ -402,8 +402,8 @@ async function renderProdutos(){
   );
 
   const renderTuitionBody=()=>{
-    const source=Number($("#seriesAdjSource").value),target=Number($("#seriesAdjTarget").value),planN=Number($("#seriesAdjPlan").value||12);
-    tuitionBundle=prodTuitionBundle(list,source,$("#seriesAdjSeries").value);
+    const source=Number($("#seriesAdjSource").value),target=Number($("#seriesAdjTarget").value),planN=Number($("#seriesAdjPlan").value||12),serie=$("#seriesAdjSeries").value;
+    tuitionBundle=prodTuitionBundle(list,source,serie);
     const missing=!tuitionBundle.annual||!tuitionBundle.first||!tuitionBundle.p12||!tuitionBundle.p11;
     if(missing){
       $("#tuitionPlanBody").innerHTML="<div class='notice'>O ano de origem precisa possuir Anuidade, 1ª Parcela, Plano 12x e Plano 11x para sincronizar a nova tabela.</div>";
@@ -411,58 +411,158 @@ async function renderProdutos(){
       return;
     }
     const body=$("#tuitionPlanBody"),annualPct=Number(body.dataset.annualPct||0);
-    const annualTarget=Number(body.dataset.targetAnnual||prodPreviewValue(Number(tuitionBundle.annual.VALOR_BASE||0),annualPct));
-    const annualPostTarget=Number(body.dataset.targetAnnualPost||prodPreviewValue(Number(tuitionBundle.annual["VALOR_PÓS_VENCIMENTO"]||0),annualPct));
-    body.innerHTML=`
-      <div class="tuition-adjust-inputs tuition-master-inputs">
-        <div><label>Anuidade ${source} • até vencimento</label><b>${money(tuitionBundle.annual.VALOR_BASE)}</b><span>origem</span></div>
-        <div><label>Anuidade ${source} • após vencimento</label><b>${money(tuitionBundle.annual["VALOR_PÓS_VENCIMENTO"])}</b><span>origem</span></div>
-        <div><label>Reajuste de referência (%)</label><input id="tuitionAnnualPct" type="number" step="0.01" value="${annualPct}"></div>
-        <div><label>Anuidade ${target} • até vencimento</label><input id="tuitionAnnualTarget" type="number" step="0.01" value="${annualTarget.toFixed(2)}"></div>
-        <div><label>Anuidade ${target} • após vencimento</label><input id="tuitionAnnualPostTarget" type="number" step="0.01" value="${annualPostTarget.toFixed(2)}"></div>
-      </div>
-      <div class="tuition-formula-note"><b>Regra automática:</b> 12x = anuidade ÷ 13 • 11x = anuidade ÷ 12 • base da 1ª parcela = anuidade após vencimento ÷ 13.</div>
-      <div class="tuition-result-grid">
-        <div><small>1ª PARCELA • CAMPANHA</small><strong id="tuitionFirstNew">—</strong><span id="tuitionFirstRule">—</span></div>
-        <div class="${planN===12?"selected":""}"><small>12 PARCELAS</small><strong id="tuitionPlan12New">—</strong><span id="tuitionPlan12Check">—</span></div>
-        <div class="${planN===11?"selected":""}"><small>11 PARCELAS</small><strong id="tuitionPlan11New">—</strong><span id="tuitionPlan11Check">—</span></div>
-        <div><small>ANUIDADE • ${target}</small><strong id="tuitionAnnualNew">—</strong><span id="tuitionAnnualPostNew">—</span></div>
-      </div>
-      <div class="tuition-selected-plan" id="tuitionSelectedPlan"></div>`;
+    const annualDiscounted=Number(body.dataset.targetAnnual||prodPreviewValue(Number(tuitionBundle.annual.VALOR_BASE||0),annualPct));
+    const annualReal=Number(body.dataset.targetAnnualPost||prodPreviewValue(Number(tuitionBundle.annual["VALOR_PÓS_VENCIMENTO"]||0),annualPct));
+    const campaign=campaignForSegment(list,target,serie),campaignMeta=campaign?gfCampaignMeta(campaign):null,campaignDiscount=Number(body.dataset.campaignDiscount||campaignMeta?.discount||0);
+    body.dataset.campaignDiscount=String(campaignDiscount);
 
-    $("#tuitionAnnualPct").oninput=function(){
-      const pct=Number(this.value||0);
+    body.innerHTML=`
+      <div class="tuition-source-summary">
+        <div><small>ANO DE ORIGEM • ${source}</small><b>${money(tuitionBundle.annual.VALOR_BASE)}</b><span>até o vencimento</span></div>
+        <div><small>ANO DE ORIGEM • ${source}</small><b>${money(tuitionBundle.annual["VALOR_PÓS_VENCIMENTO"])}</b><span>valor real / após vencimento</span></div>
+        <div><small>REAJUSTE DE REFERÊNCIA</small><input id="tuitionAnnualPct" type="number" step="0.01" value="${annualPct}"><span>aplica nos dois valores</span></div>
+      </div>
+
+      <div class="tuition-master-values">
+        <div class="tuition-master-card real">
+          <label>ANUIDADE REAL • ${target}</label>
+          <small>Sem desconto / após o vencimento</small>
+          <div class="tuition-money-input"><span>R$</span><input id="tuitionAnnualPostTarget" type="number" step="0.01" min="0" value="${annualReal.toFixed(2)}"></div>
+        </div>
+        <div class="tuition-master-card discounted">
+          <label>ANUIDADE COM DESCONTO • ${target}</label>
+          <small>Pagamento até o vencimento</small>
+          <div class="tuition-money-input"><span>R$</span><input id="tuitionAnnualTarget" type="number" step="0.01" min="0" value="${annualDiscounted.toFixed(2)}"></div>
+        </div>
+        <div class="tuition-master-card campaign">
+          <label>DESCONTO DA 1ª PARCELA</label>
+          <small>Campanha aplicada sobre anuidade real ÷ 13</small>
+          <div class="tuition-percent-input"><input id="tuitionCampaignDiscount" type="number" step="0.01" min="0" max="100" value="${campaignDiscount}"><span>%</span></div>
+        </div>
+      </div>
+
+      <div class="tuition-formula-note"><b>Regra automática:</b> anuidade com desconto ÷ 13 = 12 parcelas com desconto • anuidade real ÷ 13 = 12 parcelas sem desconto e base da 1ª parcela • ÷ 12 = plano de 11 parcelas.</div>
+
+      <div class="tuition-official-table">
+        <div class="tuition-official-head"><span>MODALIDADE</span><span>COM DESCONTO</span><span>SEM DESCONTO</span></div>
+        <div class="tuition-official-row annual"><b>ANUIDADE</b><strong id="tuitionAnnualDiscountedView">—</strong><strong id="tuitionAnnualRealView">—</strong></div>
+        <div class="tuition-official-row first"><b>1ª PARCELA</b><strong id="tuitionFirstPromoView">—</strong><strong id="tuitionFirstBaseView">—</strong></div>
+        <div class="tuition-official-row ${planN===12?"selected":""}"><b>12 PARCELAS <small>janeiro a dezembro</small></b><strong id="tuitionPlan12DiscountedView">—</strong><strong id="tuitionPlan12RealView">—</strong></div>
+        <div class="tuition-official-row ${planN===11?"selected":""}"><b>11 PARCELAS <small>fevereiro a dezembro</small></b><strong id="tuitionPlan11DiscountedView">—</strong><strong id="tuitionPlan11RealView">—</strong></div>
+      </div>
+
+      <div class="tuition-selected-plan" id="tuitionSelectedPlan"></div>
+      <div class="tuition-save-bar">
+        <span id="tuitionSaveStatus">Edite a anuidade real, a anuidade com desconto ou a campanha. Os demais valores são automáticos.</span>
+        <button class="btn btn-primary" id="saveTuitionValues" type="button">Salvar valores desta série</button>
+      </div>`;
+
+    const syncFromPct=()=>{
+      const pct=Number($("#tuitionAnnualPct").value||0);
       body.dataset.annualPct=String(pct);
-      const main=prodPreviewValue(Number(tuitionBundle.annual.VALOR_BASE||0),pct),post=prodPreviewValue(Number(tuitionBundle.annual["VALOR_PÓS_VENCIMENTO"]||0),pct);
-      $("#tuitionAnnualTarget").value=main.toFixed(2);$("#tuitionAnnualPostTarget").value=post.toFixed(2);
-      body.dataset.targetAnnual=String(main);body.dataset.targetAnnualPost=String(post);refreshPreview();
+      const discounted=prodPreviewValue(Number(tuitionBundle.annual.VALOR_BASE||0),pct);
+      const real=prodPreviewValue(Number(tuitionBundle.annual["VALOR_PÓS_VENCIMENTO"]||0),pct);
+      $("#tuitionAnnualTarget").value=discounted.toFixed(2);
+      $("#tuitionAnnualPostTarget").value=real.toFixed(2);
+      body.dataset.targetAnnual=String(discounted);
+      body.dataset.targetAnnualPost=String(real);
+      refreshPreview();
     };
+    $("#tuitionAnnualPct").oninput=syncFromPct;
+
     ["#tuitionAnnualTarget","#tuitionAnnualPostTarget"].forEach(sel=>{$(sel).oninput=function(){
       body.dataset.targetAnnual=String(Number($("#tuitionAnnualTarget").value||0));
       body.dataset.targetAnnualPost=String(Number($("#tuitionAnnualPostTarget").value||0));
       const sourceBase=Number(tuitionBundle.annual.VALOR_BASE||0),targetBase=Number($("#tuitionAnnualTarget").value||0);
-      if(sourceBase&&targetBase){const pct=Math.round((((targetBase/sourceBase)-1)*100+Number.EPSILON)*10000)/10000;$("#tuitionAnnualPct").value=String(pct);body.dataset.annualPct=String(pct)}
+      if(sourceBase&&targetBase){
+        const pct=Math.round((((targetBase/sourceBase)-1)*100+Number.EPSILON)*10000)/10000;
+        $("#tuitionAnnualPct").value=String(pct);body.dataset.annualPct=String(pct);
+      }
       refreshPreview();
     }});
+
+    $("#tuitionCampaignDiscount").oninput=function(){
+      body.dataset.campaignDiscount=String(Math.max(0,Math.min(100,Number(this.value||0))));
+      refreshPreview();
+    };
+
+    $("#saveTuitionValues").onclick=async function(){
+      const btn=this,source=Number($("#seriesAdjSource").value),target=Number($("#seriesAdjTarget").value),serie=$("#seriesAdjSeries").value;
+      if(source===target){showToast("Escolha anos de origem e destino diferentes.","error");return}
+      const calc=tuitionCalc(),discount=Math.max(0,Math.min(100,Number($("#tuitionCampaignDiscount").value||0)));
+      if(!calc.annual||!calc.annualPost){showToast("Informe os dois valores da anuidade.","error");return}
+      const tuitionUpdates=[
+        {p:tuitionBundle.annual,base:calc.annual,post:calc.annualPost,parcel:0,label:"Anuidade"},
+        {p:tuitionBundle.first,base:calc.first,post:calc.first,parcel:calc.first,label:"Base da 1ª parcela"},
+        {p:tuitionBundle.p12,base:calc.p12,post:calc.p12Post,parcel:calc.p12,label:"Plano 1ª + 12"},
+        {p:tuitionBundle.p11,base:calc.p11,post:calc.p11Post,parcel:calc.p11,label:"Plano 1ª + 11"}
+      ];
+      btn.disabled=true;btn.textContent="Salvando…";$("#tuitionSaveStatus").textContent="Salvando e sincronizando os módulos…";
+      try{
+        for(const row of tuitionUpdates){
+          const result=await api("aplicarReajusteIndividual",{token:state.adminToken,data:{
+            anoOrigem:source,anoDestino:target,idProduto:row.p.ID_PRODUTO,modo:"valor",valor:row.base,publicar:"Sim",
+            observacao:"Tabela oficial • "+serie+" • "+row.label+" • "+source+"→"+target
+          }});
+          if(result&&result.id){
+            await api("atualizarProduto",{token:state.adminToken,id:result.id,data:{
+              VALOR_BASE:row.base,
+              "VALOR_PÓS_VENCIMENTO":row.post,
+              VALOR_PARCELA:row.parcel,
+              PUBLICADO_ATENDIMENTO:"Sim",
+              OBSERVACAO_INTERNA:"Anuidade real e com desconto editáveis; planos derivados automaticamente."
+            }});
+          }
+        }
+
+        const existingCampaign=campaignForSegment(list,target,serie),oldMeta=existingCampaign?gfCampaignMeta(existingCampaign):{};
+        const meta={
+          name:oldMeta.name||("Campanha Matrículas "+target),
+          discount:discount,
+          cardInstallments:Number(oldMeta.cardInstallments||3),
+          paymentMethod:oldMeta.paymentMethod||"Cartão",
+          studentType:oldMeta.studentType||"Todos",
+          start:oldMeta.start||"",end:oldMeta.end||"",
+          showFlyer:oldMeta.showFlyer!==false,autoApply:oldMeta.autoApply!==false,noInterest:oldMeta.noInterest!==false,
+          note:oldMeta.note||"Desconto promocional sobre a 1ª parcela."
+        };
+        const campaignPayload={
+          ANO_LETIVO:target,CATEGORIA:"Campanha",SUBCATEGORIA:"1ª Parcela",PRODUTO:meta.name,
+          "SEGMENTO_SÉRIE":serie,"DESCRIÇÃO":discount+"% de desconto na 1ª parcela",
+          VALOR_BASE:discount,"VALOR_PÓS_VENCIMENTO":0,"VALOR_CRÉDITO":0,QTD_PARCELAS:meta.cardInstallments,VALOR_PARCELA:0,
+          VENCIMENTO_PADRÃO:meta.end||"",ATIVO:"Sim","OBSERVAÇÃO":meta.note,TIPO_COBRANCA:"Campanha",
+          DISPONIVEL_MATRICULA:"Não",ORDEM_EXIBICAO:1,OBSERVACAO_INTERNA:JSON.stringify(meta),PUBLICADO_ATENDIMENTO:"Sim"
+        };
+        if(existingCampaign)await api("atualizarProduto",{token:state.adminToken,id:existingCampaign.ID_PRODUTO,data:campaignPayload});
+        else await api("criarProdutoServico",{token:state.adminToken,data:campaignPayload});
+
+        state.productYear=target;clearApiCache();
+        setNotice("Valores de "+serie+" salvos. Anuidade real/com desconto, 12x, 11x e 1ª parcela foram sincronizados com Atendimento, Secretaria, Panfletos e Matrícula.","ok");
+        await renderProdutos();
+      }catch(e){
+        showToast(e.message||"Não foi possível salvar os valores da série.","error");
+        btn.disabled=false;btn.textContent="Salvar valores desta série";
+        $("#tuitionSaveStatus").textContent="Falha ao salvar. Confira a conexão e tente novamente.";
+      }
+    };
   };
 
   const refreshPreview=()=>{
     if(tuitionBundle&&$("#tuitionAnnualPct")){
-      const calc=tuitionCalc(),planN=Number($("#seriesAdjPlan").value||12),target=Number($("#seriesAdjTarget").value),serie=$("#seriesAdjSeries").value;
-      const campaign=campaignForSegment(list,target,serie),discount=campaign?Number(gfCampaignMeta(campaign).discount||0):0;
-      const firstFinal=campaign?gfCampaignResult(calc.first,campaign).final:calc.first;
-      $("#tuitionAnnualNew").textContent=money(calc.annual);
-      $("#tuitionAnnualPostNew").textContent="Após vencimento: "+money(calc.annualPost);
-      $("#tuitionFirstNew").textContent=money(firstFinal);
-      $("#tuitionFirstRule").textContent="Base "+money(calc.first)+(campaign?" • "+discount.toLocaleString("pt-BR",{maximumFractionDigits:2})+"% de desconto":" • sem campanha");
-      $("#tuitionPlan12New").textContent=money(calc.p12);
-      $("#tuitionPlan11New").textContent=money(calc.p11);
-      $("#tuitionPlan12Check").textContent="Após vencimento: "+money(calc.p12Post)+" • anuidade ÷ 13";
-      $("#tuitionPlan11Check").textContent="Após vencimento: "+money(calc.p11Post)+" • anuidade ÷ 12";
-      $("#planFormulaBadge").textContent="Anuidade = fonte-mãe";
+      const calc=tuitionCalc(),planN=Number($("#seriesAdjPlan").value||12),discount=Math.max(0,Math.min(100,Number($("#tuitionCampaignDiscount")?.value||$("#tuitionPlanBody")?.dataset.campaignDiscount||0)));
+      const firstFinal=gfMoneyFloor2(calc.first*(1-discount/100));
+      $("#tuitionAnnualDiscountedView").textContent=money(calc.annual);
+      $("#tuitionAnnualRealView").textContent=money(calc.annualPost);
+      $("#tuitionFirstPromoView").textContent=money(firstFinal);
+      $("#tuitionFirstBaseView").textContent=money(calc.first);
+      $("#tuitionPlan12DiscountedView").textContent=money(calc.p12);
+      $("#tuitionPlan12RealView").textContent=money(calc.p12Post);
+      $("#tuitionPlan11DiscountedView").textContent=money(calc.p11);
+      $("#tuitionPlan11RealView").textContent=money(calc.p11Post);
+      $("#planFormulaBadge").textContent="Anuidade real + anuidade com desconto";
       $("#tuitionSelectedPlan").innerHTML=planN===12
-        ? "<b>Plano 1ª + 12:</b> base regular "+money(calc.p12)+" • pós-vencimento "+money(calc.p12Post)+" • 1ª promocional "+money(firstFinal)
-        : "<b>Plano 1ª + 11:</b> base regular "+money(calc.p11)+" • pós-vencimento "+money(calc.p11Post)+" • 1ª promocional "+money(firstFinal);
+        ? "<b>Plano A • 1ª + 12:</b> 1ª promocional "+money(firstFinal)+" • depois 12x de "+money(calc.p12)+" até o vencimento ou "+money(calc.p12Post)+" após o vencimento."
+        : "<b>Plano B • 1ª + 11:</b> 1ª promocional "+money(firstFinal)+" • depois 11x de "+money(calc.p11)+" até o vencimento ou "+money(calc.p11Post)+" após o vencimento.";
     }
     $$("[data-series-pct]").forEach(inp=>{
       const p=wizardRows.find(x=>String(x.ID_PRODUTO)===String(inp.dataset.seriesPct));if(!p)return;
