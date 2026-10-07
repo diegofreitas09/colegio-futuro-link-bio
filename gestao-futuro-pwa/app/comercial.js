@@ -1093,7 +1093,7 @@ function gfFlyerCampaignMarkup(list,y,s,tipoAluno){
   var base=gfCampaignBaseAmount(list,y,s);if(!base)return "";
   var r=gfCampaignResult(base,campaign);
   return "<section class='flyer-campaign'><div><small>CAMPANHA DE MATRÍCULA</small><h3>"+esc(meta.name)+"</h3><p>"+esc(gfCampaignConditionText(campaign))+"</p></div>"+
-    "<div class='flyer-campaign-price'><span>Base • 12x após vencimento</span><s>"+money(r.base)+"</s><b>"+money(r.final)+"</b></div></section>";
+    "<div class='flyer-campaign-price'><span>Base • anuidade após vencimento ÷ 13</span><s>"+money(r.base)+"</s><b>"+money(r.final)+"</b></div></section>";
 }
 function gfFlyerMarkup(y,s,cfg,list,tipoAluno){
   var coreTuition=(list||[]).filter(gfFlyerIsTuitionCore),catalogRows=(list||[]).filter(function(p){return !gfFlyerIsTuitionCore(p)&&!gfIsCampaignProduct(p)}),groups=gfGroups(catalogRows),body="";
