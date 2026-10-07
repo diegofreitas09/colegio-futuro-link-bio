@@ -1100,7 +1100,7 @@ function dashCampaignPolicyHtml(products,year){
     return "<tr><td><b>"+esc(p["SEGMENTO_SÉRIE"]||"")+"</b><small>"+esc(m.studentType||"Todos")+"</small></td><td><b>"+esc(m.name)+"</b></td><td>"+Number(m.discount||0).toLocaleString("pt-BR",{maximumFractionDigits:2})+"%</td><td>"+(base?money(base):"—")+"</td><td><b>"+(r.final?money(r.final):"—")+"</b></td><td>até "+Number(m.cardInstallments||1)+"x • "+esc(m.paymentMethod||"")+(m.noInterest?" • sem juros":"")+"</td><td>"+esc(validity)+"</td></tr>";
   }).join("");
   return "<div class='school-table-title campaign-policy-title'>CAMPANHA DA 1ª PARCELA • "+Number(year)+"</div>"+
-    "<div class='tuition-table-wrap'><table class='tuition-table campaign-policy-table'><thead><tr><th>SEGMENTO</th><th>CAMPANHA</th><th>DESCONTO</th><th>1ª OFICIAL</th><th>1ª CAMPANHA</th><th>CONDIÇÃO</th><th>VALIDADE</th></tr></thead><tbody>"+rows+"</tbody></table></div>";
+    "<div class='tuition-table-wrap'><table class='tuition-table campaign-policy-table'><thead><tr><th>SEGMENTO</th><th>CAMPANHA</th><th>DESCONTO</th><th>BASE • ANUIDADE APÓS ÷ 13</th><th>1ª CAMPANHA</th><th>CONDIÇÃO</th><th>VALIDADE</th></tr></thead><tbody>"+rows+"</tbody></table></div>";
 }
 
 function dashTuitionCompareTable(y26,y27){
