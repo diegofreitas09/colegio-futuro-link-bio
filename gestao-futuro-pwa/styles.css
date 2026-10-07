@@ -953,6 +953,59 @@ body.home-active .shell{filter:blur(2px) saturate(.8);pointer-events:none;user-s
 @media(max-width:1050px){.series-adjust-controls.plan-aware{grid-template-columns:1fr 1fr}.tuition-adjust-inputs,.tuition-result-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:620px){.series-adjust-controls.plan-aware,.tuition-adjust-inputs,.tuition-result-grid{grid-template-columns:1fr}.tuition-plan-head,.series-products-title{flex-direction:column;align-items:flex-start}.plan-formula-badge{white-space:normal}}
 
+
+/* Gestão • anuidade real/com desconto no padrão do panfleto */
+.tuition-source-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:11px}
+.tuition-source-summary>div{padding:9px 10px;border-radius:11px;background:rgba(255,255,255,.08)}
+.tuition-source-summary small,.tuition-source-summary span{display:block;font-size:7.5px;color:#cddff2}
+.tuition-source-summary b{display:block;margin:3px 0;font-size:14px;color:#fff}
+.tuition-source-summary input{width:100%;margin:3px 0;padding:7px 8px;border:1px solid rgba(255,255,255,.28);border-radius:8px;background:#fff;color:#123b76;font-weight:900;text-align:center}
+
+.tuition-master-values{display:grid;grid-template-columns:1.2fr 1.2fr .8fr;gap:8px;margin-top:9px}
+.tuition-master-card{padding:11px;border-radius:12px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.11)}
+.tuition-master-card.real{background:rgba(255,255,255,.16)}
+.tuition-master-card.discounted{background:rgba(88,183,255,.18)}
+.tuition-master-card.campaign{background:rgba(255,207,82,.16)}
+.tuition-master-card label{display:block;font-size:8px;font-weight:900;letter-spacing:.05em;color:#fff}
+.tuition-master-card small{display:block;margin-top:2px;font-size:7.6px;color:#d8e7f7}
+.tuition-money-input,.tuition-percent-input{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:6px;margin-top:7px;background:#fff;border-radius:9px;padding:4px 8px}
+.tuition-money-input span,.tuition-percent-input span{font-size:12px;font-weight:900;color:#123b76}
+.tuition-money-input input,.tuition-percent-input input{width:100%;border:0!important;background:transparent!important;padding:7px 2px!important;margin:0!important;font-size:16px;font-weight:900;color:#123b76;text-align:right;outline:none}
+.tuition-percent-input{grid-template-columns:1fr auto}
+
+.tuition-formula-note{margin-top:8px;padding:8px 10px;border-radius:9px;background:rgba(255,255,255,.09);font-size:8.3px;line-height:1.35;color:#e6f0fb}
+.tuition-formula-note b{color:#fff}
+
+.tuition-official-table{margin-top:9px;border-radius:12px;overflow:hidden;background:#fff;color:#123b76}
+.tuition-official-head,.tuition-official-row{display:grid;grid-template-columns:1.15fr 1fr 1fr;align-items:stretch}
+.tuition-official-head{background:#eaf2fb}
+.tuition-official-head span{padding:8px 10px;font-size:7.5px;font-weight:900;color:#60738b;letter-spacing:.05em;text-align:center}
+.tuition-official-head span:first-child{text-align:left}
+.tuition-official-row{border-top:1px solid #e4ebf3}
+.tuition-official-row>b,.tuition-official-row>strong{padding:10px}
+.tuition-official-row>b{display:flex;flex-direction:column;justify-content:center;font-size:9px;color:#123b76}
+.tuition-official-row>b small{margin-top:2px;font-size:7px;font-weight:700;color:#708198}
+.tuition-official-row>strong{display:flex;align-items:center;justify-content:center;font-size:14px;border-left:1px solid #e4ebf3}
+.tuition-official-row.first>strong:first-of-type{color:#b21b68}
+.tuition-official-row.selected{box-shadow:inset 4px 0 0 #ffcf52;background:#fffdf5}
+.tuition-official-row.annual{background:#f7fbff}
+
+.tuition-save-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:9px;padding:9px 10px;border-radius:10px;background:rgba(255,255,255,.1)}
+.tuition-save-bar span{font-size:8px;line-height:1.35;color:#dceafb}
+.tuition-save-bar .btn{white-space:nowrap}
+
+@media(max-width:900px){
+ .tuition-source-summary,.tuition-master-values{grid-template-columns:1fr 1fr}
+ .tuition-master-card.campaign{grid-column:1/-1}
+}
+@media(max-width:620px){
+ .tuition-source-summary,.tuition-master-values{grid-template-columns:1fr}
+ .tuition-master-card.campaign{grid-column:auto}
+ .tuition-official-head,.tuition-official-row{grid-template-columns:1.15fr 1fr 1fr}
+ .tuition-save-bar{flex-direction:column;align-items:stretch}
+ .tuition-save-bar .btn{width:100%}
+}
+
 /* Progresso do reajuste em lote */
 .bulk-progress{margin-top:14px;padding:12px;border:1px solid #d7e3f0;border-radius:12px;background:#f8fbff}
 .bulk-progress[hidden]{display:none!important}
