@@ -203,9 +203,9 @@ function openMatForm(b){
       return null;
     }
     const meta=gfCampaignMeta(campaign),r=gfCampaignResult(campaignBase,campaign),condition=gfCampaignConditionText(campaign);
-    box.dataset.campaignNote="Campanha da 1ª parcela: "+meta.name+" | base 12x pós-vencimento "+money(r.base)+" | desconto "+meta.discount+"% | valor final "+money(r.final)+" | "+condition;
+    box.dataset.campaignNote="Campanha da 1ª parcela: "+meta.name+" | base anuidade após vencimento ÷ 13 "+money(r.base)+" | desconto "+meta.discount+"% | valor final "+money(r.final)+" | "+condition;
     box.innerHTML="<div class='mat-campaign-head'><div><small>CAMPANHA VIGENTE</small><b>"+esc(meta.name)+"</b><span>"+esc(condition)+"</span></div><span class='pill ok'>Pré-autorizada</span></div>"+
-      "<div class='mat-campaign-values'><div><small>Base • 12x após vencimento</small><b>"+money(r.base)+"</b></div><div><small>1ª parcela com campanha</small><b>"+money(r.final)+"</b></div></div>";
+      "<div class='mat-campaign-values'><div><small>Base • anuidade após vencimento ÷ 13</small><b>"+money(r.base)+"</b></div><div><small>1ª parcela com campanha</small><b>"+money(r.final)+"</b></div></div>";
     return {campaign:campaign,meta:meta,result:r};
   };
   const refreshServiceTotal=()=>{
