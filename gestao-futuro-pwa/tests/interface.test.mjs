@@ -557,49 +557,50 @@ test('series adjustment wizard publishes the new base year to all operational mo
 });
 
 
-test('tuition table calculator keeps annuality 12x and 11x as independent official values',()=>{
+test('tuition calculator derives 12x 11x and first-payment base from annuality',()=>{
  const x=setup();try{
   x.w.__bundle={
-    annual:{VALOR_BASE:5805.93},
-    first:{VALOR_BASE:449},
-    p12:{VALOR_BASE:446.41,VALOR_PARCELA:446.41},
-    p11:{VALOR_BASE:487.90,VALOR_PARCELA:487.90}
+    annual:{VALOR_BASE:6386.15,'VALOR_PÓS_VENCIMENTO':6722.27},
+    first:{VALOR_BASE:517.09},
+    p12:{VALOR_BASE:491.24,VALOR_PARCELA:491.24},
+    p11:{VALOR_BASE:532.17,VALOR_PARCELA:532.17}
   };
-  const calc=x.run('prodTuitionPlanCalc(window.__bundle,9.9936,9.4076,10.0423,9.0736)');
+  const calc=x.run('prodTuitionPlanCalc(window.__bundle,0,6386.15,6722.27)');
   assert.equal(calc.annual,6386.15);
-  assert.equal(calc.first,491.24);
+  assert.equal(calc.annualPost,6722.27);
+  assert.equal(calc.first,517.09);
   assert.equal(calc.p12,491.24);
+  assert.equal(calc.p12Post,517.09);
   assert.equal(calc.p11,532.17);
-  assert.equal(calc.check12,undefined);
-  assert.equal(calc.check11,undefined);
+  assert.equal(calc.p11Post,560.18);
  }finally{x.dom.window.close()}
 });
 
-test('plan calculation uses official first installment product when available',()=>{
+test('2027 plan calculation derives first payment and recurring value from annuality',()=>{
  const x=setup();try{
   x.w.__products=[
-   {ID_PRODUTO:'ANU-INF-2027',ANO_LETIVO:2027,CATEGORIA:'Mensalidade',SUBCATEGORIA:'Anuidade',PRODUTO:'Anuidade 2027 - Educação Infantil',VALOR_BASE:6270.40,'SEGMENTO_SÉRIE':'Infantil 2 ao 5'},
-   {ID_PRODUTO:'PRI-INF-2027',ANO_LETIVO:2027,CATEGORIA:'Mensalidade',SUBCATEGORIA:'1ª Parcela',PRODUTO:'1ª Parcela regular - Educação Infantil',VALOR_BASE:484.92,VALOR_PARCELA:484.92,QTD_PARCELAS:1,'SEGMENTO_SÉRIE':'Infantil 2 ao 5'},
-   {ID_PRODUTO:'MEN-INF-12-2027',ANO_LETIVO:2027,CATEGORIA:'Mensalidade',SUBCATEGORIA:'Plano 12 parcelas',PRODUTO:'Mensalidade regular - Infantil',VALOR_BASE:482.12,VALOR_PARCELA:482.12,QTD_PARCELAS:12,'SEGMENTO_SÉRIE':'Infantil 2 ao 5'},
-   {ID_PRODUTO:'MEN-INF-11-2027',ANO_LETIVO:2027,CATEGORIA:'Mensalidade',SUBCATEGORIA:'Plano 11 parcelas',PRODUTO:'Mensalidade regular - Infantil',VALOR_BASE:525.95,VALOR_PARCELA:525.95,QTD_PARCELAS:11,'SEGMENTO_SÉRIE':'Infantil 2 ao 5'}
+   {ID_PRODUTO:'ANU-INF-2027',ANO_LETIVO:2027,CATEGORIA:'Mensalidade',SUBCATEGORIA:'Anuidade',PRODUTO:'Anuidade 2027 - Educação Infantil',VALOR_BASE:6270.40,'VALOR_PÓS_VENCIMENTO':6600.50,'SEGMENTO_SÉRIE':'Infantil 2 ao 5'},
+   {ID_PRODUTO:'PRI-INF-2027',ANO_LETIVO:2027,CATEGORIA:'Mensalidade',SUBCATEGORIA:'1ª Parcela',PRODUTO:'1ª Parcela regular - Educação Infantil',VALOR_BASE:999,VALOR_PARCELA:999,QTD_PARCELAS:1,'SEGMENTO_SÉRIE':'Infantil 2 ao 5'},
+   {ID_PRODUTO:'MEN-INF-12-2027',ANO_LETIVO:2027,CATEGORIA:'Mensalidade',SUBCATEGORIA:'Plano 12 parcelas',PRODUTO:'Mensalidade regular - Infantil',VALOR_BASE:999,VALOR_PARCELA:999,QTD_PARCELAS:12,'SEGMENTO_SÉRIE':'Infantil 2 ao 5'},
+   {ID_PRODUTO:'MEN-INF-11-2027',ANO_LETIVO:2027,CATEGORIA:'Mensalidade',SUBCATEGORIA:'Plano 11 parcelas',PRODUTO:'Mensalidade regular - Infantil',VALOR_BASE:999,VALOR_PARCELA:999,QTD_PARCELAS:11,'SEGMENTO_SÉRIE':'Infantil 2 ao 5'}
   ];
   const p=x.run('gfPlanCalc(window.__products,12,0,0)');
-  assert.equal(p.firstBase,484.92);
-  assert.equal(p.recurringBase,482.12);
+  assert.equal(p.firstBase,507.73);
+  assert.equal(p.recurringBase,482.33);
   assert.equal(p.annualValue,6270.40);
  }finally{x.dom.window.close()}
 });
 
-test('values wizard follows official independent tariff fields instead of forcing annuality formula',()=>{
+test('values wizard treats annuality as the single source for 12x 11x and first payment',()=>{
  const src=read('app/gestao.js');
- assert.match(src,/Tabela oficial independente/);
- assert.match(src,/12 PARCELAS/);
- assert.match(src,/11 PARCELAS/);
- assert.match(src,/tuitionP12Pct/);
- assert.match(src,/tuitionP11Pct/);
- assert.doesNotMatch(src,/Anuidade = 1ª parcela \+ 12x/);
- assert.doesNotMatch(src,/Anuidade = 1ª parcela \+ 11x/);
- assert.match(src,/modo:"valor",valor:row\.value/);
+ assert.match(src,/Anuidade = fonte-mãe/);
+ assert.match(src,/anuidade ÷ 13/i);
+ assert.match(src,/anuidade ÷ 12/i);
+ assert.match(src,/tuitionAnnualPostTarget/);
+ assert.doesNotMatch(src,/tuitionP12Pct/);
+ assert.doesNotMatch(src,/tuitionP11Pct/);
+ assert.match(src,/VALOR_PÓS_VENCIMENTO/);
+ assert.match(src,/atualizarProduto/);
 });
 
 
@@ -676,11 +677,11 @@ test('flyer shows official annuality and both payment plans from catalog',()=>{
   assert.match(html,/EDUCAÇÃO INFANTIL/);
   assert.match(html,/R\$\s*6\.270,40/);
   assert.match(html,/R\$\s*6\.600,50/);
-  assert.match(html,/R\$\s*484,92/);
-  assert.match(html,/R\$\s*482,12/);
-  assert.match(html,/R\$\s*509,63/);
-  assert.match(html,/R\$\s*525,95/);
-  assert.match(html,/R\$\s*555,96/);
+  assert.match(html,/R\$\s*507,73/);
+  assert.match(html,/R\$\s*482,33/);
+  assert.match(html,/R\$\s*507,73/);
+  assert.match(html,/R\$\s*522,53/);
+  assert.match(html,/R\$\s*550,04/);
   assert.match(html,/R\$\s*524,34/);
   assert.equal((html.match(/<h3>Mensalidade<\/h3>/g)||[]).length,0);
  }finally{x.dom.window.close()}
