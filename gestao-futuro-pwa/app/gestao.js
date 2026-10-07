@@ -269,7 +269,12 @@ function campaignFirstProducts(list,year){
   });
 }
 function campaignForSegment(list,year,segment){
-  return (list||[]).find(function(p){return gfIsCampaignProduct(p)&&Number(prodInferYear(p))===Number(year)&&String(p["SEGMENTO_SÉRIE"]||"")===String(segment||"")})||null;
+  return (list||[]).find(function(p){
+    if(!gfIsCampaignProduct(p)||Number(prodInferYear(p))!==Number(year))return false;
+    if(!segment)return true;
+    if(typeof gfApplies==="function")return gfApplies(p,segment);
+    return prodNorm(p["SEGMENTO_SÉRIE"])===prodNorm(segment);
+  })||null;
 }
 function campaignTitle(segment){
   var s=String(segment||"").toLowerCase();
