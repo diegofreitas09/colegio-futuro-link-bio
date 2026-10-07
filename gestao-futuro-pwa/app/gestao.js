@@ -272,8 +272,9 @@ function campaignForSegment(list,year,segment){
   return (list||[]).find(function(p){
     if(!gfIsCampaignProduct(p)||Number(prodInferYear(p))!==Number(year))return false;
     if(!segment)return true;
+    if(prodNorm(p["SEGMENTO_SÉRIE"])===prodNorm(segment))return true;
     if(typeof gfApplies==="function")return gfApplies(p,segment);
-    return prodNorm(p["SEGMENTO_SÉRIE"])===prodNorm(segment);
+    return false;
   })||null;
 }
 function campaignTitle(segment){
