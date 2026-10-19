@@ -47,9 +47,10 @@ body{
 @keyframes twinkle{to{opacity:.72}}
 main{position:relative;z-index:1;width:min(760px,100%);margin:auto;padding:22px 16px 34px}
 .hero{text-align:center}
-.logo{width:min(270px,70vw);margin:0 auto 4px}
-.logo img{display:block;width:100%;height:auto;filter:drop-shadow(0 10px 22px rgba(0,26,76,.18))}
-.slogan{margin:10px auto 4px;max-width:650px;font-size:clamp(23px,5vw,34px);line-height:1.12;font-weight:700;letter-spacing:-.5px;text-shadow:0 2px 12px rgba(0,42,99,.28)}
+.logo{position:relative;isolation:isolate;width:min(380px,85vw);margin:0 auto 1px}
+.logo:before{content:"";position:absolute;z-index:-1;inset:16% 12%;border-radius:50%;background:radial-gradient(ellipse,rgba(77,206,255,.22),transparent 70%);filter:blur(24px);pointer-events:none}
+.logo img{display:block;width:100%;height:auto;filter:drop-shadow(0 10px 22px rgba(0,26,76,.28)) drop-shadow(0 0 10px rgba(89,226,255,.18))}
+.slogan{margin:4px auto 8px;width:100%;max-width:650px;padding:0 7px;font-size:clamp(20px,4.5vw,31px);line-height:1.17;font-weight:700;letter-spacing:-.45px;text-wrap:balance;overflow-wrap:normal;text-shadow:0 2px 12px rgba(0,42,99,.28)}
 .slogan strong{color:#57ddff;font-weight:950}
 .mascot-stage{position:relative;min-height:360px;display:grid;place-items:center;margin-top:2px;margin-bottom:2px}
 .mascot-stage:before{
@@ -95,7 +96,7 @@ main{position:relative;z-index:1;width:min(760px,100%);margin:auto;padding:22px 
   85%,100%{color:#b8c9df;transform:scale(.86);text-shadow:none}
 }
 @media(max-width:520px){.rating-star{font-size:20px}.rating-flow{margin-top:5px;gap:2px}}
-.mascot{position:relative;z-index:2;width:min(470px,92vw);animation:floatMascot 3.2s ease-in-out infinite;filter:drop-shadow(0 20px 28px rgba(0,35,87,.26))}
+.mascot{position:relative;z-index:2;width:min(420px,88vw);animation:floatMascot 3.2s ease-in-out infinite;filter:drop-shadow(0 20px 28px rgba(0,35,87,.26))}
 .mascot img{display:block;width:100%;height:auto}
 @keyframes floatMascot{50%{transform:translateY(-8px)}}
 .links{display:grid;gap:12px;margin-top:0}
@@ -126,12 +127,18 @@ main{position:relative;z-index:1;width:min(760px,100%);margin:auto;padding:22px 
 }
 footer{text-align:center;margin-top:24px;padding:12px 8px 8px;color:#e7f3ff;font-size:13px}
 footer b{color:#fff}
+.developer-contact{display:inline-flex;flex-direction:column;align-items:center;gap:6px;max-width:100%;padding:12px 18px;border-radius:16px;color:#e7f3ff;text-decoration:none;transition:background .2s ease,transform .2s ease,box-shadow .2s ease}
+.developer-contact:hover,.developer-contact:focus-visible{background:rgba(255,255,255,.1);transform:translateY(-2px);box-shadow:0 4px 18px rgba(0,26,76,.16)}
+.developer-contact:focus-visible{outline:2px solid #7fe6ff;outline-offset:3px}
+.developer-contact .developer-main{font-size:14px;line-height:1.4}
+.developer-contact .developer-action{font-size:12px;color:#aeeeff;line-height:1.4;letter-spacing:.15px}
+.developer-contact .developer-action:before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:6px;vertical-align:1px;background:#79f2c2;box-shadow:0 0 8px rgba(121,242,194,.6)}
 @media(max-width:520px){
   main{padding:16px 12px 28px}
-  .logo{width:min(235px,68vw)}
-  .slogan{font-size:clamp(20px,6.1vw,27px);max-width:94%}
-  .mascot-stage{min-height:315px}
-  .mascot{width:min(410px,96vw)}
+  .logo{width:min(330px,86vw)}
+  .slogan{font-size:clamp(18px,5.2vw,24px);max-width:100%;padding:0 5px;letter-spacing:-.4px}
+  .mascot-stage{min-height:280px}
+  .mascot{width:min(350px,89vw)}
   .card{min-height:78px;border-radius:24px;padding:11px 14px;gap:12px}
   .icon{width:56px;height:56px;flex-basis:56px;border-radius:19px}
   .icon svg{width:30px;height:30px}
@@ -171,7 +178,7 @@ footer b{color:#fff}
     <a class="card rate" href="https://share.google/UTWBTKVwsoh1FV2ze" target="_blank" rel="noopener"><span class="icon"><svg viewBox="0 0 24 24"><path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6-5.4-2.9-5.4 2.9 1-6-4.4-4.3 6.1-.9L12 3Z"/></svg></span><span class="copy"><span class="title">Avalie nossa Escola</span><span class="sub">Sua opinião faz a diferença</span><span class="rating-flow" aria-hidden="true"><span class="rating-star">★</span><span class="rating-star">★</span><span class="rating-star">★</span><span class="rating-star">★</span><span class="rating-star">★</span></span></span><span class="go">›</span></a>
   </section>
 
-  <footer>Desenvolvido por <b>PDF Solução Educacional.</b></footer>
+  <footer><a class="developer-contact" href="https://wa.me/5585984161882?text=Ol%C3%A1%21%20Vi%20seu%20trabalho%20na%20p%C3%A1gina%20do%20Col%C3%A9gio%20Futuro%20e%20gostaria%20de%20conversar." target="_blank" rel="noopener noreferrer" aria-label="Falar com PDF Solução Educacional, desenvolvedor do site, pelo WhatsApp (85) 98416-1882"><span class="developer-main">Desenvolvido por <b>PDF Solução Educacional.</b></span><span class="developer-action">Contato do desenvolvedor • (85) 98416-1882</span></a></footer>
 </main>
 </body>
 </html>
